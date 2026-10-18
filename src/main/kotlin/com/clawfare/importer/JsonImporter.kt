@@ -168,7 +168,7 @@ object JsonImporter {
 
         return try {
             FlightQueries.create(dto)
-            
+
             // Also create initial price history entry
             PriceHistoryQueries.create(
                 PriceHistoryDto(
@@ -177,9 +177,9 @@ object JsonImporter {
                     currency = entry.priceCurrency,
                     checkedAt = entry.priceCheckedAt,
                     priceMarket = entry.priceMarket,
-                )
+                ),
             )
-            
+
             ImportResult.Success(
                 id = dto.id,
                 flightEntry = entry,
