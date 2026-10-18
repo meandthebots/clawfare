@@ -27,4 +27,12 @@ data class Investigation(
     val createdAt: String,
     @SerialName("updated_at")
     val updatedAt: String,
+    /** Extra origin airports. [origin] remains the primary code. */
+    val origins: List<String> = emptyList(),
+    /** Extra destination airports. [destination] remains the primary code. */
+    val destinations: List<String> = emptyList(),
+    @SerialName("checked_bags")
+    val checkedBags: Int = 0,
+    val passengers: Int = 1,
+    val currency: String = "GBP",
 )

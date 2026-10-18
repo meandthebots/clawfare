@@ -1,0 +1,1518 @@
+{
+ "lh": [
+  {
+   "key": "16-24-pe-1",
+   "prev": 1,
+   "dep": "LHR",
+   "out": 16,
+   "ret": 24,
+   "cabin": "premium_economy",
+   "price_out_stage": 1296,
+   "outSegs": [
+    {
+     "fn": "KL 1000",
+     "airline": "KLM",
+     "frm": "LHR",
+     "dep": "06:30",
+     "ddate": "2026-12-16",
+     "to": "AMS",
+     "arr": "09:00",
+     "adate": "2026-12-16",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "DL 237",
+     "airline": "Delta",
+     "frm": "AMS",
+     "dep": "09:55",
+     "ddate": "2026-12-16",
+     "to": "TPA",
+     "arr": "14:16",
+     "adate": "2026-12-16",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 1296,
+   "retSegs": [
+    {
+     "fn": "DL 2587",
+     "airline": "Delta",
+     "frm": "TPA",
+     "dep": "14:07",
+     "ddate": "2026-12-24",
+     "to": "DTW",
+     "arr": "16:53",
+     "adate": "2026-12-24",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "DL 16",
+     "airline": "Delta",
+     "frm": "DTW",
+     "dep": "19:15",
+     "ddate": "2026-12-24",
+     "to": "LHR",
+     "arr": "07:45",
+     "adate": "2026-12-25",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 4
+  },
+  {
+   "key": "17-25-pe-1",
+   "prev": 2,
+   "dep": "LHR",
+   "out": 17,
+   "ret": 25,
+   "cabin": "premium_economy",
+   "price_out_stage": 1383,
+   "outSegs": [
+    {
+     "fn": "AC 865",
+     "airline": "Air Canada",
+     "frm": "LHR",
+     "dep": "13:00",
+     "ddate": "2026-12-17",
+     "to": "YUL",
+     "arr": "15:35",
+     "adate": "2026-12-17",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "AC 1618",
+     "airline": "Air Canada",
+     "frm": "YUL",
+     "dep": "17:30",
+     "ddate": "2026-12-17",
+     "to": "TPA",
+     "arr": "21:09",
+     "adate": "2026-12-17",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 1383,
+   "retSegs": [
+    {
+     "fn": "UA 2223",
+     "airline": "United",
+     "frm": "TPA",
+     "dep": "12:21",
+     "ddate": "2026-12-25",
+     "to": "ORD",
+     "arr": "14:32",
+     "adate": "2026-12-25",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "UA 929",
+     "airline": "United",
+     "frm": "ORD",
+     "dep": "15:45",
+     "ddate": "2026-12-25",
+     "to": "LHR",
+     "arr": "05:55",
+     "adate": "2026-12-26",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 3
+  },
+  {
+   "key": "17-25-pe-ns",
+   "prev": 3,
+   "dep": "LHR",
+   "out": 17,
+   "ret": 25,
+   "cabin": "premium_economy",
+   "price_out_stage": 2142,
+   "outSegs": [
+    {
+     "fn": "BA 211",
+     "airline": "British Airways",
+     "frm": "LHR",
+     "dep": "13:00",
+     "ddate": "2026-12-17",
+     "to": "TPA",
+     "arr": "17:45",
+     "adate": "2026-12-17",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 2142,
+   "retSegs": [
+    {
+     "fn": "AA 2528",
+     "airline": "American",
+     "frm": "TPA",
+     "dep": "15:03",
+     "ddate": "2026-12-25",
+     "to": "PHL",
+     "arr": "17:42",
+     "adate": "2026-12-25",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "BA 66",
+     "airline": "British Airways",
+     "frm": "PHL",
+     "dep": "18:35",
+     "ddate": "2026-12-25",
+     "to": "LHR",
+     "arr": "06:35",
+     "adate": "2026-12-26",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 5
+  },
+  {
+   "key": "17-25-pe-vs",
+   "prev": null,
+   "dep": "LHR",
+   "out": 17,
+   "ret": 25,
+   "cabin": "premium_economy",
+   "price_out_stage": 2405,
+   "outSegs": [
+    {
+     "fn": "VS 129",
+     "airline": "Virgin Atlantic",
+     "frm": "LHR",
+     "dep": "13:05",
+     "ddate": "2026-12-17",
+     "to": "TPA",
+     "arr": "17:45",
+     "adate": "2026-12-17",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 2405,
+   "retSegs": [
+    {
+     "fn": "DL 2042",
+     "airline": "Delta",
+     "frm": "TPA",
+     "dep": "12:00",
+     "ddate": "2026-12-25",
+     "to": "JFK",
+     "arr": "14:45",
+     "adate": "2026-12-25",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "VS 4",
+     "airline": "Virgin Atlantic",
+     "frm": "JFK",
+     "dep": "18:00",
+     "ddate": "2026-12-25",
+     "to": "LHR",
+     "arr": "06:20",
+     "adate": "2026-12-26",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 4
+  },
+  {
+   "key": "17-25-bz-1",
+   "prev": null,
+   "dep": "LHR",
+   "out": 17,
+   "ret": 25,
+   "cabin": "business",
+   "price_out_stage": 3532,
+   "outSegs": [
+    {
+     "fn": "DL 37",
+     "airline": "Delta",
+     "frm": "LHR",
+     "dep": "16:00",
+     "ddate": "2026-12-17",
+     "to": "ATL",
+     "arr": "20:49",
+     "adate": "2026-12-17",
+     "cls": "Business"
+    },
+    {
+     "fn": "DL 1560",
+     "airline": "Delta",
+     "frm": "ATL",
+     "dep": "22:55",
+     "ddate": "2026-12-17",
+     "to": "TPA",
+     "arr": "00:25",
+     "adate": "2026-12-18",
+     "cls": "Business"
+    }
+   ],
+   "price": 3532,
+   "retSegs": [
+    {
+     "fn": "DL 3135",
+     "airline": "Delta",
+     "frm": "TPA",
+     "dep": "14:20",
+     "ddate": "2026-12-25",
+     "to": "ATL",
+     "arr": "16:00",
+     "adate": "2026-12-25",
+     "cls": "Business"
+    },
+    {
+     "fn": "VS 104",
+     "airline": "Virgin Atlantic",
+     "frm": "ATL",
+     "dep": "17:30",
+     "ddate": "2026-12-25",
+     "to": "LHR",
+     "arr": "06:25",
+     "adate": "2026-12-26",
+     "cls": "Business"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 5
+  },
+  {
+   "key": "17-25-bz-ns",
+   "prev": 4,
+   "dep": "LHR",
+   "out": 17,
+   "ret": 25,
+   "cabin": "business",
+   "price_out_stage": 3876,
+   "outSegs": [
+    {
+     "fn": "BA 211",
+     "airline": "British Airways",
+     "frm": "LHR",
+     "dep": "13:00",
+     "ddate": "2026-12-17",
+     "to": "TPA",
+     "arr": "17:45",
+     "adate": "2026-12-17",
+     "cls": "Business"
+    }
+   ],
+   "price": 3876,
+   "retSegs": [
+    {
+     "fn": "AA 2528",
+     "airline": "American",
+     "frm": "TPA",
+     "dep": "15:03",
+     "ddate": "2026-12-25",
+     "to": "PHL",
+     "arr": "17:42",
+     "adate": "2026-12-25",
+     "cls": "Business"
+    },
+    {
+     "fn": "BA 66",
+     "airline": "British Airways",
+     "frm": "PHL",
+     "dep": "18:35",
+     "ddate": "2026-12-25",
+     "to": "LHR",
+     "arr": "06:35",
+     "adate": "2026-12-26",
+     "cls": "Business"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 5
+  },
+  {
+   "key": "19-27-lgw-atl",
+   "prev": 5,
+   "dep": "LGW",
+   "out": 19,
+   "ret": 27,
+   "cabin": "premium_economy",
+   "price_out_stage": 1947,
+   "outSegs": [
+    {
+     "fn": "AF 1705",
+     "airline": "Air France",
+     "frm": "LGW",
+     "dep": "10:00",
+     "ddate": "2026-12-19",
+     "to": "CDG",
+     "arr": "12:10",
+     "adate": "2026-12-19",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "AF 32",
+     "airline": "Air France",
+     "frm": "CDG",
+     "dep": "13:50",
+     "ddate": "2026-12-19",
+     "to": "ATL",
+     "arr": "17:40",
+     "adate": "2026-12-19",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "DL 1591",
+     "airline": "Delta",
+     "frm": "ATL",
+     "dep": "20:45",
+     "ddate": "2026-12-19",
+     "to": "TPA",
+     "arr": "22:15",
+     "adate": "2026-12-19",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 1947,
+   "retSegs": [
+    {
+     "fn": "DL 2706",
+     "airline": "Delta",
+     "frm": "TPA",
+     "dep": "11:55",
+     "ddate": "2026-12-27",
+     "to": "BOS",
+     "arr": "14:59",
+     "adate": "2026-12-27",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "AF 61",
+     "airline": "Air France",
+     "frm": "BOS",
+     "dep": "18:20",
+     "ddate": "2026-12-27",
+     "to": "CDG",
+     "arr": "07:05",
+     "adate": "2026-12-28",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "AF 1704",
+     "airline": "Air France",
+     "frm": "CDG",
+     "dep": "08:50",
+     "ddate": "2026-12-28",
+     "to": "LGW",
+     "arr": "09:00",
+     "adate": "2026-12-28",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 4
+  },
+  {
+   "key": "19-27-lgw-bos",
+   "prev": null,
+   "dep": "LGW",
+   "out": 19,
+   "ret": 27,
+   "cabin": "premium_economy",
+   "price_out_stage": 1591,
+   "outSegs": [
+    {
+     "fn": "AF 1705",
+     "airline": "Air France",
+     "frm": "LGW",
+     "dep": "10:00",
+     "ddate": "2026-12-19",
+     "to": "CDG",
+     "arr": "12:10",
+     "adate": "2026-12-19",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "AF 60",
+     "airline": "Air France",
+     "frm": "CDG",
+     "dep": "14:00",
+     "ddate": "2026-12-19",
+     "to": "BOS",
+     "arr": "16:05",
+     "adate": "2026-12-19",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "DL 2234",
+     "airline": "Delta",
+     "frm": "BOS",
+     "dep": "20:28",
+     "ddate": "2026-12-19",
+     "to": "TPA",
+     "arr": "23:59",
+     "adate": "2026-12-19",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 1591,
+   "retSegs": [
+    {
+     "fn": "DL 2042",
+     "airline": "Delta",
+     "frm": "TPA",
+     "dep": "12:00",
+     "ddate": "2026-12-27",
+     "to": "JFK",
+     "arr": "14:45",
+     "adate": "2026-12-27",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "AF 3",
+     "airline": "Air France",
+     "frm": "JFK",
+     "dep": "17:30",
+     "ddate": "2026-12-27",
+     "to": "CDG",
+     "arr": "06:45",
+     "adate": "2026-12-28",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "AF 1704",
+     "airline": "Air France",
+     "frm": "CDG",
+     "dep": "08:50",
+     "ddate": "2026-12-28",
+     "to": "LGW",
+     "arr": "09:00",
+     "adate": "2026-12-28",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 3
+  },
+  {
+   "key": "19-27-pe-1",
+   "prev": 6,
+   "dep": "LHR",
+   "out": 19,
+   "ret": 27,
+   "cabin": "premium_economy",
+   "price_out_stage": 1609,
+   "outSegs": [
+    {
+     "fn": "UA 905",
+     "airline": "United",
+     "frm": "LHR",
+     "dep": "09:10",
+     "ddate": "2026-12-19",
+     "to": "EWR",
+     "arr": "12:40",
+     "adate": "2026-12-19",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "UA 2777",
+     "airline": "United",
+     "frm": "EWR",
+     "dep": "16:08",
+     "ddate": "2026-12-19",
+     "to": "TPA",
+     "arr": "19:17",
+     "adate": "2026-12-19",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 1609,
+   "retSegs": [
+    {
+     "fn": "UA 1597",
+     "airline": "United",
+     "frm": "TPA",
+     "dep": "13:45",
+     "ddate": "2026-12-27",
+     "to": "IAH",
+     "arr": "15:25",
+     "adate": "2026-12-27",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "UA 880",
+     "airline": "United",
+     "frm": "IAH",
+     "dep": "16:30",
+     "ddate": "2026-12-27",
+     "to": "LHR",
+     "arr": "07:40",
+     "adate": "2026-12-28",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 6
+  },
+  {
+   "key": "19-27-pe-vs",
+   "prev": 7,
+   "dep": "LHR",
+   "out": 19,
+   "ret": 27,
+   "cabin": "premium_economy",
+   "price_out_stage": 2363,
+   "outSegs": [
+    {
+     "fn": "VS 129",
+     "airline": "Virgin Atlantic",
+     "frm": "LHR",
+     "dep": "14:30",
+     "ddate": "2026-12-19",
+     "to": "TPA",
+     "arr": "19:10",
+     "adate": "2026-12-19",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 2363,
+   "retSegs": [
+    {
+     "fn": "DL 555",
+     "airline": "Delta",
+     "frm": "TPA",
+     "dep": "12:35",
+     "ddate": "2026-12-27",
+     "to": "DTW",
+     "arr": "15:20",
+     "adate": "2026-12-27",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "DL 16",
+     "airline": "Delta",
+     "frm": "DTW",
+     "dep": "19:15",
+     "ddate": "2026-12-27",
+     "to": "LHR",
+     "arr": "07:45",
+     "adate": "2026-12-28",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 3
+  },
+  {
+   "key": "19-27-pe-ba",
+   "prev": 8,
+   "dep": "LHR",
+   "out": 19,
+   "ret": 27,
+   "cabin": "premium_economy",
+   "price_out_stage": 2833,
+   "outSegs": [
+    {
+     "fn": "BA 211",
+     "airline": "British Airways",
+     "frm": "LHR",
+     "dep": "13:00",
+     "ddate": "2026-12-19",
+     "to": "TPA",
+     "arr": "17:45",
+     "adate": "2026-12-19",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 2833,
+   "retSegs": [
+    {
+     "fn": "BA 210",
+     "airline": "British Airways",
+     "frm": "TPA",
+     "dep": "20:10",
+     "ddate": "2026-12-27",
+     "to": "LHR",
+     "arr": "09:30",
+     "adate": "2026-12-28",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 1
+  },
+  {
+   "key": "19-27-bz-1",
+   "prev": null,
+   "dep": "LHR",
+   "out": 19,
+   "ret": 27,
+   "cabin": "business",
+   "price_out_stage": 3014,
+   "outSegs": [
+    {
+     "fn": "B6 2220",
+     "airline": "JetBlue",
+     "frm": "LHR",
+     "dep": "08:05",
+     "ddate": "2026-12-19",
+     "to": "JFK",
+     "arr": "11:20",
+     "adate": "2026-12-19",
+     "cls": "Business"
+    },
+    {
+     "fn": "B6 725",
+     "airline": "JetBlue",
+     "frm": "JFK",
+     "dep": "13:55",
+     "ddate": "2026-12-19",
+     "to": "TPA",
+     "arr": "17:03",
+     "adate": "2026-12-19",
+     "cls": "Business"
+    }
+   ],
+   "price": 3014,
+   "retSegs": [
+    {
+     "fn": "B6 592",
+     "airline": "JetBlue",
+     "frm": "TPA",
+     "dep": "11:21",
+     "ddate": "2026-12-27",
+     "to": "BOS",
+     "arr": "14:20",
+     "adate": "2026-12-27",
+     "cls": "Business"
+    },
+    {
+     "fn": "B6 1620",
+     "airline": "JetBlue",
+     "frm": "BOS",
+     "dep": "19:10",
+     "ddate": "2026-12-27",
+     "to": "LHR",
+     "arr": "06:56",
+     "adate": "2026-12-28",
+     "cls": "Business"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 2
+  },
+  {
+   "key": "19-27-bz-ns",
+   "prev": null,
+   "dep": "LHR",
+   "out": 19,
+   "ret": 27,
+   "cabin": "business",
+   "price_out_stage": 6603,
+   "outSegs": [
+    {
+     "fn": "BA 211",
+     "airline": "British Airways",
+     "frm": "LHR",
+     "dep": "13:00",
+     "ddate": "2026-12-19",
+     "to": "TPA",
+     "arr": "17:45",
+     "adate": "2026-12-19",
+     "cls": "Business"
+    }
+   ],
+   "price": 6603,
+   "retSegs": [
+    {
+     "fn": "BA 210",
+     "airline": "British Airways",
+     "frm": "TPA",
+     "dep": "20:10",
+     "ddate": "2026-12-27",
+     "to": "LHR",
+     "arr": "09:30",
+     "adate": "2026-12-28",
+     "cls": "Business"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 2
+  },
+  {
+   "key": "20-28-pe-1",
+   "prev": null,
+   "dep": "LHR",
+   "out": 20,
+   "ret": 28,
+   "cabin": "premium_economy",
+   "price_out_stage": 1419,
+   "outSegs": [
+    {
+     "fn": "KL 1000",
+     "airline": "KLM",
+     "frm": "LHR",
+     "dep": "06:30",
+     "ddate": "2026-12-20",
+     "to": "AMS",
+     "arr": "09:00",
+     "adate": "2026-12-20",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "DL 237",
+     "airline": "Delta",
+     "frm": "AMS",
+     "dep": "09:55",
+     "ddate": "2026-12-20",
+     "to": "TPA",
+     "arr": "14:16",
+     "adate": "2026-12-20",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 1419,
+   "retSegs": [
+    {
+     "fn": "DL 2042",
+     "airline": "Delta",
+     "frm": "TPA",
+     "dep": "12:00",
+     "ddate": "2026-12-28",
+     "to": "JFK",
+     "arr": "14:45",
+     "adate": "2026-12-28",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "VS 4",
+     "airline": "Virgin Atlantic",
+     "frm": "JFK",
+     "dep": "18:00",
+     "ddate": "2026-12-28",
+     "to": "LHR",
+     "arr": "06:20",
+     "adate": "2026-12-29",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 4
+  },
+  {
+   "key": "20-28-pe-dl",
+   "prev": 9,
+   "dep": "LHR",
+   "out": 20,
+   "ret": 28,
+   "cabin": "premium_economy",
+   "price_out_stage": 1438,
+   "outSegs": [
+    {
+     "fn": "DL 59",
+     "airline": "Delta",
+     "frm": "LHR",
+     "dep": "09:40",
+     "ddate": "2026-12-20",
+     "to": "BOS",
+     "arr": "12:25",
+     "adate": "2026-12-20",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "DL 2234",
+     "airline": "Delta",
+     "frm": "BOS",
+     "dep": "20:28",
+     "ddate": "2026-12-20",
+     "to": "TPA",
+     "arr": "23:59",
+     "adate": "2026-12-20",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 1438,
+   "retSegs": [
+    {
+     "fn": "DL 3135",
+     "airline": "Delta",
+     "frm": "TPA",
+     "dep": "14:20",
+     "ddate": "2026-12-28",
+     "to": "ATL",
+     "arr": "16:00",
+     "adate": "2026-12-28",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "VS 104",
+     "airline": "Virgin Atlantic",
+     "frm": "ATL",
+     "dep": "17:30",
+     "ddate": "2026-12-28",
+     "to": "LHR",
+     "arr": "06:25",
+     "adate": "2026-12-29",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 5
+  },
+  {
+   "key": "20-28-pe-ns",
+   "prev": 10,
+   "dep": "LHR",
+   "out": 20,
+   "ret": 28,
+   "cabin": "premium_economy",
+   "price_out_stage": 2498,
+   "outSegs": [
+    {
+     "fn": "BA 211",
+     "airline": "British Airways",
+     "frm": "LHR",
+     "dep": "13:00",
+     "ddate": "2026-12-20",
+     "to": "TPA",
+     "arr": "17:45",
+     "adate": "2026-12-20",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 2498,
+   "retSegs": [
+    {
+     "fn": "BA 210",
+     "airline": "British Airways",
+     "frm": "TPA",
+     "dep": "20:10",
+     "ddate": "2026-12-28",
+     "to": "LHR",
+     "arr": "09:30",
+     "adate": "2026-12-29",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 3
+  },
+  {
+   "key": "20-28-bz-1",
+   "prev": null,
+   "dep": "LHR",
+   "out": 20,
+   "ret": 28,
+   "cabin": "business",
+   "price_out_stage": 2995,
+   "outSegs": [
+    {
+     "fn": "B6 2220",
+     "airline": "JetBlue",
+     "frm": "LHR",
+     "dep": "07:45",
+     "ddate": "2026-12-20",
+     "to": "JFK",
+     "arr": "10:58",
+     "adate": "2026-12-20",
+     "cls": "Business"
+    },
+    {
+     "fn": "B6 725",
+     "airline": "JetBlue",
+     "frm": "JFK",
+     "dep": "13:55",
+     "ddate": "2026-12-20",
+     "to": "TPA",
+     "arr": "17:03",
+     "adate": "2026-12-20",
+     "cls": "Business"
+    }
+   ],
+   "price": 2995,
+   "retSegs": [
+    {
+     "fn": "B6 592",
+     "airline": "JetBlue",
+     "frm": "TPA",
+     "dep": "11:21",
+     "ddate": "2026-12-28",
+     "to": "BOS",
+     "arr": "14:20",
+     "adate": "2026-12-28",
+     "cls": "Business"
+    },
+    {
+     "fn": "B6 1620",
+     "airline": "JetBlue",
+     "frm": "BOS",
+     "dep": "19:10",
+     "ddate": "2026-12-28",
+     "to": "LHR",
+     "arr": "06:56",
+     "adate": "2026-12-29",
+     "cls": "Business"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 2
+  },
+  {
+   "key": "20-28-bz-ns",
+   "prev": 11,
+   "dep": "LHR",
+   "out": 20,
+   "ret": 28,
+   "cabin": "business",
+   "price_out_stage": 4476,
+   "outSegs": [
+    {
+     "fn": "BA 211",
+     "airline": "British Airways",
+     "frm": "LHR",
+     "dep": "13:00",
+     "ddate": "2026-12-20",
+     "to": "TPA",
+     "arr": "17:45",
+     "adate": "2026-12-20",
+     "cls": "Business"
+    }
+   ],
+   "price": 4476,
+   "retSegs": [
+    {
+     "fn": "BA 210",
+     "airline": "British Airways",
+     "frm": "TPA",
+     "dep": "20:10",
+     "ddate": "2026-12-28",
+     "to": "LHR",
+     "arr": "09:30",
+     "adate": "2026-12-29",
+     "cls": "Business"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 3
+  },
+  {
+   "key": "22-30-pe-1",
+   "prev": 12,
+   "dep": "LHR",
+   "out": 22,
+   "ret": 30,
+   "cabin": "premium_economy",
+   "price_out_stage": 1315,
+   "outSegs": [
+    {
+     "fn": "DL 17",
+     "airline": "Delta",
+     "frm": "LHR",
+     "dep": "11:20",
+     "ddate": "2026-12-22",
+     "to": "DTW",
+     "arr": "14:59",
+     "adate": "2026-12-22",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "DL 1355",
+     "airline": "Delta",
+     "frm": "DTW",
+     "dep": "20:20",
+     "ddate": "2026-12-22",
+     "to": "TPA",
+     "arr": "23:06",
+     "adate": "2026-12-22",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 1315,
+   "retSegs": [
+    {
+     "fn": "DL 3135",
+     "airline": "Delta",
+     "frm": "TPA",
+     "dep": "14:20",
+     "ddate": "2026-12-30",
+     "to": "ATL",
+     "arr": "16:00",
+     "adate": "2026-12-30",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "VS 104",
+     "airline": "Virgin Atlantic",
+     "frm": "ATL",
+     "dep": "17:30",
+     "ddate": "2026-12-30",
+     "to": "LHR",
+     "arr": "06:25",
+     "adate": "2026-12-31",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 5
+  },
+  {
+   "key": "22-30-pe-ns",
+   "prev": null,
+   "dep": "LHR",
+   "out": 22,
+   "ret": 30,
+   "cabin": "premium_economy",
+   "price_out_stage": 2405,
+   "outSegs": [
+    {
+     "fn": "VS 129",
+     "airline": "Virgin Atlantic",
+     "frm": "LHR",
+     "dep": "13:05",
+     "ddate": "2026-12-22",
+     "to": "TPA",
+     "arr": "17:45",
+     "adate": "2026-12-22",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 2405,
+   "retSegs": [
+    {
+     "fn": "DL 2042",
+     "airline": "Delta",
+     "frm": "TPA",
+     "dep": "12:00",
+     "ddate": "2026-12-30",
+     "to": "JFK",
+     "arr": "14:45",
+     "adate": "2026-12-30",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "VS 4",
+     "airline": "Virgin Atlantic",
+     "frm": "JFK",
+     "dep": "18:00",
+     "ddate": "2026-12-30",
+     "to": "LHR",
+     "arr": "06:20",
+     "adate": "2026-12-31",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 3
+  },
+  {
+   "key": "22-30-bz-1",
+   "prev": 13,
+   "dep": "LHR",
+   "out": 22,
+   "ret": 30,
+   "cabin": "business",
+   "price_out_stage": 2920,
+   "outSegs": [
+    {
+     "fn": "B6 2220",
+     "airline": "JetBlue",
+     "frm": "LHR",
+     "dep": "07:25",
+     "ddate": "2026-12-22",
+     "to": "JFK",
+     "arr": "10:38",
+     "adate": "2026-12-22",
+     "cls": "Business"
+    },
+    {
+     "fn": "B6 725",
+     "airline": "JetBlue",
+     "frm": "JFK",
+     "dep": "13:55",
+     "ddate": "2026-12-22",
+     "to": "TPA",
+     "arr": "17:03",
+     "adate": "2026-12-22",
+     "cls": "Business"
+    }
+   ],
+   "price": 2920,
+   "retSegs": [
+    {
+     "fn": "B6 592",
+     "airline": "JetBlue",
+     "frm": "TPA",
+     "dep": "11:21",
+     "ddate": "2026-12-30",
+     "to": "BOS",
+     "arr": "14:20",
+     "adate": "2026-12-30",
+     "cls": "Business"
+    },
+    {
+     "fn": "B6 1620",
+     "airline": "JetBlue",
+     "frm": "BOS",
+     "dep": "19:10",
+     "ddate": "2026-12-30",
+     "to": "LHR",
+     "arr": "06:56",
+     "adate": "2026-12-31",
+     "cls": "Business"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 2
+  },
+  {
+   "key": "22-30-bz-ns",
+   "prev": null,
+   "dep": "LHR",
+   "out": 22,
+   "ret": 30,
+   "cabin": "business",
+   "price_out_stage": 4381,
+   "outSegs": [
+    {
+     "fn": "VS 129",
+     "airline": "Virgin Atlantic",
+     "frm": "LHR",
+     "dep": "13:05",
+     "ddate": "2026-12-22",
+     "to": "TPA",
+     "arr": "17:45",
+     "adate": "2026-12-22",
+     "cls": "Business"
+    }
+   ],
+   "price": null,
+   "retSegs": null,
+   "ret_err": "HTTP 429",
+   "n_ret": 0
+  },
+  {
+   "key": "23-31-pe-1",
+   "prev": 14,
+   "dep": "LHR",
+   "out": 23,
+   "ret": 31,
+   "cabin": "premium_economy",
+   "price_out_stage": 1296,
+   "outSegs": [
+    {
+     "fn": "KL 1000",
+     "airline": "KLM",
+     "frm": "LHR",
+     "dep": "06:30",
+     "ddate": "2026-12-23",
+     "to": "AMS",
+     "arr": "09:00",
+     "adate": "2026-12-23",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "DL 237",
+     "airline": "Delta",
+     "frm": "AMS",
+     "dep": "09:55",
+     "ddate": "2026-12-23",
+     "to": "TPA",
+     "arr": "14:16",
+     "adate": "2026-12-23",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": 1296,
+   "retSegs": [
+    {
+     "fn": "DL 3135",
+     "airline": "Delta",
+     "frm": "TPA",
+     "dep": "14:20",
+     "ddate": "2026-12-31",
+     "to": "ATL",
+     "arr": "16:00",
+     "adate": "2026-12-31",
+     "cls": "Premium_economy"
+    },
+    {
+     "fn": "VS 104",
+     "airline": "Virgin Atlantic",
+     "frm": "ATL",
+     "dep": "17:30",
+     "ddate": "2026-12-31",
+     "to": "LHR",
+     "arr": "06:25",
+     "adate": "2027-01-01",
+     "cls": "Premium_economy"
+    }
+   ],
+   "ret_err": null,
+   "n_ret": 5
+  },
+  {
+   "key": "23-31-pe-ns",
+   "prev": null,
+   "dep": "LHR",
+   "out": 23,
+   "ret": 31,
+   "cabin": "premium_economy",
+   "price_out_stage": 2740,
+   "outSegs": [
+    {
+     "fn": "BA 211",
+     "airline": "British Airways",
+     "frm": "LHR",
+     "dep": "13:00",
+     "ddate": "2026-12-23",
+     "to": "TPA",
+     "arr": "17:45",
+     "adate": "2026-12-23",
+     "cls": "Premium_economy"
+    }
+   ],
+   "price": null,
+   "retSegs": null,
+   "ret_err": "HTTP 429",
+   "n_ret": 0
+  },
+  {
+   "key": "23-31-bz-1",
+   "prev": null,
+   "dep": "LHR",
+   "out": 23,
+   "ret": 31,
+   "cabin": "business",
+   "price_out_stage": 2939,
+   "outSegs": [
+    {
+     "fn": "B6 2220",
+     "airline": "JetBlue",
+     "frm": "LHR",
+     "dep": "07:25",
+     "ddate": "2026-12-23",
+     "to": "JFK",
+     "arr": "10:38",
+     "adate": "2026-12-23",
+     "cls": "Business"
+    },
+    {
+     "fn": "B6 725",
+     "airline": "JetBlue",
+     "frm": "JFK",
+     "dep": "13:55",
+     "ddate": "2026-12-23",
+     "to": "TPA",
+     "arr": "17:03",
+     "adate": "2026-12-23",
+     "cls": "Business"
+    }
+   ],
+   "price": null,
+   "retSegs": null,
+   "ret_err": "HTTP 429",
+   "n_ret": 0
+  },
+  {
+   "key": "23-31-bz-ns",
+   "prev": 15,
+   "dep": "LHR",
+   "out": 23,
+   "ret": 31,
+   "cabin": "business",
+   "price_out_stage": 3979,
+   "outSegs": [
+    {
+     "fn": "BA 211",
+     "airline": "British Airways",
+     "frm": "LHR",
+     "dep": "13:00",
+     "ddate": "2026-12-23",
+     "to": "TPA",
+     "arr": "17:45",
+     "adate": "2026-12-23",
+     "cls": "Business"
+    }
+   ],
+   "price": null,
+   "retSegs": null,
+   "ret_err": "HTTP 429",
+   "n_ret": 0
+  }
+ ],
+ "mx": [
+  {
+   "id": "A",
+   "start": 18,
+   "end": 21,
+   "price_out_stage": 931,
+   "outSegs": [
+    {
+     "fn": "AM 1741",
+     "airline": "Aeromexico",
+     "frm": "TPA",
+     "dep": "09:23",
+     "ddate": "2026-12-18",
+     "to": "MEX",
+     "arr": "11:50",
+     "adate": "2026-12-18",
+     "cls": "Economy"
+    }
+   ],
+   "price": null,
+   "retSegs": null,
+   "ret_err": "HTTP 429"
+  },
+  {
+   "id": "B",
+   "start": 19,
+   "end": 22,
+   "price_out_stage": 1059,
+   "outSegs": [
+    {
+     "fn": "AM 1741",
+     "airline": "Aeromexico",
+     "frm": "TPA",
+     "dep": "09:23",
+     "ddate": "2026-12-19",
+     "to": "MEX",
+     "arr": "11:50",
+     "adate": "2026-12-19",
+     "cls": "Economy"
+    }
+   ],
+   "price": null,
+   "retSegs": null,
+   "ret_err": "HTTP 429"
+  },
+  {
+   "id": "C",
+   "start": 19,
+   "end": 23,
+   "price_out_stage": 1059,
+   "outSegs": [
+    {
+     "fn": "AM 1741",
+     "airline": "Aeromexico",
+     "frm": "TPA",
+     "dep": "09:23",
+     "ddate": "2026-12-19",
+     "to": "MEX",
+     "arr": "11:50",
+     "adate": "2026-12-19",
+     "cls": "Economy"
+    }
+   ],
+   "price": null,
+   "retSegs": null,
+   "ret_err": "HTTP 429"
+  },
+  {
+   "id": "D",
+   "start": 20,
+   "end": 23,
+   "price_out_stage": 1059,
+   "outSegs": [
+    {
+     "fn": "AM 1741",
+     "airline": "Aeromexico",
+     "frm": "TPA",
+     "dep": "09:23",
+     "ddate": "2026-12-20",
+     "to": "MEX",
+     "arr": "11:50",
+     "adate": "2026-12-20",
+     "cls": "Economy"
+    }
+   ],
+   "price": null,
+   "retSegs": null,
+   "ret_err": "HTTP 429"
+  },
+  {
+   "id": "E",
+   "start": 20,
+   "end": 24,
+   "price_out_stage": 1017,
+   "outSegs": [
+    {
+     "fn": "AM 1741",
+     "airline": "Aeromexico",
+     "frm": "TPA",
+     "dep": "09:23",
+     "ddate": "2026-12-20",
+     "to": "MEX",
+     "arr": "11:50",
+     "adate": "2026-12-20",
+     "cls": "Economy"
+    }
+   ],
+   "price": null,
+   "retSegs": null,
+   "ret_err": "HTTP 429"
+  },
+  {
+   "id": "F",
+   "start": 21,
+   "end": 24,
+   "price_out_stage": 780,
+   "outSegs": [
+    {
+     "fn": "AM 1741",
+     "airline": "Aeromexico",
+     "frm": "TPA",
+     "dep": "09:23",
+     "ddate": "2026-12-21",
+     "to": "MEX",
+     "arr": "11:50",
+     "adate": "2026-12-21",
+     "cls": "Economy"
+    }
+   ],
+   "price": null,
+   "retSegs": null,
+   "ret_err": "HTTP 429"
+  },
+  {
+   "id": "G",
+   "start": 25,
+   "end": 28,
+   "price_out_stage": 749,
+   "outSegs": [
+    {
+     "fn": "AM 1741",
+     "airline": "Aeromexico",
+     "frm": "TPA",
+     "dep": "09:23",
+     "ddate": "2026-12-25",
+     "to": "MEX",
+     "arr": "11:50",
+     "adate": "2026-12-25",
+     "cls": "Economy"
+    }
+   ],
+   "price": null,
+   "retSegs": null,
+   "ret_err": "HTTP 429"
+  },
+  {
+   "id": "H",
+   "start": 25,
+   "end": 29,
+   "price_out_stage": 749,
+   "outSegs": [
+    {
+     "fn": "AM 1741",
+     "airline": "Aeromexico",
+     "frm": "TPA",
+     "dep": "09:23",
+     "ddate": "2026-12-25",
+     "to": "MEX",
+     "arr": "11:50",
+     "adate": "2026-12-25",
+     "cls": "Economy"
+    }
+   ],
+   "price": null,
+   "retSegs": null,
+   "ret_err": "HTTP 429"
+  }
+ ]
+}

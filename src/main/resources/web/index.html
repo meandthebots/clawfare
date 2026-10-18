@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Clawfare — flight search</title>
+<style>
+:root{
+  --bg:#f5f7fb; --card:#fff; --ink:#1d2433; --muted:#667085; --line:#e4e7ec;
+  --green:#12b76a; --green-bg:#e7f8ef; --green-ink:#05603a;
+  --amber:#f79009; --amber-bg:#fff4e0; --amber-ink:#93370d;
+  --red:#d92d20; --accent:#3e5bd8; --gold:#eab308;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+header{background:linear-gradient(135deg,#1e3a8a,#3e5bd8 60%,#0ea5e9);color:#fff;padding:22px 28px 18px}
+header h1{margin:0 0 6px;font-size:22px;font-weight:700;letter-spacing:-.01em}
+header p{margin:4px 0;max-width:1100px;opacity:.95}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:12px;max-width:1400px}
+.note{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:10px;padding:9px 12px;font-size:13px}
+.note .nt{display:block;font-weight:700;margin-bottom:2px}
+.warn{background:rgba(250,204,21,.18);border-color:rgba(250,204,21,.5)}
+main{padding:16px 28px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:12px}
+.search{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px 12px}
+.search label,.filters label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);font-weight:600}
+.search input,.search select,.filters input,.filters select,textarea.noteedit{
+  font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;font-weight:500}
+.checks{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.checks label{flex-direction:row;align-items:center;gap:6px;font-weight:500;color:var(--ink);cursor:pointer}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+button,.lbtn{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#fff;padding:7px 12px;color:var(--ink)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
+button.ghost{background:transparent}
+button:disabled{opacity:.5;cursor:not-allowed}
+.banner{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:13px}
+.banner.bad{background:#fef3f2;border-color:#fecdca;color:#b42318}
+.banner.ok{background:var(--green-bg);border-color:#abefc6;color:var(--green-ink)}
+.est{font-size:13px;color:var(--muted);margin-top:8px}
+.est li{margin:2px 0}
+.toolbar,.filters{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+.seg button{border:0;border-radius:0;background:#fff;padding:6px 10px;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:#fff}
+.tabs{display:flex;gap:6px;margin:0 0 10px}
+.tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:12px}
+.sumcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;cursor:pointer}
+.sumcard:hover{border-color:var(--accent)}
+.sumcard .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.sumcard .v{font-size:22px;font-weight:700;margin:2px 0}
+.sumcard .d{color:var(--muted);font-size:13px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:0 0 10px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:16px;height:16px;border-radius:4px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+.wrap{overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;max-height:calc(100vh - 160px)}
+table.data{border-collapse:separate;border-spacing:0;width:100%;min-width:980px}
+table.data th,table.data td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+table.data thead th{position:sticky;top:0;background:#f9fafb;z-index:3;font-size:12px;font-weight:600;color:#344054}
+table.data tbody tr:hover td{background:#f8fafc}
+table.data td.num,table.data th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#grid{border-collapse:separate;border-spacing:0;width:100%;min-width:1250px}
+#grid th,#grid td{border-bottom:1px solid var(--line);padding:0}
+#grid thead th{position:sticky;top:0;background:#f9fafb;z-index:3;font-size:12px;text-align:center;padding:8px 6px;font-weight:600;color:#344054}
+#grid thead th .sub{display:block;font-weight:400;color:var(--muted);font-size:11px}
+#grid thead th.rowh{left:0;z-index:4;text-align:left;min-width:340px}
+#grid tbody th{position:sticky;left:0;background:#fff;z-index:2;text-align:left;padding:8px 12px;font-weight:400;border-right:1px solid var(--line);min-width:340px;max-width:460px}
+tr.group td.gh{background:#eef2ff;color:#3730a3;font-weight:700;font-size:12px;padding:6px 12px;letter-spacing:.03em;position:sticky;left:0}
+.lhTop{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.lhDates{font-weight:700}
+.lhPrice{font-weight:700;white-space:nowrap}
+.lhMeta,.flights{color:var(--muted);font-size:12px}
+.flights{margin-top:3px}
+.tag{display:inline-block;font-size:10.5px;padding:1px 6px;border-radius:999px;background:#f2f4f7;color:#475467;margin:2px 3px 0 0;font-weight:600}
+.tag.biz{background:#fdf2fa;color:#9e165f}
+.tag.pe{background:#eef4ff;color:#3538cd}
+.tag.ns{background:#ecfdf3;color:#027a48}
+.tag.lgw{background:#fff4e0;color:#93370d}
+.tag.eu{background:#eef4ff;color:#1e40af;border:1px solid #c7d7fe}
+.tag.mock{background:#fef3f2;color:#b42318}
+.tag.cached{background:#f2f4f7;color:#475467}
+.tag.live{background:#ecfdf3;color:#027a48}
+.links{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.lbtn{display:inline-block;text-decoration:none;font-size:12.5px;color:var(--accent)}
+.lbtn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
+.licon{text-decoration:none;font-size:12px;margin-left:2px}
+.booknote{margin-top:10px;padding:8px 10px;border-radius:8px;background:#fffbeb;border:1px solid #fde68a;font-size:12px;color:#92400e}
+.chg{font-size:10.5px;font-weight:700;white-space:nowrap}
+.chg.up{color:#b42318}.chg.down{color:#027a48}.chg.same{color:#98a2b3;font-weight:500}.chg.new{color:#0369a1}
+td.cell{text-align:center;cursor:pointer;padding:3px}
+td.cell .in{border-radius:8px;padding:7px 4px;min-height:52px;display:flex;flex-direction:column;justify-content:center;border:2px solid transparent}
+td.cell:hover .in{transform:scale(1.03);box-shadow:0 2px 8px rgba(0,0,0,.12)}
+td.cell .tot{font-weight:700;font-size:14px}
+td.cell .st{font-size:10.5px;font-weight:600}
+.s-ok .in{background:var(--green-bg);color:var(--green-ink)}
+.s-catch .in{background:var(--amber-bg);color:var(--amber-ink)}
+.s-no .in{background:#f2f4f7;color:#98a2b3}
+.s-no .tot{font-weight:500;text-decoration:line-through}
+.s-hidden .in{background:transparent;color:transparent}
+td.cell.best-any .in{border-color:var(--gold);box-shadow:0 0 0 2px rgba(234,179,8,.35)}
+td.cell.best-green .in{border-color:#027a48;box-shadow:0 0 0 2px rgba(18,183,106,.35)}
+td.cell.sel .in{outline:3px solid var(--accent);outline-offset:1px}
+.badge{font-size:10px;font-weight:700;border-radius:999px;padding:0 6px;margin-top:2px;display:inline-block}
+.badge.ba{background:var(--gold);color:#422006}
+.badge.bg{background:#027a48;color:#fff}
+th.lhonly,td.lhonly{border-left:2px solid #d0d5dd}
+.empty{padding:30px;text-align:center;color:var(--muted)}
+#overlay{position:fixed;inset:0;background:rgba(16,24,40,.35);display:none;z-index:20}
+#panel{position:fixed;top:0;right:0;height:100%;width:min(580px,100%);background:#fff;z-index:21;box-shadow:-8px 0 30px rgba(0,0,0,.18);transform:translateX(105%);transition:transform .2s ease;overflow:auto}
+#panel.open{transform:none}
+#overlay.open{display:block}
+.ph{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:10px;position:sticky;top:0;background:#fff;z-index:2}
+.ph h2{margin:0;font-size:18px}
+.close{border:0;background:#f2f4f7;width:32px;height:32px;font-size:18px}
+.pb{padding:16px 22px 30px}
+.status{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:700;font-size:12px;margin-top:6px}
+.status.s-ok{background:var(--green-bg);color:var(--green-ink)}
+.status.s-catch{background:var(--amber-bg);color:var(--amber-ink)}
+.status.s-no{background:#fee4e2;color:#b42318}
+.sec{margin:16px 0}
+.sec h3{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px}
+.reasons{margin:0;padding-left:18px}
+.reasons li.no{color:#b42318}
+.reasons li.catch{color:var(--amber-ink)}
+.reasons li.ok{color:var(--green-ink)}
+.box{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.box .t{font-weight:700;margin-bottom:4px;display:flex;justify-content:space-between;gap:8px}
+.seglist,.price{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+.seglist td,.seglist th{padding:4px 6px;border-bottom:1px solid #f2f4f7;text-align:left;background:none;font-weight:400}
+.seglist th{color:var(--muted);font-size:11px;text-transform:uppercase}
+.price td{padding:5px 0;border-bottom:1px dashed var(--line)}
+.price td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.price tr.total td{font-weight:800;font-size:16px;border-bottom:0;padding-top:8px}
+.muted{color:var(--muted)}
+.tl-days{display:grid;font-size:10px;color:var(--muted);text-align:center}
+.tl-days div{padding:2px 0;border-left:1px solid #f2f4f7}
+.tl-days div.xmas{color:#b42318;font-weight:800}
+.tl-row{position:relative;height:24px;margin:5px 0;background:#f9fafb;border-radius:6px}
+.tl-bar{position:absolute;top:2px;height:20px;border-radius:5px;font-size:11px;color:#fff;font-weight:700;display:flex;align-items:center;padding:0 6px;white-space:nowrap;overflow:hidden}
+.tl-bar.couple{background:#3e5bd8}
+.tl-bar.mex{background:#e8590c}
+.tl-bar.bad{background:#d92d20}
+.tl-mark{position:absolute;top:-2px;bottom:-2px;width:2px;background:#b42318}
+.trust{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px}
+.trust.airline{background:#eef4ff;color:#3538cd}
+.trust.trusted{background:#e7f8ef;color:#05603a}
+.trust.caution{background:#fff4e0;color:#93370d}
+.trust.risky{background:#fee4e2;color:#b42318}
+tr.bestv td{background:#ecfdf3}
+tr.stale td{color:#667085}
+.noteedit{width:100%;min-width:180px;min-height:46px;font-size:12px}
+.mxcell{cursor:pointer;font-weight:700}
+.mxcell:hover{background:#eef2ff}
+footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
+@media (max-width:760px){header,main,footer{padding-left:14px;padding-right:14px}}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Clawfare flight search</h1>
+  <p id="subtitle">London, Tampa, Sarasota, and a Mexico City add-on. Prices in GBP. API keys stay on the server.</p>
+  <div class="notes" id="notes"></div>
+</header>
+<main>
+  <section class="card" id="searchCard">
+    <div class="search">
+      <label>Origins <input id="origins" value="LHR, LGW" placeholder="LHR, LGW"></label>
+      <label>Destinations <input id="destinations" value="TPA, SRQ" placeholder="TPA, SRQ"></label>
+      <label>Outbound from <input id="outFrom" type="date" value="2026-12-16"></label>
+      <label>Outbound to <input id="outTo" type="date" value="2026-12-23"></label>
+      <label>Nights <input id="nights" type="number" min="1" max="60" value="8" title="Each outbound date returns this many nights later. Leave empty to use the return range."></label>
+      <label>Return from <input id="retFrom" type="date"></label>
+      <label>Return to <input id="retTo" type="date"></label>
+      <label>Trip <select id="tripType"><option value="round_trip">Round trip</option><option value="one_way">One way</option></select></label>
+      <label>Adults <input id="adults" type="number" min="1" max="9" value="2"></label>
+      <label>Checked bags <input id="bags" type="number" min="0" max="4" value="1"></label>
+      <label>Long-haul cabin <select id="cabin"><option value="economy">Economy</option><option value="premium_economy" selected>Premium economy</option><option value="business">Business</option><option value="first">First</option></select></label>
+      <label>Short-haul cabin <select id="cabinShort"><option value="economy" selected>Economy</option><option value="premium_economy">Premium economy</option><option value="business">Business</option></select></label>
+      <label>Return choices <input id="returnChoices" type="number" min="1" max="8" value="3" title="Cheapest outbounds expanded with a return lookup"></label>
+    </div>
+    <div class="checks" style="margin-top:10px">
+      <label><input type="checkbox" id="pSerp" checked> SerpApi</label>
+      <label><input type="checkbox" id="pSearch" checked> SearchAPI</label>
+      <label><input type="checkbox" id="pTp" checked> Travelpayouts <span class="muted">(cached)</span></label>
+      <label><input type="checkbox" id="pDuffel" checked> Duffel <span class="muted">(mock)</span></label>
+      <label><input type="checkbox" id="qNonstop"> Nonstop only</label>
+      <label><input type="checkbox" id="cacheOnly"> Cache only</label>
+    </div>
+    <div class="actions">
+      <button type="button" id="btnEstimate">Estimate calls</button>
+      <button type="button" class="primary" id="btnRun" disabled>Run search</button>
+      <button type="button" id="btnSample">Load Florida sample</button>
+      <button type="button" id="btnQuota">Check quota</button>
+      <label class="muted">Investigations <select id="saved"><option value="">—</option></select></label>
+      <button type="button" id="btnOpen">Open</button>
+    </div>
+    <div id="invList" class="checks"></div>
+    <div id="statusLine" class="est"></div>
+    <div id="estimate" class="est"></div>
+  </section>
+
+  <div id="banners"></div>
+
+  <section class="card filters" id="filterBar">
+    <label>Max stops <select id="fStops"><option value="">Any</option><option value="0">Nonstop</option><option value="1">Up to 1</option><option value="2">Up to 2</option></select></label>
+    <label>Max layover (hours) <input id="fLayover" type="number" min="0" step="0.5" placeholder="5"></label>
+    <label>Depart after <input id="fAfter" type="time"></label>
+    <label>Depart before <input id="fBefore" type="time"></label>
+    <label>Return after <input id="fRetAfter" type="time"></label>
+    <label>Max travel (hours) <input id="fTravel" type="number" min="0" step="0.5"></label>
+    <label>Exclude return dates <input id="fExRet" placeholder="2026-12-24, 2026-12-25"></label>
+    <label>Exclude outbound <input id="fExOut" placeholder="2026-12-24"></label>
+    <label>Airline allow <input id="fAllow" placeholder="BA, KL, Virgin"></label>
+    <label>Airline block <input id="fBlock" placeholder="AA"></label>
+    <div class="checks">
+      <label><input type="checkbox" id="fNonstop"> Nonstop only</label>
+      <label><input type="checkbox" id="fEu"> European premium</label>
+      <label><input type="checkbox" id="fHideMock" checked> Hide mocks</label>
+      <label><input type="checkbox" id="fHide"> Hide infeasible</label>
+      <label><input type="checkbox" id="fLhr"> Heathrow only</label>
+    </div>
+    <div class="actions" style="margin-top:0">
+      <span class="muted" style="font-size:12px;font-weight:700">CABIN</span>
+      <div class="seg" id="cabinSeg"><button type="button" data-v="all" class="on">All</button><button type="button" data-v="premium_economy">Premium economy</button><button type="button" data-v="EU">European premium</button><button type="button" data-v="business">Business</button></div>
+      <span class="muted" style="font-size:12px;font-weight:700">NIGHTS</span>
+      <div class="seg" id="nightSeg"></div>
+      <span class="muted" style="font-size:12px;font-weight:700">ORIGIN</span>
+      <div class="seg" id="originSeg"></div>
+      <span class="muted" style="font-size:12px;font-weight:700">SORT</span>
+      <div class="seg" id="sortSeg"><button type="button" data-v="date" class="on">By date</button><button type="button" data-v="price">Cheapest feasible</button></div>
+      <button type="button" id="btnSuggested">Suggested filters</button>
+      <button type="button" id="btnClear">Clear filters</button>
+    </div>
+  </section>
+
+  <div class="summary" id="summary"></div>
+  <div class="legend" id="legend"></div>
+  <div class="tabs" id="tabs">
+    <button type="button" data-tab="grid" class="on">Grid</button>
+    <button type="button" data-tab="itineraries">Itineraries</button>
+    <button type="button" data-tab="matrix">Matrix</button>
+    <button type="button" data-tab="vendors">Vendors</button>
+  </div>
+  <div class="actions" id="exportBar">
+    <button type="button" id="btnHtml">Export HTML</button>
+    <button type="button" id="btnCsv">Export CSV</button>
+    <span class="muted" id="fresh"></span>
+  </div>
+  <div class="wrap" id="view"></div>
+</main>
+<footer id="foot">Fares move. Nothing here is a booking. Re-check the airline before paying. Google Flights links open for one adult — set the passenger count on that page.</footer>
+<div id="overlay"></div>
+<aside id="panel" aria-hidden="true">
+  <div class="ph"><div><h2 id="pTitle">Details</h2><div id="pStatus"></div></div><button class="close" id="pClose" type="button" aria-label="Close">×</button></div>
+  <div class="pb" id="pBody"></div>
+</aside>
+<script>window.__SNAPSHOT__ = null;</script>
+<script>
+(function () {
+  "use strict";
+  var result = null;
+  var tab = "grid";
+  var state = blankState();
+  var pendingQuery = null;
+
+  function blankState() {
+    return {
+      maxStops: "", maxLayoverHours: "", excludeReturn: "", excludeOut: "",
+      allow: "", block: "", maxTravelHours: "", departAfter: "", departBefore: "", returnAfter: "",
+      nonstop: false, eu: false, hideMock: true, cabin: "all", nights: "all", origin: "all",
+      hide: false, lhr: false, sort: "date", market: "all", vsort: "allin", sel: null
+    };
+  }
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function gbp(n) {
+    if (n == null || isNaN(n)) return "—";
+    return "£" + Math.round(Number(n)).toLocaleString("en-GB");
+  }
+  function money(n, cur) {
+    if (n == null || isNaN(n)) return "—";
+    var sym = { GBP: "£", USD: "US$", MXN: "MX$", CAD: "C$", EUR: "€" }[cur] || ((cur || "") + " ");
+    return sym + Math.round(Number(n)).toLocaleString("en-GB");
+  }
+  function normTime(raw) {
+    if (!raw) return "";
+    var parts = String(raw).trim().slice(0, 5).split(":");
+    if (parts.length < 2) return "00:00";
+    return parts[0].padStart(2, "0") + ":" + parts[1].padStart(2, "0");
+  }
+  function cabinKey(raw) {
+    var s = String(raw || "").toLowerCase();
+    if (!s) return "economy";
+    if (s.indexOf("prem") >= 0 || s === "w") return "premium_economy";
+    if (s.indexOf("bus") >= 0 || s === "j") return "business";
+    if (s.indexOf("first") >= 0 || s === "f") return "first";
+    return "economy";
+  }
+  function splitList(raw) {
+    return String(raw || "").split(/[,/\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  function fmtDate(iso) {
+    if (!iso) return "";
+    var d = new Date(iso + "T12:00:00Z");
+    if (isNaN(d.getTime())) return iso;
+    var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return days[d.getUTCDay()] + " " + d.getUTCDate() + " " + months[d.getUTCMonth()];
+  }
+  function fmtRange(a, b) {
+    if (!a) return "";
+    if (!b) return fmtDate(a);
+    return fmtDate(a) + " → " + fmtDate(b);
+  }
+  function stopsLabel(it) {
+    function sl(n) { return n === 0 ? "Nonstop" : (n + " stop" + (n > 1 ? "s" : "")); }
+    if (it.stopsRet == null) return sl(it.stopsOut) + (it.returnMissing ? " (out)" : "");
+    if (it.stopsRet === it.stopsOut) return sl(it.stopsOut);
+    return sl(it.stopsOut) + " out · " + sl(it.stopsRet) + " back";
+  }
+  function layText(mins) {
+    if (mins == null) return "";
+    var h = Math.floor(mins / 60), m = mins % 60;
+    return (h ? h + "h " : "") + m + "m";
+  }
+  function dirLine(dir) {
+    if (!dir || !dir.legs || !dir.legs.length) return "";
+    return dir.legs.map(function (leg, i) {
+      var lay = dir.layovers && dir.layovers[i] ? " · " + layText(dir.layovers[i].minutes) + " " + dir.layovers[i].airport : "";
+      var op = leg.operatingCarrier && leg.operatingCarrier !== leg.airline ? " (" + leg.operatingCarrier + ")" : "";
+      return leg.flightNumber + " " + leg.from + " " + leg.departTime + "–" + leg.to + " " + leg.arriveTime + op + lay;
+    }).join(" · ");
+  }
+  function byId(list, id) {
+    for (var i = 0; i < list.length; i++) if (String(list[i].id) === String(id)) return list[i];
+    return null;
+  }
+  function cellKey(p, a) { return String(p) + "\0" + (a || ""); }
+  function cellMap() {
+    var map = {};
+    (result.cells || []).forEach(function (c) { map[cellKey(c.primaryId, c.addonId)] = c; });
+    return map;
+  }
+  function carrierMatch(leg, token) {
+    if (token.toLowerCase() === String(leg.airlineCode || "").toLowerCase()) return true;
+    if (token.toLowerCase() === String(leg.airline || "").toLowerCase()) return true;
+    if (token.toLowerCase() === String(leg.operatingCarrier || "").toLowerCase()) return true;
+    if (token.length > 2 && ((leg.airline || "").toLowerCase().indexOf(token.toLowerCase()) >= 0 || (leg.operatingCarrier || "").toLowerCase().indexOf(token.toLowerCase()) >= 0)) return true;
+    return false;
+  }
+  function legsOf(it) { return (it.outbound.legs || []).concat(it.returning && it.returning.legs ? it.returning.legs : []); }
+  function allows(it, tokens) {
+    var legs = legsOf(it);
+    if (!legs.length) return tokens.some(function (t) { return (it.airlineSummary || "").toLowerCase().indexOf(t.toLowerCase()) >= 0; });
+    return legs.every(function (leg) { return tokens.some(function (t) { return carrierMatch(leg, t); }); });
+  }
+  function blocked(it, tokens) {
+    var legs = legsOf(it);
+    if (!legs.length) return tokens.some(function (t) { return (it.airlineSummary || "").toLowerCase().indexOf(t.toLowerCase()) >= 0; });
+    return legs.some(function (leg) { return tokens.some(function (t) { return carrierMatch(leg, t); }); });
+  }
+  function currentFilters() {
+    var cabin = state.cabin === "all" || state.cabin === "EU" ? null : state.cabin;
+    return {
+      maxStops: state.maxStops === "" ? null : Number(state.maxStops),
+      maxLayoverMinutes: state.maxLayoverHours === "" ? null : Math.round(Number(state.maxLayoverHours) * 60),
+      excludeOutboundDates: splitList(state.excludeOut),
+      excludeReturnDates: splitList(state.excludeReturn),
+      europeanPremiumOnly: !!(state.eu || state.cabin === "EU"),
+      airlineAllow: splitList(state.allow),
+      airlineBlock: splitList(state.block),
+      maxTravelMinutes: state.maxTravelHours === "" ? null : Math.round(Number(state.maxTravelHours) * 60),
+      outboundDepartAfter: state.departAfter || null,
+      outboundDepartBefore: state.departBefore || null,
+      returnDepartAfter: state.returnAfter || null,
+      nonstopOnly: !!state.nonstop,
+      hideMock: state.hideMock !== false,
+      cabin: cabin,
+      nights: state.nights === "all" ? null : Number(state.nights),
+      origin: state.lhr ? "LHR" : (state.origin === "all" ? null : state.origin)
+    };
+  }
+  function matches(it, f) {
+    if (f.hideMock && it.sourceLabel === "mock") return false;
+    var stops = it.stopsRet == null ? it.stopsOut : Math.max(it.stopsOut, it.stopsRet);
+    if (f.nonstopOnly && (it.stopsOut !== 0 || it.returnMissing || it.stopsRet !== 0)) return false;
+    if (f.maxStops != null && stops > f.maxStops) return false;
+    if (f.maxLayoverMinutes != null && (it.layoverMinutes || []).some(function (m) { return m > f.maxLayoverMinutes; })) return false;
+    if ((f.excludeOutboundDates || []).indexOf(it.outboundDate) >= 0) return false;
+    if (it.returnDate && (f.excludeReturnDates || []).indexOf(it.returnDate) >= 0) return false;
+    if (f.europeanPremiumOnly && !it.euPremium) return false;
+    if (f.maxTravelMinutes != null && (it.travelMinutes == null || it.travelMinutes > f.maxTravelMinutes)) return false;
+    if (f.outboundDepartAfter && it.outboundDepart && it.outboundDepart < normTime(f.outboundDepartAfter)) return false;
+    if (f.outboundDepartBefore && it.outboundDepart && it.outboundDepart > normTime(f.outboundDepartBefore)) return false;
+    if (f.returnDepartAfter && it.returnDepart && it.returnDepart < normTime(f.returnDepartAfter)) return false;
+    if (f.cabin && f.cabin !== "all" && it.cabinKey !== cabinKey(f.cabin)) return false;
+    if (f.nights != null && it.nights !== f.nights) return false;
+    if (f.origin && it.origin !== String(f.origin).toUpperCase()) return false;
+    if (f.airlineAllow && f.airlineAllow.length && !allows(it, f.airlineAllow)) return false;
+    if (f.airlineBlock && f.airlineBlock.length && blocked(it, f.airlineBlock)) return false;
+    return true;
+  }
+  function visibleRows() {
+    var f = currentFilters();
+    var rows = (result.itineraries || []).filter(function (it) { return matches(it, f); });
+    if (state.hide && (result.addons || []).length) {
+      var cells = cellMap();
+      rows = rows.filter(function (it) {
+        return (result.addons || []).some(function (mx) {
+          var c = cells[cellKey(it.id, mx.id)];
+          return c && c.status !== "no";
+        });
+      });
+    }
+    return rows;
+  }
+  function quoteable(it) { return it.sourceLabel !== "mock"; }
+  function totalOf(it) { return (it.pricePerPerson || 0) * (it.passengers || 1); }
+  function cheapestCell(rows, pred) {
+    var cells = cellMap();
+    var best = null;
+    rows.forEach(function (it) {
+      if (!quoteable(it)) return;
+      (result.addons || []).forEach(function (mx) {
+        var c = cells[cellKey(it.id, mx.id)];
+        if (!c || !pred(c, it)) return;
+        if (!best || c.total < best.total) best = { total: c.total, cell: c, it: it, mx: mx };
+      });
+    });
+    return best;
+  }
+  function cheapestItin(rows, pred) {
+    var best = null;
+    rows.forEach(function (it) {
+      if (!quoteable(it) || it.pricePerPerson == null || !pred(it)) return;
+      var t = (result.addons || []).length ? null : totalOf(it);
+      if ((result.addons || []).length) {
+        var hit = cheapestCell([it], function (c) { return c.status !== "no"; });
+        if (!hit) return;
+        if (!best || hit.total < best.total) best = hit;
+      } else if (!best || t < best.total) {
+        best = { total: t, it: it, cell: null, mx: null };
+      }
+    });
+    return best;
+  }
+
+  function applySuggested(f) {
+    f = f || {};
+    state.maxStops = f.maxStops == null ? "" : String(f.maxStops);
+    state.maxLayoverHours = f.maxLayoverMinutes == null ? "" : String(f.maxLayoverMinutes / 60);
+    state.excludeReturn = (f.excludeReturnDates || []).join(", ");
+    state.excludeOut = (f.excludeOutboundDates || []).join(", ");
+    state.allow = (f.airlineAllow || []).join(", ");
+    state.block = (f.airlineBlock || []).join(", ");
+    state.maxTravelHours = f.maxTravelMinutes == null ? "" : String(f.maxTravelMinutes / 60);
+    state.departAfter = f.outboundDepartAfter || "";
+    state.departBefore = f.outboundDepartBefore || "";
+    state.returnAfter = f.returnDepartAfter || "";
+    state.nonstop = !!f.nonstopOnly;
+    state.eu = !!f.europeanPremiumOnly;
+    state.hideMock = f.hideMock !== false;
+    state.cabin = f.europeanPremiumOnly ? "EU" : (f.cabin || "all");
+    state.nights = f.nights == null ? "all" : String(f.nights);
+    state.origin = f.origin || "all";
+    state.lhr = f.origin === "LHR";
+    syncControls();
+  }
+  function syncControls() {
+    $("fStops").value = state.maxStops;
+    $("fLayover").value = state.maxLayoverHours;
+    $("fAfter").value = state.departAfter;
+    $("fBefore").value = state.departBefore;
+    $("fRetAfter").value = state.returnAfter;
+    $("fTravel").value = state.maxTravelHours;
+    $("fExRet").value = state.excludeReturn;
+    $("fExOut").value = state.excludeOut;
+    $("fAllow").value = state.allow;
+    $("fBlock").value = state.block;
+    $("fNonstop").checked = state.nonstop;
+    $("fEu").checked = state.eu || state.cabin === "EU";
+    $("fHideMock").checked = state.hideMock;
+    $("fHide").checked = state.hide;
+    $("fLhr").checked = state.lhr;
+    markSeg("cabinSeg", state.cabin);
+    markSeg("sortSeg", state.sort);
+    buildDynamicSegs();
+  }
+  function readControls() {
+    state.maxStops = $("fStops").value;
+    state.maxLayoverHours = $("fLayover").value;
+    state.departAfter = $("fAfter").value;
+    state.departBefore = $("fBefore").value;
+    state.returnAfter = $("fRetAfter").value;
+    state.maxTravelHours = $("fTravel").value;
+    state.excludeReturn = $("fExRet").value;
+    state.excludeOut = $("fExOut").value;
+    state.allow = $("fAllow").value;
+    state.block = $("fBlock").value;
+    state.nonstop = $("fNonstop").checked;
+    state.eu = $("fEu").checked;
+    state.hideMock = $("fHideMock").checked;
+    state.hide = $("fHide").checked;
+    state.lhr = $("fLhr").checked;
+    if (state.eu && state.cabin !== "business" && state.cabin !== "premium_economy") state.cabin = "EU";
+    if (!state.eu && state.cabin === "EU") state.cabin = "all";
+  }
+  function markSeg(id, value) {
+    var root = $(id);
+    if (!root) return;
+    Array.prototype.forEach.call(root.querySelectorAll("button"), function (b) {
+      b.classList.toggle("on", b.getAttribute("data-v") === String(value));
+    });
+  }
+  function buildDynamicSegs() {
+    var nights = {};
+    var origins = {};
+    (result ? result.itineraries : []).forEach(function (it) {
+      if (it.nights != null) nights[it.nights] = true;
+      if (it.origin) origins[it.origin] = true;
+    });
+    $("nightSeg").innerHTML = segButtons(["all"].concat(Object.keys(nights).sort(function (a, b) { return a - b; })), function (v) {
+      return v === "all" ? "All" : (v + " nights");
+    }, state.nights);
+    $("originSeg").innerHTML = segButtons(["all"].concat(Object.keys(origins).sort()), function (v) { return v === "all" ? "All" : v; }, state.origin);
+  }
+  function segButtons(values, label, current) {
+    return values.map(function (v) {
+      return "<button type='button' data-v='" + esc(v) + "'" + (String(v) === String(current) ? " class='on'" : "") + ">" + esc(label(v)) + "</button>";
+    }).join("");
+  }
+
+  function delta(now, prev) {
+    if (prev == null) return "<span class='chg new'>new</span>";
+    var d = Math.round(now - prev);
+    if (d === 0) return "<span class='chg same'>= previous</span>";
+    return "<span class='chg " + (d > 0 ? "up" : "down") + "'>" + (d > 0 ? "▲ " : "▼ ") + gbp(Math.abs(d)) + "</span>";
+  }
+  function linkIcon(links) {
+    if (!links || !links.length) return "";
+    return " <a class='licon' href='" + esc(links[0].url) + "' target='_blank' rel='noopener noreferrer' title='" + esc(links[0].label) + "' onclick='event.stopPropagation()'>🔗</a>";
+  }
+  function linkBtns(links) {
+    return "<div class='links'>" + (links || []).map(function (k, i) {
+      return "<a class='lbtn " + (i === 0 ? "primary" : "") + "' href='" + esc(k.url) + "' target='_blank' rel='noopener noreferrer'>" + esc(k.label) + " ↗</a>";
+    }).join("") + "</div>";
+  }
+  function sourceTag(it) {
+    var label = it.sourceLabel || "";
+    var cls = label === "mock" ? "mock" : (label === "live" ? "live" : "cached");
+    var text = label === "mock" ? "Mock" : (label === "cached" ? "Cached" : (label === "sample" ? "Sample" : (label === "live" ? "Live" : label)));
+    if (!it.livePrice && label !== "mock" && label !== "sample") text += " · not a live fare";
+    return "<span class='tag " + cls + "'>" + esc(text) + "</span>";
+  }
+
+  function render() {
+    if (!result) {
+      $("view").innerHTML = "<div class='empty'>Load the Florida sample, or estimate a search. Live providers are not called until you confirm.</div>";
+      $("summary").innerHTML = "";
+      $("legend").innerHTML = "";
+      return;
+    }
+    renderHeader();
+    renderSummary();
+    renderLegend();
+    markSeg("cabinSeg", state.cabin);
+    markSeg("sortSeg", state.sort);
+    buildDynamicSegs();
+    $("fresh").textContent = result.fetchedAt ? ("Data " + result.fetchedAt) : "";
+    if (tab === "grid") renderGrid();
+    else if (tab === "itineraries") renderTable();
+    else if (tab === "matrix") renderMatrix();
+    else renderVendors();
+    Array.prototype.forEach.call($("tabs").querySelectorAll("button"), function (b) {
+      b.classList.toggle("on", b.getAttribute("data-tab") === tab);
+    });
+  }
+  function renderHeader() {
+    var vendorMode = tab === "vendors" && result.scenarioLabel === "florida";
+    $("title").textContent = vendorMode
+      ? "Tampa ⇄ Mexico City nonstop · Fri 25 Dec → Tue 29 Dec 2026 · 1 adult · 1 checked bag each way"
+      : (result.title || "Clawfare");
+    $("subtitle").textContent = vendorMode
+      ? "Out AM 1741 TPA 09:23 → MEX 11:50 · Back AM 1740 MEX 15:40 → TPA 19:49. All-in prices include one checked bag. Round trip beside two one-ways. Sample seller check, not a new lookup."
+      : (result.subtitle || "");
+    var notes = vendorMode ? (result.vendorIntro || []) : (result.headerNotes || []);
+    $("notes").innerHTML = notes.map(function (n) {
+      return "<div class='note" + (n.warn ? " warn" : "") + "'><span class='nt'>" + esc(n.title) + "</span>" + esc(n.body) + "</div>";
+    }).join("");
+    var banners = [];
+    if (result.scenarioLabel === "sample" || (result.itineraries || []).some(function (it) { return it.sourceLabel === "sample"; })) {
+      banners.push("<div class='banner'>Sample saved from Google Flights. Long-haul fares 11 Oct 2026, seller table 15 Oct 2026. This is not a live search.</div>");
+    }
+    (result.warnings || []).forEach(function (w) {
+      banners.push("<div class='banner" + (/mock|fail|credit|error/i.test(w) ? " bad" : "") + "'>" + esc(w) + "</div>");
+    });
+    if ((result.itineraries || []).some(function (it) { return it.sourceLabel === "mock"; })) {
+      banners.push("<div class='banner bad'>Duffel rows are test-mode mocks. They are hidden from the cheapest highlight and, with “Hide mocks” on, from the tables.</div>");
+    }
+    if ((result.itineraries || []).some(function (it) { return it.sourceLabel === "cached"; })) {
+      banners.push("<div class='banner'>Travelpayouts rows are cached calendar fares, not live itineraries.</div>");
+    }
+    $("banners").innerHTML = banners.join("");
+  }
+  function card(label, hit) {
+    if (!hit) return "<div class='sumcard' style='cursor:default'><div class='k'>" + esc(label) + "</div><div class='v'>—</div><div class='d'>None in the current filters</div></div>";
+    var who = "#" + hit.it.id + " " + (hit.it.airlineSummary || "") + " " + fmtRange(hit.it.outboundDate, hit.it.returnDate);
+    if (hit.mx) who += " + Mexico " + hit.mx.id;
+    var attrs = " data-p='" + esc(hit.it.id) + "' data-a='" + esc(hit.mx ? hit.mx.id : "LH") + "'";
+    return "<div class='sumcard'" + attrs + "><div class='k'>" + esc(label) + "</div><div class='v'>" + gbp(hit.total) + "</div><div class='d'>" + esc(who) + "</div></div>";
+  }
+  function renderSummary() {
+    var rows = visibleRows();
+    var feasible = (result.addons || []).length
+      ? cheapestCell(rows, function (c) { return c.status !== "no"; })
+      : cheapestItin(rows, function () { return true; });
+    var works = (result.addons || []).length ? cheapestCell(rows, function (c) { return c.status === "ok"; }) : null;
+    var nonstop = cheapestItin(rows, function (it) { return it.stopsOut === 0 && !it.returnMissing && it.stopsRet === 0; });
+    var eu = cheapestItin(rows, function (it) { return it.euPremium; });
+    $("summary").innerHTML = [
+      card((result.addons || []).length ? "Cheapest feasible combination" : "Cheapest", feasible),
+      (result.addons || []).length ? card("Cheapest fully works", works) : "",
+      card("Cheapest nonstop", nonstop),
+      card("Cheapest European premium", eu)
+    ].join("");
+  }
+  function renderLegend() {
+    if ((result.addons || []).length && (result.cells || []).length && tab === "grid") {
+      $("legend").innerHTML = [
+        "<span><i class='sw' style='background:var(--green-bg);border-color:var(--green)'></i>Works</span>",
+        "<span><i class='sw' style='background:var(--amber-bg);border-color:var(--amber)'></i>Works with a catch</span>",
+        "<span><i class='sw' style='background:#f2f4f7'></i>Doesn’t work</span>",
+        "<span><i class='sw' style='background:#fff;border:2px solid var(--gold)'></i>Cheapest feasible</span>",
+        "<span><i class='sw' style='background:#fff;border:2px solid #027a48'></i>Cheapest that fully works</span>",
+        "<span>Cell = 2 × long-haul + 1 × Mexico. 🔗 opens the booking link.</span>"
+      ].join("");
+    } else if (tab === "vendors") {
+      $("legend").innerHTML = "<span><i class='sw' style='background:#ecfdf3;border-color:#027a48'></i>Cheapest all-in in this market filter</span><span class='trust risky'>Risky</span><span class='trust caution'>Caution</span><span class='trust trusted'>Trusted</span><span class='trust airline'>Airline</span><span>Notes and trust flags are editable and travel with the HTML export.</span>";
+    } else {
+      $("legend").innerHTML = "<span>Prices are per person in GBP unless a row says otherwise. Mocks are excluded from the cheapest cards.</span>";
+    }
+  }
+
+  function renderGrid() {
+    if (!(result.addons || []).length || !(result.cells || []).length) {
+      renderTable();
+      return;
+    }
+    var rows = visibleRows();
+    var cells = cellMap();
+    if (state.sort === "price") {
+      rows.sort(function (a, b) {
+        function min(it) {
+          var m = Infinity;
+          (result.addons || []).forEach(function (mx) {
+            var c = cells[cellKey(it.id, mx.id)];
+            if (c && c.status !== "no" && c.total < m) m = c.total;
+          });
+          return m;
+        }
+        return min(a) - min(b) || a.outboundDate.localeCompare(b.outboundDate);
+      });
+    } else {
+      rows.sort(function (a, b) {
+        return a.outboundDate.localeCompare(b.outboundDate) || String(a.returnDate || "").localeCompare(String(b.returnDate || "")) || (a.pricePerPerson || 0) - (b.pricePerPerson || 0);
+      });
+    }
+    var vAny = [], vGreen = [], minAny = Infinity, minGreen = Infinity;
+    rows.forEach(function (it) {
+      if (!quoteable(it)) return;
+      (result.addons || []).forEach(function (mx) {
+        var c = cells[cellKey(it.id, mx.id)];
+        if (!c) return;
+        var k = cellKey(it.id, mx.id);
+        if (c.status !== "no" && c.total < minAny) { minAny = c.total; vAny = [k]; }
+        else if (c.status !== "no" && c.total === minAny) vAny.push(k);
+        if (c.status === "ok" && c.total < minGreen) { minGreen = c.total; vGreen = [k]; }
+        else if (c.status === "ok" && c.total === minGreen) vGreen.push(k);
+      });
+    });
+    var html = "<table id='grid'><thead><tr><th class='rowh'>Long-haul option<span class='sub'>flights, per person, couple total</span></th>";
+    (result.addons || []).forEach(function (mx) {
+      html += "<th>Mexico " + esc(mx.id) + linkIcon(mx.links) + "<span class='sub'>" + esc(fmtRange(mx.outboundDate, mx.returnDate)) + " · " + (mx.nights || "") + "n</span><span class='sub'>" + gbp(mx.pricePerPerson) + "</span></th>";
+    });
+    html += "<th class='lhonly'>Long-haul only<span class='sub'>couple, no add-on</span></th></tr></thead><tbody>";
+    if (!rows.length) html += "<tr><td class='empty' colspan='" + ((result.addons || []).length + 2) + "'>No itineraries match these filters.</td></tr>";
+    var last = null;
+    var labels = { ok: "Works", catch: "Works with a catch", no: "Doesn’t work" };
+    rows.forEach(function (it) {
+      var g = it.outboundDate + "|" + (it.returnDate || "");
+      if (state.sort === "date" && g !== last) {
+        last = g;
+        html += "<tr class='group'><td class='gh' colspan='" + ((result.addons || []).length + 2) + "'>" + esc(fmtRange(it.outboundDate, it.returnDate)) + (it.nights != null ? " · " + it.nights + " nights" : "") + "</td></tr>";
+      }
+      var cabinCls = it.cabinKey === "business" ? "biz" : (it.cabinKey === "premium_economy" ? "pe" : "");
+      var tags = "<span class='tag " + cabinCls + "'>" + esc(it.cabin || it.cabinKey) + "</span>" +
+        "<span class='tag " + (it.stopsOut === 0 && it.stopsRet === 0 ? "ns" : "") + "'>" + esc(stopsLabel(it)) + "</span>" +
+        "<span class='tag " + (it.origin === "LGW" ? "lgw" : "") + "'>" + esc(it.origin) + (it.destination ? "→" + esc(it.destination) : "") + "</span>" +
+        (it.euPremium ? "<span class='tag eu'>European-operated</span>" : "") + sourceTag(it);
+      html += "<tr><th><div class='lhTop'><span class='lhDates'>#" + esc(it.id) + " · " + esc(fmtRange(it.outboundDate, it.returnDate)) + linkIcon(it.links) + "</span><span class='lhPrice'>" + gbp(it.pricePerPerson) + " pp " + (it.prevPrice != null ? delta(it.pricePerPerson, it.prevPrice) : "") + "</span></div>" +
+        "<div class='lhTop lhMeta'><span>" + esc(it.airlineSummary) + "</span><span>couple " + gbp(totalOf(it)) + "</span></div>" +
+        "<div class='flights'>" + esc(dirLine(it.outbound)) + "</div>" +
+        (it.returning ? "<div class='flights'>↩ " + esc(dirLine(it.returning)) + "</div>" : (it.returnMissing ? "<div class='flights'>Return not retrieved</div>" : "")) +
+        "<div>" + tags + "</div></th>";
+      (result.addons || []).concat([null]).forEach(function (mx) {
+        var c = cells[cellKey(it.id, mx ? mx.id : null)];
+        if (!c) { html += "<td></td>"; return; }
+        var k = cellKey(it.id, mx ? mx.id : null);
+        var hidden = state.hide && c.status === "no";
+        var cls = "cell s-" + c.status + (mx ? "" : " lhonly") + (hidden ? " s-hidden" : "");
+        if (mx && vAny.indexOf(k) >= 0) cls += " best-any";
+        if (mx && vGreen.indexOf(k) >= 0) cls += " best-green";
+        if (state.sel === k) cls += " sel";
+        var badges = "";
+        if (mx && vAny.indexOf(k) >= 0) badges += "<span class='badge ba'>Cheapest feasible</span>";
+        if (mx && vGreen.indexOf(k) >= 0) badges += "<span class='badge bg'>Cheapest works</span>";
+        var tip = (labels[c.status] || c.status) + ((c.reasonsNo || []).length ? ": " + c.reasonsNo.join(" ") : "") + ((c.catches || []).length && !(c.reasonsNo || []).length ? ": " + c.catches.join(" ") : "");
+        html += "<td class='" + cls + "' data-p='" + esc(it.id) + "' data-a='" + esc(mx ? mx.id : "LH") + "' title='" + esc(hidden ? "" : tip) + "'><div class='in'>" +
+          (hidden ? "" : "<span class='tot'>" + gbp(c.total) + "</span><span class='st'>" + esc(labels[c.status] || c.status) + "</span>" + badges) +
+          "</div></td>";
+      });
+      html += "</tr>";
+    });
+    html += "</tbody></table>";
+    $("view").innerHTML = html;
+  }
+
+  function renderTable() {
+    var rows = visibleRows().slice();
+    var key = state.sort === "price" ? "price" : "date";
+    rows.sort(function (a, b) {
+      if (key === "price") return (a.pricePerPerson || 1e12) - (b.pricePerPerson || 1e12);
+      return a.outboundDate.localeCompare(b.outboundDate) || String(a.returnDate || "").localeCompare(b.returnDate || "");
+    });
+    var html = "<table class='data' id='itineraries'><thead><tr>" +
+      "<th>Itinerary</th><th>Flights</th><th>Stops</th><th>Layover</th><th class='num'>pp</th><th class='num'>Total</th><th>Source</th><th></th></tr></thead><tbody>";
+    if (!rows.length) html += "<tr><td class='empty' colspan='8'>No itineraries match these filters.</td></tr>";
+    rows.forEach(function (it) {
+      var lay = (it.maxLayoverMinutes != null) ? layText(it.maxLayoverMinutes) : "—";
+      html += "<tr data-p='" + esc(it.id) + "' data-a='LH' style='cursor:pointer'><td><b>" + esc(fmtRange(it.outboundDate, it.returnDate)) + "</b><div class='muted'>" + esc(it.origin) + " → " + esc(it.destination) + (it.nights != null ? " · " + it.nights + "n" : "") + " · " + esc(it.cabin) + "</div><div>" + esc(it.airlineSummary) + (it.euPremium ? " · European premium" : "") + "</div></td>" +
+        "<td><div>" + esc(dirLine(it.outbound)) + "</div>" + (it.returning ? "<div class='muted'>↩ " + esc(dirLine(it.returning)) + "</div>" : "") + "</td>" +
+        "<td>" + esc(stopsLabel(it)) + "</td><td>" + esc(lay) + "</td>" +
+        "<td class='num'>" + gbp(it.pricePerPerson) + "</td><td class='num'>" + gbp(totalOf(it)) + "</td>" +
+        "<td>" + sourceTag(it) + "<div class='muted'>" + esc(it.fetchedAt || "") + "</div></td>" +
+        "<td>" + ((it.links && it.links[0]) ? "<a class='lbtn primary' href='" + esc(it.links[0].url) + "' target='_blank' rel='noopener noreferrer' onclick='event.stopPropagation()'>Book</a>" : "") + "</td></tr>";
+    });
+    html += "</tbody></table>";
+    $("view").innerHTML = html;
+  }
+
+  function renderMatrix() {
+    var rows = visibleRows().filter(quoteable);
+    var outs = [], rets = [], outSeen = {}, retSeen = {};
+    rows.forEach(function (it) {
+      if (!outSeen[it.outboundDate]) { outSeen[it.outboundDate] = true; outs.push(it.outboundDate); }
+      var r = it.returnDate || "—";
+      if (!retSeen[r]) { retSeen[r] = true; rets.push(r); }
+    });
+    outs.sort(); rets.sort();
+    var best = {};
+    rows.forEach(function (it) {
+      var k = it.outboundDate + "|" + (it.returnDate || "—");
+      if (!best[k] || (it.pricePerPerson != null && it.pricePerPerson < best[k].pricePerPerson)) best[k] = it;
+    });
+    var html = "<table class='data' id='matrix'><thead><tr><th>Outbound \\ return</th>";
+    rets.forEach(function (r) { html += "<th>" + esc(r === "—" ? "one way" : fmtDate(r)) + "</th>"; });
+    html += "</tr></thead><tbody>";
+    if (!outs.length) html += "<tr><td class='empty'>No dated itineraries in the current filters.</td></tr>";
+    outs.forEach(function (o) {
+      html += "<tr><th>" + esc(fmtDate(o)) + "</th>";
+      rets.forEach(function (r) {
+        var it = best[o + "|" + r];
+        if (!it) { html += "<td class='muted'>—</td>"; return; }
+        html += "<td class='mxcell' data-p='" + esc(it.id) + "' data-a='LH'>" + gbp(it.pricePerPerson) + "<div class='muted' style='font-weight:400'>" + esc(it.airlineSummary) + "</div></td>";
+      });
+      html += "</tr>";
+    });
+    html += "</tbody></table>";
+    $("view").innerHTML = html;
+  }
+
+  function vendorRows() {
+    applyStoredNotes();
+    var rows = (result.vendors || []).slice();
+    if (state.market !== "all") rows = rows.filter(function (v) { return v.market === state.market; });
+    rows.sort(function (a, b) {
+      if (state.vsort === "vendor") return a.vendor.localeCompare(b.vendor);
+      if (state.vsort === "market") return a.market.localeCompare(b.market) || ((a.allInGbp || 1e12) - (b.allInGbp || 1e12));
+      return (a.allInGbp == null) - (b.allInGbp == null) || ((a.allInGbp || 1e12) - (b.allInGbp || 1e12));
+    });
+    return rows;
+  }
+  function noteStorageKey(v) { return "cf:" + (result.id || "") + ":" + v.market + ":" + v.vendor; }
+  function applyStoredNotes() {
+    (result.vendors || []).forEach(function (v) {
+      try {
+        var note = localStorage.getItem(noteStorageKey(v) + ":note");
+        var trust = localStorage.getItem(noteStorageKey(v) + ":trust");
+        if (note != null) v.note = note;
+        if (trust) {
+          v.trust = trust;
+          v.trustLabel = { airline: "Airline", trusted: "Trusted OTA", caution: "OTA · caution", risky: "Risky OTA" }[trust] || v.trustLabel;
+        }
+      } catch (e) { /* file snapshots have no storage */ }
+    });
+  }
+  function renderVendors() {
+    var markets = {};
+    (result.vendors || []).forEach(function (v) { markets[v.market] = v.marketLabel || v.market; });
+    var rows = vendorRows();
+    var cheapest = null;
+    rows.forEach(function (v) { if (v.allInGbp != null && (cheapest == null || v.allInGbp < cheapest)) cheapest = v.allInGbp; });
+    var html = "<div class='actions' style='padding:8px'><span class='muted'>Market</span> <select id='vMarket'><option value='all'>All</option>";
+    Object.keys(markets).sort().forEach(function (m) {
+      html += "<option value='" + esc(m) + "'" + (state.market === m ? " selected" : "") + ">" + esc(markets[m]) + "</option>";
+    });
+    html += "</select> <span class='muted'>" + rows.length + " sellers</span></div>";
+    html += "<table class='data' id='vendors'><thead><tr><th>#</th><th class='num'>All-in incl. bag</th><th>Vendor / fare</th><th>Type</th><th>Market · fetched</th><th class='num'>Δ all-in</th><th class='num'>Round trip</th><th class='num'>One-way out</th><th class='num'>One-way back</th><th class='num'>2 one-ways incl. bags</th><th>Google Flights</th></tr></thead><tbody>";
+    if (!rows.length) html += "<tr><td class='empty' colspan='11'>No seller rows. Open a sample, or fetch sellers for one saved itinerary.</td></tr>";
+    rows.forEach(function (v, i) {
+      var best = v.allInGbp != null && v.allInGbp === cheapest;
+      var chg = v.isNew && v.priceChangeGbp == null ? "<span class='chg new'>new</span>" : (v.priceChangeGbp == null ? "" : delta(v.priceChangeGbp, 0).replace("£0", "£" + Math.abs(v.priceChangeGbp)).replace("previous", "14 Oct"));
+      if (v.priceChangeGbp != null) {
+        var d = v.priceChangeGbp;
+        chg = d === 0 ? "<span class='chg same'>£0</span>" : "<span class='chg " + (d > 0 ? "up" : "down") + "'>" + (d > 0 ? "▲ £" : "▼ £") + Math.abs(d) + "</span>";
+      }
+      html += "<tr class='" + (best ? "bestv" : "") + (v.fresh ? "" : " stale") + "'><td>" + (i + 1) + "</td>" +
+        "<td class='num'><b>" + gbp(v.allInGbp) + "</b><div class='muted'>" + esc(v.how || "") + "</div></td>" +
+        "<td><b>" + esc(v.vendor) + "</b><div class='muted'>" + esc(v.fareBrand || "") + (v.bags ? " · " + v.bags : "") + "</div>" +
+        "<textarea class='noteedit' data-market='" + esc(v.market) + "' data-vendor='" + esc(v.vendor) + "'>" + esc(v.note || "") + "</textarea></td>" +
+        "<td><span class='trust " + esc(v.trust) + "'>" + esc(v.trustLabel || v.trust) + "</span><div><select class='trustpick' data-market='" + esc(v.market) + "' data-vendor='" + esc(v.vendor) + "'>" +
+        ["airline", "trusted", "caution", "risky"].map(function (t) { return "<option value='" + t + "'" + (v.trust === t ? " selected" : "") + ">" + t + "</option>"; }).join("") +
+        "</select></div></td>" +
+        "<td>" + esc(v.marketLabel || v.market) + "<div class='muted'>" + esc(v.fetchedAt || "") + (v.fresh ? "" : " · carried forward") + "</div></td>" +
+        "<td class='num'>" + chg + "</td>" +
+        "<td class='num'>" + money(v.roundTrip, v.currency) + (v.roundTripWithBag != null ? "<div class='muted'>with bag " + money(v.roundTripWithBag, v.currency) + "</div>" : "") + "</td>" +
+        "<td class='num'>" + money(v.oneWayOut, v.currency) + "</td>" +
+        "<td class='num'>" + money(v.oneWayBack, v.currency) + "</td>" +
+        "<td class='num'>" + money(v.oneWaysWithBag, v.currency) + "</td>" +
+        "<td>" + (v.links || []).map(function (l) {
+          return "<a class='lbtn' href='" + esc(l.url) + "' target='_blank' rel='noopener noreferrer'>" + esc(l.label) + "</a> ";
+        }).join("") + "</td></tr>";
+    });
+    html += "</tbody></table>";
+    $("view").innerHTML = html;
+  }
+
+  function openPanel(primaryId, addonId) {
+    var it = byId(result.itineraries, primaryId);
+    var mx = addonId && addonId !== "LH" ? byId(result.addons || [], addonId) : null;
+    if (!it) return;
+    var cells = cellMap();
+    var c = cells[cellKey(it.id, mx ? mx.id : null)] || cells[cellKey(it.id, null)];
+    state.sel = cellKey(it.id, mx ? mx.id : null);
+    $("pTitle").textContent = (it.origin || "") + " → " + (it.destination || "") + " " + fmtRange(it.outboundDate, it.returnDate) + (mx ? " + " + mx.id : "");
+    $("pStatus").innerHTML = c ? "<span class='status s-" + c.status + "'>" + esc(c.status === "ok" ? "Works" : (c.status === "catch" ? "Works with a catch" : "Doesn’t work")) + "</span>" : "";
+    var html = "";
+    if (c) html += timeline(it, mx, c) + reasons(c);
+    html += "<div class='sec'><h3>Flights</h3>" + directionBox(it, "Outbound", it.outbound) + (it.returning ? directionBox(it, "Return", it.returning) : (it.returnMissing ? "<div class='muted'>Return was not retrieved.</div>" : ""));
+    if (it.notes) html += "<div class='muted'>" + esc(it.notes) + "</div>";
+    html += linkBtns(it.links);
+    if (mx) {
+      html += "<div class='box'><div class='t'><span>Add-on " + esc(mx.id) + " · " + esc(mx.airlineSummary) + "</span><span>" + gbp(mx.pricePerPerson) + "</span></div>" +
+        "<div>" + esc(fmtRange(mx.outboundDate, mx.returnDate)) + " · " + esc(mx.cabin) + "</div>" +
+        "<div class='flights'>" + esc(dirLine(mx.outbound)) + "</div>" +
+        (mx.returning ? "<div class='flights'>↩ " + esc(dirLine(mx.returning)) + "</div>" : "") +
+        (mx.assumedReturn ? "<div class='muted'>Return time is carried from the earlier check.</div>" : "") +
+        linkBtns(mx.links) + "</div>";
+    }
+    html += "</div>";
+    if (c) {
+      html += "<div class='sec'><h3>Price</h3><table class='price'><tr><td>Long-haul × " + it.passengers + "</td><td>" + gbp(totalOf(it)) + "</td></tr>" +
+        (mx ? "<tr><td>Add-on × " + (mx.passengers || 1) + "</td><td>" + gbp((mx.pricePerPerson || 0) * (mx.passengers || 1)) + "</td></tr>" : "") +
+        "<tr class='total'><td>Total</td><td>" + gbp(c.total) + "</td></tr></table></div>";
+    } else {
+      html += "<div class='sec'><h3>Price</h3><table class='price'><tr><td>" + gbp(it.pricePerPerson) + " per person × " + it.passengers + "</td><td>" + gbp(totalOf(it)) + "</td></tr></table></div>";
+    }
+    html += "<div class='booknote'>Links open for <b>1 adult</b>. Set the passenger count on Google Flights before choosing a booking option. " + esc(it.sourceLabel === "mock" ? "This Duffel price is a mock." : "Re-check the fare before paying.") + "</div>";
+    html += "<div class='actions'><button type='button' id='btnVendorsFor'>Seller comparison</button> <button type='button' id='btnTrack'>Save to a trip</button></div>";
+    $("pBody").innerHTML = html;
+    $("panel").classList.add("open");
+    $("overlay").classList.add("open");
+    $("panel").setAttribute("aria-hidden", "false");
+    var vend = $("btnVendorsFor");
+    if (vend) vend.addEventListener("click", function () { askVendors(it); });
+    var track = $("btnTrack");
+    if (track) track.addEventListener("click", function () { trackIt(it); });
+  }
+  function directionBox(it, title, dir) {
+    var rows = (dir.legs || []).map(function (leg) {
+      return "<tr><td><b>" + esc(leg.flightNumber) + "</b></td><td>" + esc(leg.from) + "</td><td>" + esc(leg.departTime) + "</td><td>" + esc(leg.to) + "</td><td>" + esc(leg.arriveTime) + "</td><td>" + esc(leg.departDate) + (leg.arriveDate && leg.arriveDate !== leg.departDate ? "→" + leg.arriveDate : "") + "</td><td class='muted'>" + esc(leg.operatingCarrier || leg.airline) + (leg.durationMinutes ? " · " + layText(leg.durationMinutes) : "") + (leg.cabin ? " · " + esc(leg.cabin) : "") + "</td></tr>";
+    }).join("");
+    return "<div class='box'><div class='t'><span>" + esc(title) + "</span><span>" + esc(stopsLabel(it)) + "</span></div>" +
+      "<table class='seglist'><thead><tr><th>Flight</th><th>From</th><th>Dep</th><th>To</th><th>Arr</th><th>Date</th><th>Operated by</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
+  }
+  function reasons(c) {
+    var items = (c.reasonsNo || []).map(function (r) { return "<li class='no'>✗ " + esc(r) + "</li>"; })
+      .concat((c.catches || []).map(function (r) { return "<li class='catch'>⚠ " + esc(r) + "</li>"; }))
+      .concat((c.oks || []).map(function (r) { return "<li class='ok'>✓ " + esc(r) + "</li>"; }));
+    if (!items.length) return "";
+    return "<div class='sec'><h3>Why</h3><ul class='reasons'>" + items.join("") + "</ul></div>";
+  }
+  function timeline(it, mx, c) {
+    var start = "2026-12-16", end = "2027-01-01";
+    var a = Date.parse(start + "T00:00:00Z"), b = Date.parse(end + "T00:00:00Z");
+    var span = Math.round((b - a) / 86400000);
+    function pos(iso) { return ((Date.parse(iso + "T00:00:00Z") - a) / 86400000) / span * 100; }
+    function width(from, to) {
+      var days = Math.round((Date.parse(to + "T00:00:00Z") - Date.parse(from + "T00:00:00Z")) / 86400000) + 1;
+      return Math.max(4, days / span * 100);
+    }
+    var days = "";
+    for (var i = 0; i <= span; i++) {
+      var dt = new Date(a + i * 86400000);
+      var iso = dt.toISOString().slice(0, 10);
+      days += "<div class='" + (iso === "2026-12-24" ? "xmas" : "") + "'>" + dt.getUTCDate() + "</div>";
+    }
+    var x = pos("2026-12-24") + (100 / (span + 1) / 2);
+    var couple = it.returnDate ? "<div class='tl-row'><div class='tl-mark' style='left:" + x + "%'></div><div class='tl-bar couple" + (c && c.status === "no" ? " bad" : "") + "' style='left:" + pos(it.outboundDate) + "%;width:" + width(it.outboundDate, it.returnDate) + "%'>Florida</div></div>" : "";
+    var mex = mx && mx.returnDate ? "<div class='tl-row'><div class='tl-mark' style='left:" + x + "%'></div><div class='tl-bar mex" + (c && c.status === "no" ? " bad" : "") + "' style='left:" + pos(mx.outboundDate) + "%;width:" + width(mx.outboundDate, mx.returnDate) + "%'>Mexico " + esc(mx.id) + "</div></div>" : "";
+    return "<div class='sec'><h3>Timeline</h3><div class='tl-days' style='grid-template-columns:repeat(" + (span + 1) + ",1fr)'>" + days + "</div>" + couple + mex + "<div class='muted'>Red line is Christmas Eve.</div></div>";
+  }
+  function closePanel() {
+    $("panel").classList.remove("open");
+    $("overlay").classList.remove("open");
+    $("panel").setAttribute("aria-hidden", "true");
+  }
+
+  function queryFromForm() {
+    var providers = [];
+    if ($("pSerp").checked) providers.push("serpapi");
+    if ($("pSearch").checked) providers.push("searchapi");
+    if ($("pTp").checked) providers.push("travelpayouts");
+    if ($("pDuffel").checked) providers.push("duffel");
+    var nights = $("nights").value.trim();
+    return {
+      origins: splitList($("origins").value),
+      destinations: splitList($("destinations").value),
+      outboundFrom: $("outFrom").value,
+      outboundTo: $("outTo").value || $("outFrom").value,
+      returnFrom: $("retFrom").value || null,
+      returnTo: $("retTo").value || null,
+      nights: nights ? Number(nights) : null,
+      tripType: $("tripType").value,
+      adults: Number($("adults").value || 1),
+      cabin: $("cabin").value,
+      cabinShortHaul: $("cabinShort").value,
+      checkedBags: Number($("bags").value || 0),
+      currency: "GBP",
+      providers: providers,
+      nonstopOnly: $("qNonstop").checked,
+      returnChoices: Number($("returnChoices").value || 3),
+      fetchReturns: true,
+      cacheOnly: $("cacheOnly").checked,
+      confirmed: false
+    };
+  }
+  function showEstimate(est, canRun) {
+    if (!est) { $("estimate").innerHTML = ""; return; }
+    var bits = ["<b>" + est.liveCalls + "</b> live calls, <b>" + est.cachedCalls + "</b> already cached, <b>" + est.skippedCalls + "</b> skipped"];
+    if (est.returnLookupsUpperBound) bits.push("up to <b>" + est.returnLookupsUpperBound + "</b> return lookups");
+    var lines = (est.lines || []).slice(0, 12).map(function (l) { return "<li>" + esc(l) + "</li>"; }).join("");
+    var warns = (est.warnings || []).map(function (w) { return "<div>" + esc(w) + "</div>"; }).join("");
+    $("estimate").innerHTML = bits.join(" · ") + warns + (lines ? "<ul>" + lines + "</ul>" : "");
+    $("btnRun").disabled = !canRun;
+    pendingQuery = canRun ? queryFromForm() : null;
+  }
+  function api(path, body) {
+    var opts = { headers: { "Accept": "application/json" } };
+    if (body !== undefined) {
+      opts.method = "POST";
+      opts.headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(body);
+    }
+    return fetch(path, opts).then(function (r) {
+      return r.text().then(function (text) {
+        var parsed = {};
+        try { parsed = text ? JSON.parse(text) : {}; } catch (e) { parsed = { error: text }; }
+        return { status: r.status, body: parsed, text: text };
+      });
+    });
+  }
+  function setResult(data) {
+    result = data;
+    applySuggested(data.suggestedFilters || { hideMock: true });
+    tab = (data.cells || []).length ? "grid" : "itineraries";
+    if ((data.vendors || []).length && !(data.itineraries || []).length) tab = "vendors";
+    render();
+  }
+  function loadSample() {
+    return api("/api/sample").then(function (res) {
+      if (res.body && res.body.itineraries) setResult(res.body);
+      else $("estimate").textContent = res.body.error || "Sample failed to load.";
+    });
+  }
+  function askVendors(it) {
+    if (!result) return;
+    if (result.scenarioLabel === "florida" || result.id === "florida-dec-2026") {
+      closePanel();
+      tab = "vendors";
+      render();
+      return;
+    }
+    api("/api/results/" + encodeURIComponent(result.id) + "/vendors", {
+      itineraryId: it.id, markets: ["uk"], cacheOnly: $("cacheOnly").checked, confirmed: false
+    }).then(function (res) {
+      if (res.body.needsConfirmation) {
+        var go = window.confirm((res.body.estimate && res.body.estimate.lines || []).join("\n") + "\n\nFetch seller offers now?");
+        if (!go) return;
+        return api("/api/results/" + encodeURIComponent(result.id) + "/vendors", {
+          itineraryId: it.id, markets: ["uk", "us"], cacheOnly: $("cacheOnly").checked, confirmed: true
+        });
+      }
+      return res;
+    }).then(function (res) {
+      if (!res) return;
+      if (res.body && res.body.result) {
+        result = res.body.result;
+        closePanel();
+        tab = "vendors";
+        render();
+      } else if (res.body && res.body.error) {
+        window.alert(res.body.error);
+      }
+    });
+  }
+  function trackIt(it) {
+    var slug = window.prompt("Trip slug to store this fare against", "florida-dec-2026");
+    if (!slug) return;
+    api("/api/results/" + encodeURIComponent(result.id) + "/track", { itineraryId: it.id, tripSlug: slug }).then(function (res) {
+      if (res.body && res.body.slug) window.alert("Saved on investigation " + res.body.slug + ". The CLI can show it with: clawfare flight list " + res.body.slug);
+      else window.alert((res.body && res.body.error) || "Could not save.");
+    });
+  }
+  function editedResult() {
+    applyStoredNotes();
+    return result;
+  }
+  function download(path, body, fallback) {
+    fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(function (r) {
+      var disp = r.headers.get("Content-Disposition") || "";
+      var match = /filename="([^"]+)"/.exec(disp);
+      return r.blob().then(function (blob) {
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = match ? match[1] : fallback;
+        a.click();
+      });
+    });
+  }
+
+  function boot(data) {
+    if (data) setResult(data);
+  }
+
+  $("btnEstimate").addEventListener("click", function () {
+    var q = queryFromForm();
+    api("/api/estimate", q).then(function (res) {
+      var est = res.body;
+      var runnable = est && !((est.warnings || []).some(function (w) { return /Enter at least|Check the dates|Set a return|No outbound|Narrow/.test(w); })) && (q.cacheOnly || est.liveCalls > 0 || est.cachedCalls > 0 || est.returnLookupsUpperBound > 0);
+      showEstimate(est, !!runnable);
+    });
+  });
+  $("btnRun").addEventListener("click", function () {
+    var q = pendingQuery || queryFromForm();
+    q.confirmed = true;
+    $("btnRun").disabled = true;
+    api("/api/search", q).then(function (res) {
+      if (res.body && res.body.result) {
+        setResult(res.body.result);
+        $("estimate").textContent = "Search saved as " + res.body.result.id + ".";
+        refreshSaved();
+      } else if (res.body && res.body.needsConfirmation) {
+        showEstimate(res.body.estimate, true);
+      } else {
+        $("estimate").textContent = (res.body && res.body.error) || "Search failed.";
+        $("btnRun").disabled = false;
+      }
+    });
+  });
+  $("btnSample").addEventListener("click", loadSample);
+  $("btnQuota").addEventListener("click", function () {
+    $("statusLine").textContent = "Checking quota…";
+    api("/api/quota").then(function (res) {
+      var rows = Array.isArray(res.body) ? res.body : [];
+      $("statusLine").innerHTML = rows.map(function (q) {
+        var rem = q.remaining == null ? "" : (" · " + q.remaining + " left" + (q.limit != null ? " of " + q.limit : ""));
+        return "<div><b>" + esc(q.provider) + "</b>" + (q.configured ? " configured" : " not configured") + esc(rem) + (q.note ? " — " + esc(q.note) : "") + "</div>";
+      }).join("");
+    });
+  });
+  var invList = $("invList");
+  if (invList) invList.addEventListener("click", function (e) {
+    var b = e.target.closest("button");
+    if (!b) return;
+    api("/api/results/" + encodeURIComponent(b.getAttribute("data-inv"))).then(function (res) {
+      if (res.body && res.body.itineraries) setResult(res.body);
+    });
+  });
+  $("btnOpen").addEventListener("click", function () {
+    var id = $("saved").value;
+    if (!id) return;
+    api("/api/results/" + encodeURIComponent(id)).then(function (res) {
+      if (res.body && res.body.itineraries) setResult(res.body);
+      else $("estimate").textContent = (res.body && res.body.error) || "Not found.";
+    });
+  });
+  function refreshSaved() {
+    api("/api/searches").then(function (res) {
+      var rows = Array.isArray(res.body) ? res.body : [];
+      $("saved").innerHTML = "<option value=''>—</option>" + rows.map(function (r) {
+        return "<option value='" + esc(r.id) + "'>" + esc(r.title || r.id) + "</option>";
+      }).join("");
+      var list = $("invList");
+      if (list) {
+        list.innerHTML = rows.map(function (r) {
+          return "<button type='button' data-inv='" + esc(r.id) + "'>" + esc(r.title || r.id) + "</button>";
+        }).join("");
+      }
+    }).catch(function () {});
+  }
+  function refreshStatus() {
+    api("/api/status").then(function (res) {
+      var p = (res.body && res.body.providers) || [];
+      $("statusLine").innerHTML = p.map(function (q) { return "<div>" + esc(q.provider) + ": " + esc(q.note || (q.configured ? "configured" : "not configured")) + "</div>"; }).join("");
+    }).catch(function () {});
+  }
+  $("filterBar").addEventListener("change", function () { if (!result) return; readControls(); render(); });
+  $("filterBar").addEventListener("input", function (e) {
+    if (!result || !e.target || e.target.tagName === "SELECT") return;
+    readControls();
+    render();
+  });
+  $("cabinSeg").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    state.cabin = b.getAttribute("data-v");
+    state.eu = state.cabin === "EU";
+    $("fEu").checked = state.eu;
+    markSeg("cabinSeg", state.cabin);
+    if (result) render();
+  });
+  $("sortSeg").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    state.sort = b.getAttribute("data-v");
+    markSeg("sortSeg", state.sort);
+    if (result) render();
+  });
+  $("filterBar").addEventListener("click", function (e) {
+    var b = e.target.closest("#nightSeg button, #originSeg button");
+    if (!b) return;
+    var seg = b.parentNode.id;
+    if (seg === "nightSeg") state.nights = b.getAttribute("data-v");
+    if (seg === "originSeg") { state.origin = b.getAttribute("data-v"); state.lhr = false; $("fLhr").checked = false; }
+    if (result) render();
+  });
+  $("btnSuggested").addEventListener("click", function () {
+    if (!result) return;
+    applySuggested(result.suggestedFilters || {});
+    render();
+  });
+  $("btnClear").addEventListener("click", function () {
+    var hide = state.hideMock;
+    state = blankState();
+    state.hideMock = hide;
+    syncControls();
+    if (result) render();
+  });
+  $("tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    tab = b.getAttribute("data-tab");
+    render();
+  });
+  $("view").addEventListener("click", function (e) {
+    if (e.target.closest("a, textarea, select, button")) return;
+    var cell = e.target.closest("[data-p]");
+    if (cell && result) openPanel(cell.getAttribute("data-p"), cell.getAttribute("data-a"));
+  });
+  $("view").addEventListener("change", function (e) {
+    if (e.target.id === "vMarket") { state.market = e.target.value; renderVendors(); return; }
+    if (e.target.classList.contains("trustpick")) {
+      var v = findVendor(e.target.getAttribute("data-market"), e.target.getAttribute("data-vendor"));
+      if (!v) return;
+      v.trust = e.target.value;
+      try { localStorage.setItem(noteStorageKey(v) + ":trust", v.trust); } catch (err) {}
+      render();
+    }
+  });
+  $("view").addEventListener("input", function (e) {
+    if (!e.target.classList.contains("noteedit")) return;
+    var v = findVendor(e.target.getAttribute("data-market"), e.target.getAttribute("data-vendor"));
+    if (!v) return;
+    v.note = e.target.value;
+    try { localStorage.setItem(noteStorageKey(v) + ":note", v.note); } catch (err) {}
+  });
+  function findVendor(market, vendor) {
+    var rows = result && result.vendors || [];
+    for (var i = 0; i < rows.length; i++) if (rows[i].market === market && rows[i].vendor === vendor) return rows[i];
+    return null;
+  }
+  $("summary").addEventListener("click", function (e) {
+    var card = e.target.closest(".sumcard[data-p]");
+    if (card) openPanel(card.getAttribute("data-p"), card.getAttribute("data-a"));
+  });
+  $("pClose").addEventListener("click", closePanel);
+  $("overlay").addEventListener("click", closePanel);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePanel(); });
+  $("btnHtml").addEventListener("click", function () {
+    if (!result) return;
+    download("/api/export/html", { result: editedResult(), filters: currentFilters(), kind: "itineraries" }, "clawfare.html");
+  });
+  $("btnCsv").addEventListener("click", function () {
+    if (!result) return;
+    download("/api/export/csv", { result: editedResult(), filters: currentFilters(), kind: tab === "vendors" ? "vendors" : "itineraries" }, "clawfare.csv");
+  });
+
+  if (window.__SNAPSHOT__) {
+    boot(window.__SNAPSHOT__);
+  } else {
+    refreshStatus();
+    loadSample().then(refreshSaved);
+  }
+})();
+</script>
+</body>
+</html>
