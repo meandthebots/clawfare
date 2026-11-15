@@ -2,6 +2,7 @@ package com.clawfare.search
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
@@ -600,6 +601,11 @@ class DuffelProvider(
             if (query.nonstopOnly && directions.any { it.size != 1 }) return@mapNotNull null
             val amount = offer.str("total_amount")?.toDoubleOrNull() ?: return@mapNotNull null
             val currency = offer.str("total_currency") ?: query.currency
+            val evidence = parseDuffelRefundEvidence(offer, fetchedAt)
+            // The API includes an independent live_mode signal for every offer.
+            // Never trust the access token prefix alone to promote test inventory.
+            val verifiedLiveMode = liveMode && offer["live_mode"]?.jsonPrimitive?.booleanOrNull == true
+            val currentlyValid = verifiedLiveMode && !fromCache && !evidence.isExpired()
             // Duffel total_amount is for all passengers. Show per person.
             val per = amount / query.adults.coerceAtLeast(1)
             assembleItinerary(
@@ -612,19 +618,26 @@ class DuffelProvider(
                 returnLegs = directions.getOrNull(1),
                 returnMissing = query.tripType != "one_way" && directions.getOrNull(1).isNullOrEmpty(),
                 source = id,
-                sourceLabel = if (!liveMode) "mock" else if (fromCache) "cached" else "live",
-                livePrice = liveMode && !fromCache,
+                sourceLabel =
+                    when {
+                        !verifiedLiveMode -> "mock"
+                        fromCache -> "cached"
+                        !currentlyValid -> "expired"
+                        else -> "live"
+                    },
+                livePrice = currentlyValid,
                 fetchedAt = fetchedAt,
                 notes =
                     when {
-                        !liveMode -> "Duffel test-mode offer. Not a real price."
+                        !verifiedLiveMode -> "Duffel sandbox or unverified mode. Not a real live price."
                         fromCache -> "Historical Duffel live quote: cached, not verified available now."
+                        !currentlyValid -> "Duffel offer expired or missing expiry; not a current offer."
                         else -> "Duffel live quote; confirm refund method and all fees independently."
                     },
             ).copy(
                 fareBrand = offer.str("fare_brand_name"),
                 farePolicyKey = offer["conditions"]?.toString()?.let(::sha256),
-                refundEvidence = parseDuffelRefundEvidence(offer, fetchedAt),
+                refundEvidence = evidence,
             )
         }
     }
