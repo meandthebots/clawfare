@@ -1,7 +1,7 @@
 package com.clawfare
 
-import com.clawfare.db.ClawfareDatabase
 import com.clawfare.cli.ClawfareCommand
+import com.clawfare.db.ClawfareDatabase
 import com.clawfare.db.FlightQueries
 import com.clawfare.db.PriceHistoryQueries
 import com.clawfare.export.JsonExporter
@@ -65,7 +65,8 @@ class ReviewRegressionTest {
                 }
             }
         val provider = GoogleFlightsProvider("serpapi", "SerpApi", "test-key", GoogleFlightsStyle.SERPAPI, http)
-        val itinerary = SampleData.florida().itineraries.first { it.returning != null }.copy(passengers = 2)
+        val selected = SampleData.florida().itineraries.first { it.returning != null }
+        val itinerary = selected.copy(passengers = 2)
         val cacheDir = File.createTempFile("clawfare-review-cache", "")
         cacheDir.delete()
         cacheDir.mkdirs()
@@ -131,7 +132,8 @@ class ReviewRegressionTest {
         val response = SearchService(listOf(provider), DiskCache(cacheDir), NoopSink).search(query)
         assertTrue(response.ok)
         assertEquals(3, response.result!!.itineraries.size)
-        assertEquals(2100.0, response.result!!.itineraries.first { it.id == "serp-basic" }.pricePerPerson)
+        val basic = response.result!!.itineraries.first { it.id == "serp-basic" }
+        assertEquals(2100.0, basic.pricePerPerson)
     }
 
     @Test
@@ -160,12 +162,23 @@ class ReviewRegressionTest {
             assertNotNull(entry.offerIdentity)
         }
         val flex = flights.first { it.source == "serpapi" && it.fareBrand == "Flex" }
-        val refreshed = offers.map { if (it.id == "serp-flex") it.copy(pricePerPerson = 3000.0, fetchedAt = "2026-11-16T12:00:00Z") else it }
+        val refreshed =
+            offers.map { offer ->
+                if (offer.id == "serp-flex") {
+                    offer.copy(
+                        pricePerPerson = 3000.0,
+                        fetchedAt = "2026-11-16T12:00:00Z",
+                    )
+                } else {
+                    offer
+                }
+            }
         FareStore.save(StoredResult(shell.copy(itineraries = refreshed)))
         assertEquals(2, PriceHistoryQueries.getByFlightId(flex.id).size)
         val reloaded = FareStore.project(shell.id)!!
         assertEquals(3, reloaded.itineraries.size)
-        assertEquals("free-refund", reloaded.itineraries.first { it.id == "serp-flex" }.farePolicyKey)
+        val restoredFlex = reloaded.itineraries.first { it.id == "serp-flex" }
+        assertEquals("free-refund", restoredFlex.farePolicyKey)
     }
 
     @Test
@@ -214,7 +227,8 @@ class ReviewRegressionTest {
         assertEquals(1, networkCalls)
         val flight = FlightQueries.listByInvestigation("review-reingest").single()
         assertEquals(1, PriceHistoryQueries.getByFlightId(flight.id).size)
-        assertEquals("book-live-123", FareStore.load("review-reingest")!!.tokens.values.single().bookingToken)
+        val token = FareStore.load("review-reingest")!!.tokens.values.single()
+        assertEquals("book-live-123", token.bookingToken)
     }
 
     @Test
@@ -239,6 +253,7 @@ class ReviewRegressionTest {
         assertEquals(1200.0, PriceHistoryQueries.getByFlightId("old-id").single().amount)
         assertEquals(null, FlightQueries.getById("old-id")!!.offerIdentity)
     }
+
     @Test
     fun legacyInvestigationAndFlightCommandsReadPortedProviderRecords() {
         ClawfareDatabase.connectInMemory()
@@ -257,5 +272,4 @@ class ReviewRegressionTest {
         assertEquals(0, CommandLine(ClawfareCommand()).execute("flight", "show", flight.id))
         assertEquals(0, CommandLine(ClawfareCommand()).execute("flight", "history", result.id, "--by-flight"))
     }
-
 }
