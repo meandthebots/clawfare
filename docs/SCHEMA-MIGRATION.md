@@ -149,8 +149,11 @@ Raw provider responses, keyed by provider and a hash of the request with credent
 
 ## Additional fare-search migration safeguards
 
-The database now uses `PRAGMA user_version = 1` after successful schema
-initialization. Prior to upgrading an existing version-0 database, Clawfare
+The database now uses `PRAGMA user_version = 2` after successful schema
+initialization. Version 2 adds the nullable `flights.refund_evidence_json`
+column, preserving supplier cancellation terms without rewriting old flight
+records. Existing version-1 databases receive an online recovery snapshot
+*before* the additive migration. Versions 0 and 1 are both supported. Prior to upgrading an existing version-0 database, Clawfare
 acquires a process-wide advisory lock file (`<database>.migration.lock`)
 and creates a crash-consistent SQLite `VACUUM INTO` snapshot named
 `<database>.backup-<epoch>.sqlite`. Backups are never overwritten. If a

@@ -145,6 +145,8 @@ data class FlightEntry(
     val fareBrand: String? = null,
     @SerialName("fare_policy_key")
     val farePolicyKey: String? = null,
+    @SerialName("refund_evidence_json")
+    val refundEvidenceJson: String? = null,
     /** Provider offer-family identity, distinct from the actual airline booking URL. */
     @SerialName("offer_identity")
     val offerIdentity: String? = null,

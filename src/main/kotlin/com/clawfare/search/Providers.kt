@@ -2,6 +2,7 @@ package com.clawfare.search
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
@@ -437,21 +438,28 @@ class TravelpayoutsProvider(
 class DuffelProvider(
     private val token: String?,
     private val http: HttpFetcher,
+    private val liveEnabled: Boolean = System.getenv("DUFFEL_LIVE_ENABLED").equals("true", true),
 ) : FareProvider {
     override val id = "duffel"
     override val displayName = "Duffel"
-    override val configured = !token.isNullOrBlank()
-    override val priceKind = "mock"
     private val secret = token.orEmpty()
+    private val testMode = secret.startsWith("duffel_test_")
+    private val liveMode = secret.startsWith("duffel_live_") && liveEnabled
+    override val configured = testMode || liveMode
+    override val priceKind = if (liveMode) "live" else "mock"
 
-    override fun quota(): QuotaView {
-        val mode = if (secret.contains("test")) "Test token detected." else "Token is not marked as a test key."
-        return QuotaView(
+    override fun quota(): QuotaView =
+        QuotaView(
             id,
             configured,
-            note = if (configured) "Mock offers only — never a real price. $mode" else "Set DUFFEL_ACCESS_TOKEN (test mode).",
+            note =
+                when {
+                    liveMode -> "Live mode explicitly enabled; search and offer GET only (no order creation)."
+                    testMode -> "Sandbox token; all prices are mock."
+                    secret.startsWith("duffel_live_") -> "Live token is disabled; set DUFFEL_LIVE_ENABLED=true explicitly."
+                    else -> "Set DUFFEL_ACCESS_TOKEN to a test token or opt in to live mode."
+                },
         )
-    }
 
     override fun baseCalls(query: SearchQuery): List<CallSpec> =
         datePairs(query).flatMap { (out, ret) ->
@@ -459,15 +467,8 @@ class DuffelProvider(
                 query.destinations.map { dest ->
                     CallSpec(
                         id,
-                        "Duffel mock $origin→$dest $out${ret?.let { "→$it" } ?: ""}",
-                        mapOf(
-                            "origin" to origin,
-                            "destination" to dest,
-                            "outbound" to out,
-                            "return" to (ret ?: ""),
-                            "cabin" to query.cabin,
-                            "adults" to query.adults.toString(),
-                        ),
+                        "Duffel ${if (liveMode) "live" else "mock"} $origin→$dest $out${ret?.let { "→$it" } ?: ""}",
+                        requestParams(query, origin, dest, out, ret),
                     )
                 }
             }
@@ -478,10 +479,14 @@ class DuffelProvider(
         cache: ResponseCache,
         allowNetwork: Boolean,
     ): ProviderOutcome {
-        val warnings = mutableListOf("Duffel offers are test-mode mocks and are not real prices.")
-        if (!secret.contains("test") && configured) {
-            warnings += "DUFFEL_ACCESS_TOKEN does not look like a test token. Results are still labelled mock."
-        }
+        val warnings =
+            mutableListOf(
+                if (liveMode) {
+                    "Duffel live offers expire quickly; refund method and servicing fees remain unverified."
+                } else {
+                    "Duffel offers are test-mode mocks and are not real prices."
+                },
+            )
         if (!configured && allowNetwork) return ProviderOutcome(warnings = warnings + "Duffel is not configured (DUFFEL_ACCESS_TOKEN).")
         var live = 0
         var cached = 0
@@ -489,23 +494,36 @@ class DuffelProvider(
         for ((outDate, ret) in datePairs(query)) {
             for (origin in query.origins) {
                 for (dest in query.destinations) {
-                    val params =
-                        mapOf(
-                            "origin" to origin,
-                            "destination" to dest,
-                            "outbound" to outDate,
-                            "return" to (ret ?: ""),
-                            "cabin" to query.cabin,
-                            "adults" to query.adults.toString(),
-                        )
+                    val params = requestParams(query, origin, dest, outDate, ret)
                     val loaded = read(cache, params, query, origin, dest, outDate, ret, allowNetwork, warnings) ?: continue
                     if (loaded.first) cached++ else live++
-                    out += parseOffers(loaded.second, query, loaded.third)
+                    out += parseOffers(loaded.second, query, loaded.third, fromCache = loaded.first)
                 }
             }
         }
         return ProviderOutcome(out, emptyMap(), warnings, live, cached)
     }
+
+    /**
+     * Sandbox and live Duffel searches must NEVER share cache identity.
+     * The scope is not a secret and is also included in the estimate's call key.
+     */
+    private fun requestParams(
+        query: SearchQuery,
+        origin: String,
+        dest: String,
+        outbound: String,
+        returning: String?,
+    ): Map<String, String> =
+        mapOf(
+            "origin" to origin,
+            "destination" to dest,
+            "outbound" to outbound,
+            "return" to (returning ?: ""),
+            "cabin" to query.cabin,
+            "adults" to query.adults.toString(),
+            "duffel_mode" to if (liveMode) "live" else "test",
+        )
 
     private fun read(
         cache: ResponseCache,
@@ -578,6 +596,7 @@ class DuffelProvider(
         body: String,
         query: SearchQuery,
         fetchedAt: String,
+        fromCache: Boolean,
     ): List<Itinerary> {
         val root = runCatching { AppJson.parseToJsonElement(body) as JsonObject }.getOrNull() ?: return emptyList()
         val data = root["data"] as? JsonObject ?: return emptyList()
@@ -594,6 +613,12 @@ class DuffelProvider(
             if (query.nonstopOnly && directions.any { it.size != 1 }) return@mapNotNull null
             val amount = offer.str("total_amount")?.toDoubleOrNull() ?: return@mapNotNull null
             val currency = offer.str("total_currency") ?: query.currency
+            val evidence = parseDuffelRefundEvidence(offer, fetchedAt)
+            // The API includes an independent live_mode signal for every offer.
+            // Never trust the access token prefix alone to promote test inventory.
+            val verifiedLiveMode = liveMode && offer["live_mode"]?.jsonPrimitive?.booleanOrNull == true
+            val seatsAvailable = evidence.availablePassengers == null || evidence.availablePassengers >= query.adults
+            val currentlyValid = verifiedLiveMode && !fromCache && !evidence.isExpired() && seatsAvailable
             // Duffel total_amount is for all passengers. Show per person.
             val per = amount / query.adults.coerceAtLeast(1)
             assembleItinerary(
@@ -606,17 +631,59 @@ class DuffelProvider(
                 returnLegs = directions.getOrNull(1),
                 returnMissing = query.tripType != "one_way" && directions.getOrNull(1).isNullOrEmpty(),
                 source = id,
-                sourceLabel = "mock",
-                livePrice = false,
+                sourceLabel =
+                    when {
+                        !verifiedLiveMode -> "mock"
+                        fromCache -> "cached"
+                        !seatsAvailable -> "unavailable"
+                        !currentlyValid -> "expired"
+                        else -> "live"
+                    },
+                livePrice = currentlyValid,
                 fetchedAt = fetchedAt,
-                notes = "Duffel test-mode offer. Not a real price.",
+                notes =
+                    when {
+                        !verifiedLiveMode -> "Duffel sandbox or unverified mode. Not a real live price."
+                        fromCache -> "Historical Duffel live quote: cached, not verified available now."
+                        !seatsAvailable -> "Duffel reports fewer seats than the requested passenger count."
+                        !currentlyValid -> "Duffel offer expired or missing expiry; not a current offer."
+                        else -> "Duffel live quote; confirm refund method and all fees independently."
+                    },
             ).copy(
                 fareBrand = offer.str("fare_brand_name"),
-                // Refund rules are not yet verified. Retain the raw-policy fingerprint
-                // so two differently conditioned offers cannot overwrite one another.
                 farePolicyKey = offer["conditions"]?.toString()?.let(::sha256),
+                refundEvidence = evidence,
             )
         }
+    }
+
+    /**
+     * Explicit, read-only repricing of an existing offer; never creates orders.
+     * The caller must understand that a GET does not guarantee ticket inventory.
+     */
+    fun refreshOffer(offerId: String): RefundEvidence = refreshOfferWithPricing(offerId).refund
+
+    fun refreshOfferWithPricing(offerId: String): DuffelOfferSnapshot {
+        require(liveMode) { "Live Duffel verification requires DUFFEL_LIVE_ENABLED and a live token." }
+        require(Regex("""^off_[A-Za-z0-9_]+$""").matches(offerId)) { "Invalid Duffel offer ID" }
+        val response =
+            http.request(
+                "GET",
+                "https://api.duffel.com/air/offers/$offerId",
+                mapOf(
+                    "Authorization" to "Bearer $secret",
+                    "Duffel-Version" to "v2",
+                    "Accept" to "application/json",
+                ),
+                null,
+            )
+        require(response.status in 200..299) { "Duffel offer refresh failed: HTTP ${response.status}" }
+        val root = AppJson.parseToJsonElement(response.body) as? JsonObject ?: error("Malformed Duffel response")
+        val offer = root["data"] as? JsonObject ?: error("Duffel offer data missing")
+        val checkedAt = java.time.Instant.now()
+        val refreshed = parseDuffelOfferSnapshot(offer, checkedAt.toString())
+        require(refreshed.offerId == offerId) { "Duffel returned a different offer ID" }
+        return refreshed
     }
 
     private fun parseSegment(seg: JsonObject): Leg? {
