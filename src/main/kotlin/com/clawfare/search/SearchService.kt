@@ -198,7 +198,7 @@ class SearchService(
                     listOf(
                         NoteCard(
                             "Sellers",
-                            "Round trip beside two one-ways. All-in GBP includes the checked bags from the search (${stored.result.checkedBags}). Where Google listed a first-bag fee, that fee is used; otherwise the US\$30 per direction fallback from the Aeromexico transborder table is applied.",
+                            "Seller prices and all-in GBP are totals for ${itinerary.passengers} adult(s), unlike the itinerary grid, which displays per-person fares. The baggage estimate includes ${stored.result.checkedBags} checked bag(s) per adult. Where Google listed a first-bag fee, that fee is used; otherwise an illustrative US\$30 per bag per direction fallback is applied (verify actual airline baggage terms).",
                         ),
                         NoteCard(
                             "Reputation",
