@@ -424,7 +424,14 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     }
     return rows;
   }
-  function quoteable(it) { return it.sourceLabel === "live" && it.livePrice === true; }
+  function quoteable(it) {
+    if (it.sourceLabel !== "live" || it.livePrice !== true) return false;
+    var observed = Date.parse(it.fetchedAt || "");
+    var age = Date.now() - observed;
+    if (!Number.isFinite(observed) || age < 0 || age > 2 * 60 * 60 * 1000) return false;
+    var expiry = it.refundEvidence && it.refundEvidence.expiresAt;
+    return !it.refundEvidence || (expiry && Date.parse(expiry) > Date.now());
+  }
   function verifiedCashRefund(it) {
     var e = it.refundEvidence;
     if (!e || it.sourceLabel !== "live" || !it.livePrice || e.allowed !== true ||
@@ -586,6 +593,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
   }
   function sourceTag(it) {
     var label = it.sourceLabel || "";
+    if (label === "live" && !quoteable(it)) label = "cached";
     var cls = label === "mock" ? "mock" : (label === "live" ? "live" : "cached");
     var text = label === "mock" ? "Mock" : (label === "cached" ? "Cached" : (label === "sample" ? "Sample" : (label === "live" ? "Live" : label)));
     if (!it.livePrice && label !== "mock" && label !== "sample") text += " · not a live fare";
