@@ -605,7 +605,8 @@ class DuffelProvider(
             // The API includes an independent live_mode signal for every offer.
             // Never trust the access token prefix alone to promote test inventory.
             val verifiedLiveMode = liveMode && offer["live_mode"]?.jsonPrimitive?.booleanOrNull == true
-            val currentlyValid = verifiedLiveMode && !fromCache && !evidence.isExpired()
+            val seatsAvailable = evidence.availablePassengers == null || evidence.availablePassengers >= query.adults
+            val currentlyValid = verifiedLiveMode && !fromCache && !evidence.isExpired() && seatsAvailable
             // Duffel total_amount is for all passengers. Show per person.
             val per = amount / query.adults.coerceAtLeast(1)
             assembleItinerary(
