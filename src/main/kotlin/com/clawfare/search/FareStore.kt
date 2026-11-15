@@ -310,7 +310,8 @@ object FareStore : FareSink {
                 latest == null ||
                     latest.amount != current.amount ||
                     latest.currency != current.currency ||
-                    latest.checkedAt != current.checkedAt
+                    // Re-reading an already observed cached quote is not a fresh price check.
+                    (itinerary.sourceLabel != "cached" && latest.checkedAt != current.checkedAt)
             if (changed) PriceHistoryQueries.create(current)
         }
         val token = stored.tokens[itinerary.id]
