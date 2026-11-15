@@ -85,7 +85,8 @@ fun parseDuffelRefundEvidence(
 
 private fun parseDuffelBaggage(offer: JsonObject): List<String> {
     val slices = offer["slices"] as? kotlinx.serialization.json.JsonArray ?: return emptyList()
-    val descriptions = slices.flatMap { slice ->
+    val descriptions =
+        slices.flatMap { slice ->
         val segments =
             (slice as? JsonObject)
                 ?.get("segments") as? kotlinx.serialization.json.JsonArray ?: return@flatMap emptyList()
