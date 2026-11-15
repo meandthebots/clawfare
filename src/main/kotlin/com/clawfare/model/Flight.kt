@@ -140,4 +140,7 @@ data class FlightEntry(
     val returnLink: String? = null,
     @SerialName("price_history")
     val priceHistory: List<PricePoint>? = null,
+    /** Provider offer-family identity, distinct from the actual airline booking URL. */
+    @SerialName("offer_identity")
+    val offerIdentity: String? = null,
 )
