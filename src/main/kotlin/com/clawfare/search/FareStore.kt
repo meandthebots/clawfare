@@ -340,9 +340,11 @@ object FareStore : FareSink {
         val old = FlightQueries.getById(FlightValidator.generateId(share))
         val oldDisplayId = old?.displayId
         val sameLegacyProduct =
-            oldDisplayId != null &&
-                (oldDisplayId == itinerary.id ||
-                    itinerary.id.startsWith(itinerary.source + "-" + oldDisplayId + "-"))
+            when {
+                oldDisplayId == null -> false
+                oldDisplayId == itinerary.id -> true
+                else -> itinerary.id.startsWith(itinerary.source + "-" + oldDisplayId + "-")
+            }
         val offerIdentity =
             if (old != null &&
                 old.source == itinerary.source &&
