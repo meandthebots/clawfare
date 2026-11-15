@@ -111,7 +111,19 @@ object VendorMath {
                 val mixName = "Mix (any vendor): ${outBest.key} out + ${backBest.key} back"
                 val worst = worseTrust(trustOf(outBest.key).second, trustOf(backBest.key).second)
                 out +=
-                    row(market, mixName, null, outBest.value, backBest.value, checkedBags, true, worst, links[market].orEmpty(), fetchedAt, passengers)
+                    row(
+                        market,
+                        mixName,
+                        null,
+                        outBest.value,
+                        backBest.value,
+                        checkedBags,
+                        true,
+                        worst,
+                        links[market].orEmpty(),
+                        fetchedAt,
+                        passengers,
+                    )
             }
         }
         return out.sortedWith(compareBy({ it.allInGbp == null }, { it.allInGbp ?: Double.MAX_VALUE }))
@@ -138,7 +150,9 @@ object VendorMath {
         val rtb = rt?.let { it.price + bagFee(market, it.bags, 2, checkedBags, passengers) }
         val sb =
             if (ow != null && back != null) {
-                ow.price + bagFee(market, ow.bags, 1, checkedBags, passengers) + back.price + bagFee(market, back.bags, 1, checkedBags, passengers)
+                val outbound = ow.price + bagFee(market, ow.bags, 1, checkedBags, passengers)
+                val inbound = back.price + bagFee(market, back.bags, 1, checkedBags, passengers)
+                outbound + inbound
             } else {
                 null
             }
