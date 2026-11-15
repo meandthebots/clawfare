@@ -217,6 +217,39 @@ class DuffelRefundTest {
     }
 
     @Test
+    fun reopeningOldStoredLiveQuoteDowngradesItsStatus() {
+        ClawfareDatabase.connectInMemory()
+        val q =
+            SearchQuery(
+                origins = listOf("LHR"),
+                destinations = listOf("HND"),
+                outboundFrom = "2027-03-23",
+                tripType = "one_way",
+                adults = 2,
+                cabin = "business",
+            )
+        val payload = """{"data":{"offers":[${AppJson.encodeToString(JsonObject.serializer(), offer())}]}}"""
+        val http =
+            object : HttpFetcher {
+                override fun request(
+                    method: String,
+                    url: String,
+                    headers: Map<String, String>,
+                    body: String?,
+                ): HttpResult = HttpResult(200, payload)
+            }
+        val cacheRoot = File.createTempFile("duffel-stale", "")
+        cacheRoot.delete()
+        cacheRoot.mkdirs()
+        val fresh = DuffelProvider("duffel_live_fixture", http, true).search(q, DiskCache(cacheRoot), true).itineraries.single()
+        val historical = fresh.copy(fetchedAt = "2020-01-01T10:00:00Z")
+        FareStore.save(StoredResult(ResultSet(id = "stale-live-quote", title = "stale quote", itineraries = listOf(historical))))
+        val reopened = FareStore.project("stale-live-quote")!!.itineraries.single()
+        assertEquals("cached", reopened.sourceLabel)
+        assertFalse(reopened.livePrice)
+    }
+
+    @Test
     fun exactOfferRefreshUsesOnlyGetAndNeverBooks() {
         val methods = mutableListOf<String>()
         val http =
