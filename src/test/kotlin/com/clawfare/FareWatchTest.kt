@@ -38,6 +38,7 @@ class FareWatchTest {
             "watch-fixture",
             listOf(BatchScenario("direct", query, 0.0, 0.0, 0.0, 0.0)),
             maxLiveCalls = 1,
+            maxDailyLiveCalls = 3,
             minQuotaReserve = 5,
             requireNumericQuota = true,
         )
@@ -123,7 +124,34 @@ class FareWatchTest {
         assertEquals(300.0, lower.alerts.single().changeGbp)
         assertEquals(3, source.calls)
         assertEquals(3, dir.resolve("audit.ndjson").readLines().size)
+        assertEquals(3, dir.resolve("batch-budget.ndjson").readLines().size)
         assertEquals(2, dir.resolve("alerts.ndjson").readLines().size)
+        assertFailsWith<IllegalArgumentException> { cycle() }
+        assertEquals(3, source.calls)
+    }
+
+    @Test
+    fun malformedDailyLedgerFailsClosedBeforePaidSearch() {
+        val source = Scripted()
+        val sink = MemorySink()
+        val directory = File.createTempFile("watch-ledger", "")
+        directory.delete()
+        directory.mkdirs()
+        directory.resolve("batch-budget.ndjson").writeText("not valid JSON")
+        val service = SearchService(listOf(source), DiskCache(directory), sink)
+        assertFailsWith<Exception> {
+            FareWatch.runOnce(
+                config,
+                service,
+                sink,
+                directory.resolve("watch.lock"),
+                directory.resolve("audit.ndjson"),
+                directory.resolve("alerts.ndjson"),
+                100.0,
+                confirmed = true,
+            )
+        }
+        assertEquals(0, source.calls)
     }
 
     @Test
