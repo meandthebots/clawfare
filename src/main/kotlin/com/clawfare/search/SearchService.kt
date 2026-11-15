@@ -7,7 +7,10 @@ class SearchService(
     private val cache: ResponseCache,
     private val sink: FareSink = NoopSink,
 ) {
-    fun estimate(query: SearchQuery): Estimate {
+    fun estimate(
+        query: SearchQuery,
+        includeQuota: Boolean = false,
+    ): Estimate {
         val q = normalizeQuery(query)
         val problem = validateQuery(q)
         if (problem != null) return Estimate(0, 0, 0, 0, warnings = listOf(problem))
@@ -64,7 +67,12 @@ class SearchService(
         val shown = if (lines.size > 40) lines.take(40) + "… and ${lines.size - 40} more" else lines
         val quota =
             selected(q).map { provider ->
-                QuotaView(provider.id, provider.configured, note = "Remaining quota not queried; use fare quota.")
+                if (includeQuota) {
+                    runCatching { provider.quota() }
+                        .getOrElse { QuotaView(provider.id, provider.configured, note = "Quota check failed") }
+                } else {
+                    QuotaView(provider.id, provider.configured, note = "Remaining quota not queried; use fare quota.")
+                }
             }
         return Estimate(live, cached, skipped, returns, shown, warnings, quota)
     }
