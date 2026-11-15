@@ -54,6 +54,7 @@ data class ParsedOffer(
     val durationMinutes: Int?,
     val departureToken: String?,
     val bookingToken: String?,
+    val fareBrand: String? = null,
 )
 
 fun parseGoogleFlightsOffers(body: String): List<ParsedOffer> {
@@ -80,6 +81,7 @@ fun parseGoogleFlightsOffers(body: String): List<ParsedOffer> {
             durationMinutes = obj.int("total_duration"),
             departureToken = obj.str("departure_token"),
             bookingToken = obj.str("booking_token"),
+            fareBrand = obj.str("fare_brand") ?: obj.str("fare_brand_name"),
         )
     }
 }
@@ -431,9 +433,14 @@ class GoogleFlightsProvider(
     ) {
         val retLegs = inbound?.legs
         val price = inbound?.price ?: outbound.price
+        val brand = inbound?.fareBrand ?: outbound.fareBrand
+        // Include the provider and fare product; identical flights can sell several fare types.
+        // Never include the price in the ID: price history needs a stable offer-family key.
+        val flightId = itineraryId(outbound.legs, retLegs)
+        val productId = "$id-$flightId-${sha256(brand.orEmpty()).take(8)}"
         val built =
             assembleItinerary(
-                id = itineraryId(outbound.legs, retLegs),
+                id = productId,
                 pricePerPerson = price,
                 priceCurrency = query.currency,
                 passengers = query.adults,
@@ -450,7 +457,7 @@ class GoogleFlightsProvider(
                 apiLayoversOut = outbound.layovers,
                 apiLayoversRet = inbound?.layovers ?: emptyList(),
                 returnDateHint = params["return_date"],
-            )
+            ).copy(fareBrand = brand)
         if (!Filters.shortHaulAccept(built, query.cabinShortHaul)) return
         into += built
         tokens[built.id] =
