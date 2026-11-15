@@ -44,12 +44,14 @@ data class ExportRequest(
 )
 
 object Server {
+    const val HOST: String = "127.0.0.1"
+
     @Volatile
     private var pageHtml: String? = null
 
     fun start(port: Int) {
-        println("Clawfare  http://localhost:$port")
-        embeddedServer(Netty, port = port, module = Application::clawfareModule).start(wait = true)
+        println("Clawfare  http://$HOST:$port")
+        embeddedServer(Netty, host = HOST, port = port, module = Application::clawfareModule).start(wait = true)
     }
 
     fun page(): String {

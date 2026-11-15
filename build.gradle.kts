@@ -48,14 +48,45 @@ kover {
     reports {
         filters {
             excludes {
-                // inv/flight commands predate this gate. CommandsTest exercises them;
-                // their branch surface alone sits well under 80%.
+                // Pre-port CLI classes only; do not exempt future Inv*/Flight* classes.
+                // Covered by CommandsTest plus ReviewRegressionTest, with an explicit
+                // migration-to-80% tracking plan in docs/LEGACY-COVERAGE.md.
                 classes(
-                    "com.clawfare.cli.Inv*",
-                    "com.clawfare.cli.Flight*",
+                    "com.clawfare.cli.FlightAddCommand",
+                    "com.clawfare.cli.FlightCommand",
+                    "com.clawfare.cli.FlightCoverageCommand",
+                    "com.clawfare.cli.FlightDedupeCommand",
+                    "com.clawfare.cli.FlightDeleteCommand",
+                    "com.clawfare.cli.FlightExportTasksCommand",
+                    "com.clawfare.cli.FlightHistoryCommand",
+                    "com.clawfare.cli.FlightImportCommand",
+                    "com.clawfare.cli.FlightImportDbCommand",
+                    "com.clawfare.cli.FlightImportResultsCommand",
+                    "com.clawfare.cli.FlightListCommand",
+                    "com.clawfare.cli.FlightMarkStaleCommand",
+                    "com.clawfare.cli.FlightMatchCommand",
+                    "com.clawfare.cli.FlightPriceCommand",
+                    "com.clawfare.cli.FlightRefreshCommand",
+                    "com.clawfare.cli.FlightShowCommand",
+                    "com.clawfare.cli.FlightStaleCommand",
+                    "com.clawfare.cli.FlightTagCommand",
+                    "com.clawfare.cli.FlightTasksCommand",
+                    "com.clawfare.cli.FlightUntagCommand",
+                    "com.clawfare.cli.FlightUpdateCommand",
+                    "com.clawfare.cli.FlightValidateCommand",
+                    "com.clawfare.cli.InvCommand",
+                    "com.clawfare.cli.InvConfigCommand",
+                    "com.clawfare.cli.InvDeleteCommand",
+                    "com.clawfare.cli.InvListCommand",
+                    "com.clawfare.cli.InvNewCommand",
+                    "com.clawfare.cli.InvResumeCommand",
+                    "com.clawfare.cli.InvShowCommand",
+                    "com.clawfare.cli.InvUrlsCommand",
                     "com.clawfare.cli.Output",
-                    "com.clawfare.cli.Output?*",
-                    "com.clawfare.cli.PriceCheck*",
+                    "com.clawfare.cli.PriceCheckFlight",
+                    "com.clawfare.cli.PriceCheckResult",
+                    "com.clawfare.cli.PriceCheckResults",
+                    "com.clawfare.cli.PriceCheckTask",
                 )
             }
         }

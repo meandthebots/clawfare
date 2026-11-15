@@ -198,7 +198,7 @@ class SearchService(
                     listOf(
                         NoteCard(
                             "Sellers",
-                            "Round trip beside two one-ways. All-in GBP includes the checked bags from the search (${stored.result.checkedBags}). Where Google listed a first-bag fee, that fee is used; otherwise the US\$30 per direction fallback from the Aeromexico transborder table is applied.",
+                            "Seller prices and all-in GBP are totals for ${itinerary.passengers} adult(s), unlike the itinerary grid, which displays per-person fares. The baggage estimate includes ${stored.result.checkedBags} checked bag(s) per adult. Where Google listed a first-bag fee, that fee is used; otherwise an illustrative US\$30 per bag per direction fallback is applied (verify actual airline baggage terms).",
                         ),
                         NoteCard(
                             "Reputation",
@@ -239,9 +239,21 @@ class SearchService(
 }
 
 private fun flightKey(it: Itinerary): String {
-    val out = it.outbound.legs.joinToString(",") { "${it.flightNumber}@${it.departDate}" }
-    val ret = it.returning?.legs?.joinToString(",") { "${it.flightNumber}@${it.departDate}" } ?: "none"
-    return "$out|$ret"
+    val out = it.outbound.legs.joinToString(",") { "${it.flightNumber}@${it.departDate}:${it.departTime}:${it.from}:${it.to}" }
+    val ret = it.returning?.legs?.joinToString(",") { "${it.flightNumber}@${it.departDate}:${it.departTime}:${it.from}:${it.to}" } ?: "none"
+    // Same physical flight can have different fares, rules and providers.
+    // Duffel offer IDs are distinct sellable offers even on the same flight.
+    val offer = if (it.source == "duffel") it.id else ""
+    return listOf(
+        it.source,
+        it.cabinKey,
+        it.passengers.toString(),
+        it.fareBrand.orEmpty(),
+        it.farePolicyKey.orEmpty(),
+        offer,
+        out,
+        ret,
+    ).joinToString("|")
 }
 
 private fun rank(it: Itinerary): Int =

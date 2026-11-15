@@ -54,6 +54,7 @@ data class ParsedOffer(
     val durationMinutes: Int?,
     val departureToken: String?,
     val bookingToken: String?,
+    val fareBrand: String? = null,
 )
 
 fun parseGoogleFlightsOffers(body: String): List<ParsedOffer> {
@@ -80,6 +81,7 @@ fun parseGoogleFlightsOffers(body: String): List<ParsedOffer> {
             durationMinutes = obj.int("total_duration"),
             departureToken = obj.str("departure_token"),
             bookingToken = obj.str("booking_token"),
+            fareBrand = obj.str("fare_brand") ?: obj.str("fare_brand_name"),
         )
     }
 }
@@ -343,6 +345,7 @@ class GoogleFlightsProvider(
                 java.time.Instant
                     .now()
                     .toString(),
+                itinerary.passengers,
             )
         return VendorFetch(rows, warnings, live, cachedHits)
     }
@@ -375,7 +378,7 @@ class GoogleFlightsProvider(
                 "currency" to currency,
                 "gl" to gl,
                 "hl" to "en",
-                "adults" to "1",
+                "adults" to itinerary.passengers.toString(),
                 "departure_id" to from,
                 "arrival_id" to to,
                 "outbound_date" to date,
@@ -430,10 +433,17 @@ class GoogleFlightsProvider(
     ) {
         val retLegs = inbound?.legs
         val price = inbound?.price ?: outbound.price
+        val brand = inbound?.fareBrand ?: outbound.fareBrand
+        // Include the provider and fare product; identical flights can sell several fare types.
+        // Never include the price in the ID: price history needs a stable offer-family key.
+        val flightId = itineraryId(outbound.legs, retLegs)
+        val productId = "$id-$flightId-${sha256(brand.orEmpty()).take(8)}"
         val built =
             assembleItinerary(
-                id = itineraryId(outbound.legs, retLegs),
-                pricePerPerson = price,
+                id = productId,
+                // Google Flights fare totals are for the requested party; the grid
+                // and the persisted flight price are explicitly per adult.
+                pricePerPerson = price?.div(query.adults.coerceAtLeast(1)),
                 priceCurrency = query.currency,
                 passengers = query.adults,
                 cabinRaw = query.cabin,
@@ -449,7 +459,7 @@ class GoogleFlightsProvider(
                 apiLayoversOut = outbound.layovers,
                 apiLayoversRet = inbound?.layovers ?: emptyList(),
                 returnDateHint = params["return_date"],
-            )
+            ).copy(fareBrand = brand)
         if (!Filters.shortHaulAccept(built, query.cabinShortHaul)) return
         into += built
         tokens[built.id] =
@@ -498,11 +508,11 @@ class GoogleFlightsProvider(
             }
             FailureKind.EMPTY -> {
                 cache.put(id, params, res.body, listOf(secret))
+                val fallback = java.time.Instant.now()
+                val observedAt = cache.get(id, params)?.cachedAt ?: fallback.toString()
                 return Loaded(
                     res.body,
-                    java.time.Instant
-                        .now()
-                        .toString(),
+                    observedAt,
                     fromCache = false,
                 )
             }
@@ -513,11 +523,11 @@ class GoogleFlightsProvider(
             }
             FailureKind.NONE -> {
                 cache.put(id, params, res.body, listOf(secret))
+                val fallback = java.time.Instant.now()
+                val observedAt = cache.get(id, params)?.cachedAt ?: fallback.toString()
                 return Loaded(
                     res.body,
-                    java.time.Instant
-                        .now()
-                        .toString(),
+                    observedAt,
                     fromCache = false,
                 )
             }

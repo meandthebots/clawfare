@@ -146,6 +146,9 @@ object JsonExporter {
             tags = tags,
             bookingClass = fwp.bookingClass,
             cabinMixed = fwp.cabinMixed,
+            fareBrand = fwp.flight.fareBrand,
+            farePolicyKey = fwp.flight.farePolicyKey,
+            offerIdentity = fwp.flight.offerIdentity,
         )
     }
 }

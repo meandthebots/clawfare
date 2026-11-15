@@ -141,9 +141,15 @@ object JsonImporter {
         index: Int,
         skipDuplicates: Boolean,
     ): ImportResult {
-        // Check for duplicate share_link
+        // Provider offers on the same physical flight can share a booking URL.
+        // An offer-specific identity is unique by ID; manual entries retain link-based deduplication.
         if (skipDuplicates) {
-            val existing = FlightQueries.getByShareLink(entry.shareLink)
+            val existing =
+                if (entry.offerIdentity != null) {
+                    FlightQueries.getById(entry.id)
+                } else {
+                    FlightQueries.getByShareLink(entry.shareLink)
+                }
             if (existing != null) {
                 return ImportResult.Skipped(
                     index = index,
@@ -226,6 +232,9 @@ object JsonImporter {
             returnJson = returnJson,
             bookingClass = entry.bookingClass,
             cabinMixed = entry.cabinMixed ?: false,
+            fareBrand = entry.fareBrand,
+            farePolicyKey = entry.farePolicyKey,
+            offerIdentity = entry.offerIdentity,
             notes = entry.notes,
             tags = tagsJson,
             capturedAt = entry.capturedAt,

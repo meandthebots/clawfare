@@ -78,6 +78,8 @@ data class FlightDto(
     val stale: Boolean = false,
     val aircraftType: String? = null,
     val fareBrand: String? = null,
+    val farePolicyKey: String? = null,
+    val offerIdentity: String? = null,
     val disqualified: String? = null,
     val notes: String? = null,
     val tags: String? = null,
@@ -356,6 +358,8 @@ object FlightQueries {
                 it[stale] = if (dto.stale) 1 else 0
                 it[aircraftType] = dto.aircraftType
                 it[fareBrand] = dto.fareBrand
+                it[farePolicyKey] = dto.farePolicyKey
+                it[offerIdentity] = dto.offerIdentity
                 it[disqualified] = dto.disqualified
                 it[notes] = dto.notes
                 it[tags] = dto.tags
@@ -497,6 +501,8 @@ object FlightQueries {
                     it[stale] = if (dto.stale) 1 else 0
                     it[aircraftType] = dto.aircraftType
                     it[fareBrand] = dto.fareBrand
+                    it[farePolicyKey] = dto.farePolicyKey
+                    it[offerIdentity] = dto.offerIdentity
                     it[disqualified] = dto.disqualified
                     it[notes] = dto.notes
                     it[tags] = dto.tags
@@ -573,6 +579,8 @@ object FlightQueries {
             stale = this[Flights.stale] == 1,
             aircraftType = this[Flights.aircraftType],
             fareBrand = this[Flights.fareBrand],
+            farePolicyKey = this[Flights.farePolicyKey],
+            offerIdentity = this[Flights.offerIdentity],
             disqualified = this[Flights.disqualified],
             notes = this[Flights.notes],
             tags = this[Flights.tags],

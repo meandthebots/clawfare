@@ -123,6 +123,10 @@ data class Itinerary(
     val returnDepart: String? = null,
     val airlineCodes: List<String> = emptyList(),
     val source: String = "",
+    /** Airline-defined fare product, when reported by the provider. */
+    val fareBrand: String? = null,
+    /** Opaque provider refund-rule fingerprint. This does NOT prove cash refundability. */
+    val farePolicyKey: String? = null,
     /** live, cached, mock, or sample. */
     val sourceLabel: String = "",
     /** False for Duffel test offers and Travelpayouts cached fares. */

@@ -374,12 +374,12 @@ class TravelpayoutsProvider(
             return null
         }
         cache.put(id, params, res.body, listOf(secret))
+        val fallback = java.time.Instant.now()
+        val observedAt = cache.get(id, params)?.cachedAt ?: fallback.toString()
         return Triple(
             false,
             res.body,
-            java.time.Instant
-                .now()
-                .toString(),
+            observedAt,
         )
     }
 
@@ -540,12 +540,12 @@ class DuffelProvider(
             return null
         }
         cache.put(id, params, res.body, listOf(secret))
+        val fallback = java.time.Instant.now()
+        val observedAt = cache.get(id, params)?.cachedAt ?: fallback.toString()
         return Triple(
             false,
             res.body,
-            java.time.Instant
-                .now()
-                .toString(),
+            observedAt,
         )
     }
 
@@ -592,6 +592,11 @@ class DuffelProvider(
                 livePrice = false,
                 fetchedAt = fetchedAt,
                 notes = "Duffel test-mode offer. Not a real price.",
+            ).copy(
+                fareBrand = offer.str("fare_brand_name"),
+                // Refund rules are not yet verified. Retain the raw-policy fingerprint
+                // so two differently conditioned offers cannot overwrite one another.
+                farePolicyKey = offer["conditions"]?.toString()?.let(::sha256),
             )
         }
     }
