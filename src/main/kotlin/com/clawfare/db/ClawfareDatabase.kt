@@ -5,12 +5,17 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.io.File
+import java.nio.channels.FileChannel
+import java.nio.file.StandardOpenOption
 import java.sql.Connection
+import java.sql.DriverManager
 
 /**
  * Database connection and schema management for Clawfare.
  */
 object ClawfareDatabase {
+    private const val SCHEMA_VERSION = 1
+
     private var initialized = false
     private var currentDb: Database? = null
 
@@ -56,12 +61,62 @@ object ClawfareDatabase {
         currentDb = db
 
         if (createSchema) {
-            createTables()
-            runMigrations()
+            val dbFile = path?.takeUnless { it == ":memory:" }?.let(::File)
+            if (dbFile == null) {
+                createTables()
+                runMigrations()
+            } else {
+                // Serialize migrations across Clawfare processes, including backup creation.
+                val lockFile = File(dbFile.absolutePath + ".migration.lock")
+                FileChannel.open(lockFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE).use { channel ->
+                    channel.lock().use {
+                        if (dbFile.exists() && dbFile.length() > 0 && schemaVersion(jdbcUrl) < SCHEMA_VERSION) {
+                            snapshotBeforeMigration(jdbcUrl, dbFile)
+                        }
+                        createTables()
+                        runMigrations()
+                        setSchemaVersion(jdbcUrl)
+                    }
+                }
+            }
         }
 
         initialized = true
         return db
+    }
+
+    private fun schemaVersion(jdbcUrl: String): Int =
+        DriverManager.getConnection(jdbcUrl).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery("PRAGMA user_version").use { result ->
+                    if (result.next()) result.getInt(1) else 0
+                }
+            }
+        }
+
+    private fun setSchemaVersion(jdbcUrl: String) {
+        DriverManager.getConnection(jdbcUrl).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeUpdate("PRAGMA user_version = $SCHEMA_VERSION")
+            }
+        }
+    }
+
+    /**
+     * SQLite's online VACUUM INTO snapshot is consistent even for WAL databases.
+     * A previous-version backup is retained for recovery rather than overwritten.
+     */
+    private fun snapshotBeforeMigration(
+        jdbcUrl: String,
+        source: File,
+    ) {
+        val backup = File(source.absolutePath + ".backup-" + System.currentTimeMillis() + ".sqlite")
+        val safePath = backup.absolutePath.replace("'", "''")
+        DriverManager.getConnection(jdbcUrl).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute("VACUUM INTO '$safePath'")
+            }
+        }
     }
 
     /**
@@ -86,6 +141,7 @@ object ClawfareDatabase {
         if (createSchema) {
             createTables()
             runMigrations()
+            setSchemaVersion("jdbc:sqlite:${tempFile.absolutePath}")
         }
 
         initialized = true
