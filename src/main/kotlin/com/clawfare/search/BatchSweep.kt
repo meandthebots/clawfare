@@ -22,6 +22,10 @@ data class BatchConfig(
     val scenarios: List<BatchScenario>,
     /** Maximum possible provider network calls, including return lookup upper bounds. */
     val maxLiveCalls: Int = 0,
+    /** Reserve this much remaining quota at each reporting provider. */
+    val minQuotaReserve: Int = 0,
+    /** Reject execution if a configured provider cannot report numeric quota. */
+    val requireNumericQuota: Boolean = false,
 )
 
 data class BatchEntry(
@@ -54,6 +58,18 @@ data class BatchRow(
     val expenseEvidence: String,
     val retrievedAt: String?,
     val journeyType: String,
+)
+
+@Serializable
+data class BatchAttemptRecord(
+    val observedAt: String,
+    val querySignatureSha256: String,
+    val investigation: String,
+    val providerIds: List<String>,
+    val status: String,
+    val maxNetworkCalls: Int,
+    val offerCount: Int,
+    val warnings: List<String>,
 )
 
 data class BatchRunSummary(
@@ -128,6 +144,29 @@ object BatchSweep {
         }
         require(confirmed || planned.upperBound == 0) { "No network calls without explicit --confirm." }
 
+        if (confirmed && planned.upperBound > 0) {
+            val requested = config.scenarios.flatMap { it.query.providers }.toSet()
+            val statuses = service.providerQuotas(requested)
+            for (quota in statuses.filter { it.configured }) {
+                val estimated =
+                    planned.entries.sumOf { entry ->
+                        if (quota.provider !in entry.query.providers) {
+                            0
+                        } else {
+                            val q = service.estimate(entry.query.copy(providers = listOf(quota.provider)))
+                            q.liveCalls + q.returnLookupsUpperBound
+                        }
+                    }
+                if (estimated == 0) continue
+                require(!config.requireNumericQuota || quota.remaining != null) {
+                    "Cannot verify remaining quota for ${quota.provider}; no calls issued."
+                }
+                require(quota.remaining == null || quota.remaining >= estimated + config.minQuotaReserve) {
+                    "${quota.provider} quota insufficient: ${quota.remaining} remaining, need $estimated plus reserve."
+                }
+            }
+        }
+
         val failures = mutableListOf<String>()
         var saved = 0
         var reserved = 0
@@ -146,12 +185,29 @@ object BatchSweep {
             // Append every attempted scenario, including zero-result and failed searches.
             auditFile?.let { target ->
                 target.parentFile?.mkdirs()
-                target.appendText(
-                    "${Instant.now()}\t${entry.signature}\t${if (response.ok) "ok" else "error"}\t$upper\t" +
-                        "${response.result?.itineraries?.size ?: 0}\n",
-                )
+                val record =
+                    BatchAttemptRecord(
+                        observedAt = Instant.now().toString(),
+                        querySignatureSha256 = sha256(AppJson.encodeToString(SearchQuery.serializer(), entry.query)),
+                        investigation = entry.signature,
+                        providerIds = entry.query.providers,
+                        status = if (response.ok) "ok" else "error",
+                        maxNetworkCalls = upper,
+                        offerCount = response.result?.itineraries?.size ?: 0,
+                        warnings = response.result?.warnings.orEmpty().take(8),
+                    )
+                target.appendText(AppJson.encodeToString(BatchAttemptRecord.serializer(), record) + "\n")
             }
             reserved += upper
+            val warnings = response.result?.warnings.orEmpty()
+            if (warnings.any { warning ->
+                    warning.contains("out of credits", true) ||
+                        warning.contains("rate limit", true) ||
+                        warning.contains("429", true)
+                }) {
+                failures += "${entry.signature}: provider quota/rate limit; stopping batch early."
+                break
+            }
         }
         return BatchRunSummary(planned, executed, saved, failures, Instant.now().toString())
     }
