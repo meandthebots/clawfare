@@ -266,7 +266,7 @@ class ReviewRegressionTest {
             connection.createStatement().use { statement ->
                 statement.executeQuery("PRAGMA user_version").use { version ->
                     assertTrue(version.next())
-                    assertEquals(1, version.getInt(1))
+                    assertEquals(2, version.getInt(1))
                 }
             }
         }
