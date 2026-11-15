@@ -79,6 +79,7 @@ data class FlightDto(
     val aircraftType: String? = null,
     val fareBrand: String? = null,
     val farePolicyKey: String? = null,
+    val refundEvidenceJson: String? = null,
     val offerIdentity: String? = null,
     val disqualified: String? = null,
     val notes: String? = null,
@@ -370,6 +371,7 @@ object FlightQueries {
                 it[aircraftType] = dto.aircraftType
                 it[fareBrand] = dto.fareBrand
                 it[farePolicyKey] = dto.farePolicyKey
+                it[refundEvidenceJson] = dto.refundEvidenceJson
                 it[offerIdentity] = dto.offerIdentity
                 it[disqualified] = dto.disqualified
                 it[notes] = dto.notes
@@ -513,6 +515,8 @@ object FlightQueries {
                     it[aircraftType] = dto.aircraftType
                     it[fareBrand] = dto.fareBrand
                     it[farePolicyKey] = dto.farePolicyKey
+                    it[refundEvidenceJson] = dto.refundEvidenceJson
+                it[refundEvidenceJson] = dto.refundEvidenceJson
                     it[offerIdentity] = dto.offerIdentity
                     it[disqualified] = dto.disqualified
                     it[notes] = dto.notes
@@ -591,6 +595,7 @@ object FlightQueries {
             aircraftType = this[Flights.aircraftType],
             fareBrand = this[Flights.fareBrand],
             farePolicyKey = this[Flights.farePolicyKey],
+            refundEvidenceJson = this[Flights.refundEvidenceJson],
             offerIdentity = this[Flights.offerIdentity],
             disqualified = this[Flights.disqualified],
             notes = this[Flights.notes],
