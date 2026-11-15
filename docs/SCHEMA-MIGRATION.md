@@ -144,3 +144,45 @@ Raw provider responses, keyed by provider and a hash of the request with credent
 ### flight_provider_tokens
 `departure_token` and `booking_token` for a later return or booking-options call, without spending the search again.
 
+
+---
+
+## Additional fare-search migration safeguards
+
+The database now uses `PRAGMA user_version = 1` after successful schema
+initialization. Prior to upgrading an existing version-0 database, Clawfare
+acquires a process-wide advisory lock file (`<database>.migration.lock`)
+and creates a crash-consistent SQLite `VACUUM INTO` snapshot named
+`<database>.backup-<epoch>.sqlite`. Backups are never overwritten. If a
+migration fails, the backup remains available for manual restoration.
+
+The lock coordinates Clawfare processes using this code; it does not control
+unrelated SQLite writers that ignore the lock file. The database should not
+be shared on an unreliable/network-mounted filesystem. Back up the DB and
+its backups separately from the repository. Migration changes remain
+additive, and PRAGMA version is advanced only after migration succeeds.
+
+### Sensitive provider data
+
+`flight_provider_tokens` contains Google Flights departure/booking tokens
+in **plaintext SQLite**, and `provider_cache.body` may also contain
+provider-originating tokens and itinerary details. These are not API keys,
+but possession of them could reveal searches or support replay. The app
+does not publish them from its normal result endpoints. Restrict local
+filesystem access to the account running Clawfare; do not commit the SQLite
+DB, cache or backup files, and do not upload them to public CI artifacts.
+API credentials are stripped/redacted on cache writes, but do not assume
+that raw response snapshots are free of travel-related private data.
+
+### Offer freshness and FX
+
+Live provider responses expire after two hours for the purpose of a new
+search. `--cache-only` and re-ingestion still allow historical quotes
+without new API calls; those observations are not bookable quotes.
+Travelpayouts monthly calendar responses remain labelled cached.
+
+The embedded `Fx` snapshot was observed **14 October 2026**. Cross-currency
+Top-N reports declare that reference date and skip currencies without a
+known conversion. It is indicative, not a current exchange rate. A dated
+external FX update mechanism should replace this fallback before spending
+significant money on international comparison searches.
