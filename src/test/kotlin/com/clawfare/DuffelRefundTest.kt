@@ -31,9 +31,10 @@ class DuffelRefundTest {
         penalty: String = "\"0.00\"",
         method: String = "",
         expiry: String = future,
+        mode: String = "true",
     ): JsonObject {
         val raw =
-            """{"id":"off_12345","live_mode":true,"expires_at":"$expiry",
+            """{"id":"off_12345","live_mode":$mode,"expires_at":"$expiry",
             "available_passenger_count":2,
             "conditions":{"refund_before_departure":{"allowed":$allowed,"penalty_amount":$penalty,"penalty_currency":"GBP"}},
             "total_amount":"4400.00","total_currency":"GBP","slices":[{"segments":[{
@@ -136,6 +137,50 @@ class DuffelRefundTest {
         assertEquals(2, fetchedUrls.size)
         assertTrue(fetchedUrls.all { it.endsWith("/air/offer_requests?return_offers=true") })
         assertTrue(fetchedUrls.all { it.startsWith("POST ") })
+    }
+
+    @Test
+    fun offerModeAndExpiryCannotTurnSandboxPricesIntoBookableOffers() {
+        fun searchThis(offer: JsonObject) : com.clawfare.search.Itinerary {
+            val payload = """{"data":{"offers":[${AppJson.encodeToString(JsonObject.serializer(), offer)}]}}"""
+            val http =
+                object : HttpFetcher {
+                    override fun request(
+                        method: String,
+                        url: String,
+                        headers: Map<String, String>,
+                        body: String?,
+                    ): HttpResult = HttpResult(200, payload)
+                }
+            val q =
+                SearchQuery(
+                    origins = listOf("LHR"),
+                    destinations = listOf("HND"),
+                    outboundFrom = "2027-03-23",
+                    tripType = "one_way",
+                    adults = 2,
+                    cabin = "business",
+                )
+            val cacheRoot = File.createTempFile("duffel-mode-cache", "")
+            cacheRoot.delete()
+            cacheRoot.mkdirs()
+            return DuffelProvider("duffel_live_fixture", http, true)
+                .search(q, DiskCache(cacheRoot), true)
+                .itineraries
+                .single()
+        }
+
+        val sandboxResponse = searchThis(offer(mode = "false"))
+        assertEquals("mock", sandboxResponse.sourceLabel)
+        assertFalse(sandboxResponse.livePrice)
+
+        val expiredResponse = searchThis(offer(expiry = "2020-01-01T00:00:00Z"))
+        assertEquals("expired", expiredResponse.sourceLabel)
+        assertFalse(expiredResponse.livePrice)
+
+        val missingMode = searchThis(offer(mode = "null"))
+        assertEquals("mock", missingMode.sourceLabel)
+        assertFalse(missingMode.livePrice)
     }
 
     @Test
