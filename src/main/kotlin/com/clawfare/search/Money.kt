@@ -45,8 +45,7 @@ object Fx {
             "dk" to "DKK",
         )
 
-    fun currencyOf(marketOrCode: String): String =
-        MARKET_CURRENCY[marketOrCode.lowercase()] ?: marketOrCode.uppercase()
+    fun currencyOf(marketOrCode: String): String = MARKET_CURRENCY[marketOrCode.lowercase()] ?: marketOrCode.uppercase()
 
     /** Whole pounds, matching the published pages. Null when the currency is unknown. */
     fun toGbpOrNull(
@@ -85,7 +84,12 @@ object VendorMath {
     ): Double? {
         if (checkedBags <= 0) return 0.0
         val text = baggageText.lowercase()
-        val freeCount = Regex("""\b([1-4])\s+(?:free\s+)?checked\s+bags?\b""").find(text)?.groupValues?.get(1)?.toIntOrNull()
+        val freeCount =
+            Regex("""\b([1-4])\s+(?:free\s+)?checked\s+bags?\b""")
+                .find(text)
+                ?.groupValues
+                ?.get(1)
+                ?.toIntOrNull()
         if (freeCount != null && checkedBags <= freeCount && "free" in text) return 0.0
         if (checkedBags == 1 && ("free checked" in text || "includes a free checked bag" in text)) return 0.0
 
