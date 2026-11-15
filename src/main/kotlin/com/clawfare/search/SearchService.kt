@@ -244,7 +244,16 @@ private fun flightKey(it: Itinerary): String {
     // Same physical flight can have different fares, rules and providers.
     // Duffel offer IDs are distinct sellable offers even on the same flight.
     val offer = if (it.source == "duffel") it.id else ""
-    return listOf(it.source, it.cabinKey, it.passengers.toString(), it.fareBrand.orEmpty(), it.farePolicyKey.orEmpty(), offer, out, ret).joinToString("|")
+    return listOf(
+        it.source,
+        it.cabinKey,
+        it.passengers.toString(),
+        it.fareBrand.orEmpty(),
+        it.farePolicyKey.orEmpty(),
+        offer,
+        out,
+        ret,
+    ).joinToString("|")
 }
 
 private fun rank(it: Itinerary): Int =
