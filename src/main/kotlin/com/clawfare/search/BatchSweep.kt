@@ -163,9 +163,10 @@ object BatchSweep {
     fun compare(
         config: BatchConfig,
         sink: FareSink,
-    ): List<BatchRow> =
-        expand(config)
-            .flatMap { entry ->
+    ): List<BatchRow> {
+        val entries = expand(config)
+        val rows =
+            entries.flatMap { entry ->
             val result = sink.load(entry.signature)?.result ?: return@flatMap emptyList()
             result.itineraries.map { itinerary ->
                 val fare = itinerary.pricePerPerson?.let { it * itinerary.passengers }
@@ -194,5 +195,7 @@ object BatchSweep {
                     journeyType = if (itinerary.returning == null) "one_way" else "round_trip",
                 )
             }
-        }.sortedWith(compareBy({ it.allInGbp == null }, { it.allInGbp ?: Double.MAX_VALUE }, { it.date }))
+            }
+        return rows.sortedWith(compareBy({ it.allInGbp == null }, { it.allInGbp ?: Double.MAX_VALUE }, { it.date }))
+    }
 }
