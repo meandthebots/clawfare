@@ -343,27 +343,6 @@ class TravelpayoutsProvider(
         }
     }
 
-    /**
-     * Sandbox and live Duffel searches must NEVER share cache identity.
-     * The scope is not a secret and is also included in the estimate's call key.
-     */
-    private fun requestParams(
-        query: SearchQuery,
-        origin: String,
-        dest: String,
-        outbound: String,
-        returning: String?,
-    ): Map<String, String> =
-        mapOf(
-            "origin" to origin,
-            "destination" to dest,
-            "outbound" to outbound,
-            "return" to (returning ?: ""),
-            "cabin" to query.cabin,
-            "adults" to query.adults.toString(),
-            "duffel_mode" to if (liveMode) "live" else "test",
-        )
-
     private fun read(
         cache: ResponseCache,
         params: Map<String, String>,
@@ -512,6 +491,27 @@ class DuffelProvider(
         }
         return ProviderOutcome(out, emptyMap(), warnings, live, cached)
     }
+
+    /**
+     * Sandbox and live Duffel searches must NEVER share cache identity.
+     * The scope is not a secret and is also included in the estimate's call key.
+     */
+    private fun requestParams(
+        query: SearchQuery,
+        origin: String,
+        dest: String,
+        outbound: String,
+        returning: String?,
+    ): Map<String, String> =
+        mapOf(
+            "origin" to origin,
+            "destination" to dest,
+            "outbound" to outbound,
+            "return" to (returning ?: ""),
+            "cabin" to query.cabin,
+            "adults" to query.adults.toString(),
+            "duffel_mode" to if (liveMode) "live" else "test",
+        )
 
     private fun read(
         cache: ResponseCache,
