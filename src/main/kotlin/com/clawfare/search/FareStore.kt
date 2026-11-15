@@ -482,7 +482,12 @@ object FareStore : FareSink {
                 returnDateHint = flight.plannedReturnDate,
             )
         val storedLinks = flight.linksJson?.let { runCatching { flightJson.decodeFromString(links, it) }.getOrNull() }.orEmpty()
-        val refund = flight.refundEvidenceJson?.let { runCatching { flightJson.decodeFromString(RefundEvidence.serializer(), it) }.getOrNull() }
+        val refund =
+            flight.refundEvidenceJson?.let { raw ->
+                runCatching {
+                    flightJson.decodeFromString(RefundEvidence.serializer(), raw)
+                }.getOrNull()
+            }
         val restored = built.copy(fareBrand = flight.fareBrand, farePolicyKey = flight.farePolicyKey, refundEvidence = refund)
         return if (storedLinks.isEmpty()) restored else restored.copy(links = storedLinks)
     }
