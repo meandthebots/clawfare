@@ -32,10 +32,11 @@ class DuffelRefundTest {
         method: String = "",
         expiry: String = future,
         mode: String = "true",
+        availableSeats: Int = 2,
     ): JsonObject {
         val raw =
             """{"id":"off_12345","live_mode":$mode,"expires_at":"$expiry",
-            "available_passenger_count":2,
+            "available_passenger_count":$availableSeats,
             "conditions":{"refund_before_departure":{"allowed":$allowed,"penalty_amount":$penalty,"penalty_currency":"GBP"}},
             "total_amount":"4400.00","total_currency":"GBP","slices":[{"segments":[{
             "origin":{"iata_code":"LHR"},"destination":{"iata_code":"HND"},
@@ -177,6 +178,10 @@ class DuffelRefundTest {
         val expiredResponse = searchThis(offer(expiry = "2020-01-01T00:00:00Z"))
         assertEquals("expired", expiredResponse.sourceLabel)
         assertFalse(expiredResponse.livePrice)
+
+        val insufficientSeats = searchThis(offer(availableSeats = 1))
+        assertEquals("unavailable", insufficientSeats.sourceLabel)
+        assertFalse(insufficientSeats.livePrice)
 
         val missingMode = searchThis(offer(mode = "null"))
         assertEquals("mock", missingMode.sourceLabel)
