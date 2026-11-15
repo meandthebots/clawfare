@@ -475,8 +475,11 @@ class DuffelProvider(
     ): ProviderOutcome {
         val warnings =
             mutableListOf(
-                if (liveMode) "Duffel live offers expire quickly; refund method and servicing fees remain unverified."
-                else "Duffel offers are test-mode mocks and are not real prices.",
+                if (liveMode) {
+                    "Duffel live offers expire quickly; refund method and servicing fees remain unverified."
+                } else {
+                    "Duffel offers are test-mode mocks and are not real prices."
+                },
             )
         if (!configured && allowNetwork) return ProviderOutcome(warnings = warnings + "Duffel is not configured (DUFFEL_ACCESS_TOKEN).")
         var live = 0
@@ -605,7 +608,12 @@ class DuffelProvider(
                 sourceLabel = if (liveMode) "live" else "mock",
                 livePrice = liveMode,
                 fetchedAt = fetchedAt,
-                notes = if (liveMode) "Duffel live quote; confirm refund method and all fees independently." else "Duffel test-mode offer. Not a real price.",
+                notes =
+                    if (liveMode) {
+                        "Duffel live quote; confirm refund method and all fees independently."
+                    } else {
+                        "Duffel test-mode offer. Not a real price."
+                    },
             ).copy(
                 fareBrand = offer.str("fare_brand_name"),
                 farePolicyKey = offer["conditions"]?.toString()?.let(::sha256),
@@ -625,7 +633,11 @@ class DuffelProvider(
             http.request(
                 "GET",
                 "https://api.duffel.com/air/offers/$offerId",
-                mapOf("Authorization" to "Bearer $secret", "Duffel-Version" to "v2", "Accept" to "application/json"),
+                mapOf(
+                    "Authorization" to "Bearer $secret",
+                    "Duffel-Version" to "v2",
+                    "Accept" to "application/json",
+                ),
                 null,
             )
         require(response.status in 200..299) { "Duffel offer refresh failed: HTTP ${response.status}" }
