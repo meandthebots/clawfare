@@ -6,10 +6,10 @@ import com.clawfare.export.TopNGenerator
 import com.clawfare.search.AppJson
 import com.clawfare.search.BatchConfig
 import com.clawfare.search.BatchSweep
-import com.clawfare.search.FareWatch
 import com.clawfare.search.DuffelProvider
 import com.clawfare.search.Export
 import com.clawfare.search.FareStore
+import com.clawfare.search.FareWatch
 import com.clawfare.search.FxRateStore
 import com.clawfare.search.SampleSeeder
 import com.clawfare.search.SearchQuery
