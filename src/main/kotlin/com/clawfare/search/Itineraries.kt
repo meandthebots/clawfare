@@ -241,6 +241,11 @@ object Filters {
         if (token.equals(leg.airlineCode, ignoreCase = true)) return true
         if (token.equals(leg.airline, ignoreCase = true)) return true
         if (token.equals(leg.operatingCarrier, ignoreCase = true)) return true
+        if (token.equals("LO", ignoreCase = true) &&
+            (leg.operatingCarrier.startsWith("LOT", ignoreCase = true) || leg.airline.startsWith("LOT", ignoreCase = true))
+        ) {
+            return true
+        }
         if (token.length > 2 &&
             (leg.airline.contains(token, ignoreCase = true) || leg.operatingCarrier.contains(token, ignoreCase = true))
         ) {
