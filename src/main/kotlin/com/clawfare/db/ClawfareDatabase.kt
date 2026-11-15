@@ -14,7 +14,7 @@ import java.sql.DriverManager
  * Database connection and schema management for Clawfare.
  */
 object ClawfareDatabase {
-    private const val SCHEMA_VERSION = 1
+    private const val SCHEMA_VERSION = 2
 
     private var initialized = false
     private var currentDb: Database? = null
