@@ -3,8 +3,8 @@ package com.clawfare.export
 import com.clawfare.db.FlightQueries
 import com.clawfare.db.FlightWithPrice
 import com.clawfare.db.PriceHistoryQueries
-import com.clawfare.search.Fx
 import com.clawfare.model.FlightSegment
+import com.clawfare.search.Fx
 import kotlinx.serialization.json.Json
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -81,10 +81,11 @@ object TopNGenerator {
         title: String = "Top Flights",
     ): String {
         val sortedFlights = rankComparable(flights, limit)
-        val skipped = flights.size - flights.count { item ->
-            item.flight.sourceLabel != "mock" &&
-                Fx.toGbpOrNull(item.priceAmount, item.priceCurrency) != null
-        }
+        val skipped =
+            flights.size - flights.count { item ->
+                item.flight.sourceLabel != "mock" &&
+                    Fx.toGbpOrNull(item.priceAmount, item.priceCurrency) != null
+            }
 
         if (sortedFlights.isEmpty()) {
             return buildString {
