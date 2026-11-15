@@ -377,9 +377,7 @@ class TravelpayoutsProvider(
         return Triple(
             false,
             res.body,
-            java.time.Instant
-                .now()
-                .toString(),
+            cache.get(id, params)?.cachedAt ?: java.time.Instant.now().toString(),
         )
     }
 
@@ -543,9 +541,7 @@ class DuffelProvider(
         return Triple(
             false,
             res.body,
-            java.time.Instant
-                .now()
-                .toString(),
+            cache.get(id, params)?.cachedAt ?: java.time.Instant.now().toString(),
         )
     }
 
