@@ -58,7 +58,15 @@ class SearchService(
         if (live >= 20) {
             warnings += "$live live route searches before return lookups. SerpApi’s free plan is about 250 searches a month."
         }
-        if ("duffel" in q.providers) warnings += "Duffel prices are mocks and are not quoted as real fares."
+        if ("duffel" in q.providers) {
+            val liveDuffel = selected(q).any { it.id == "duffel" && it.priceKind == "live" }
+            warnings +=
+                if (liveDuffel) {
+                    "Duffel live quotes expire quickly; cash reimbursement method and additional cancellation fees remain unverified."
+                } else {
+                    "Duffel prices are sandbox mocks and are not quoted as real fares."
+                }
+        }
         if ("travelpayouts" in q.providers) warnings += "Travelpayouts fares are cached calendar prices, not a live search."
         if (selected(q).isEmpty()) warnings += "Pick at least one provider, or open the Florida sample."
         if (q.excludedAirlines.isNotEmpty()) {
@@ -148,7 +156,7 @@ class SearchService(
                         ),
                         NoteCard(
                             "Prices",
-                            "GBP per person. Duffel rows are mocks. Travelpayouts rows are cached calendar fares. A cached Google Flights row was a live price when it was fetched — the timestamp is on the row.",
+                            "GBP per person. Source labels distinguish live, cached and mock prices. Cached and sandbox fares are not bookable quotes; Duffel cancellation conditions do not independently prove a cash refund.",
                             warn = true,
                         ),
                     ),

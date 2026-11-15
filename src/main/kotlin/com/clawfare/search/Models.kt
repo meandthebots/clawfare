@@ -51,6 +51,7 @@ data class FilterSpec(
     val returnDepartAfter: String? = null,
     val nonstopOnly: Boolean = false,
     val hideMock: Boolean = true,
+    val verifiedCashRefundOnly: Boolean = false,
     val cabin: String? = null,
     val nights: Int? = null,
     val origin: String? = null,
@@ -129,6 +130,8 @@ data class Itinerary(
     val fareBrand: String? = null,
     /** Opaque provider refund-rule fingerprint. This does NOT prove cash refundability. */
     val farePolicyKey: String? = null,
+    /** Structured cancellation evidence, separate from airline marketing claims. */
+    val refundEvidence: RefundEvidence? = null,
     /** live, cached, mock, or sample. */
     val sourceLabel: String = "",
     /** False for Duffel test offers and Travelpayouts cached fares. */

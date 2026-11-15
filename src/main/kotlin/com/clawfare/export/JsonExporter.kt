@@ -148,6 +148,7 @@ object JsonExporter {
             cabinMixed = fwp.cabinMixed,
             fareBrand = fwp.flight.fareBrand,
             farePolicyKey = fwp.flight.farePolicyKey,
+            refundEvidenceJson = fwp.flight.refundEvidenceJson,
             offerIdentity = fwp.flight.offerIdentity,
         )
     }

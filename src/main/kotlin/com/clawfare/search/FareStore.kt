@@ -26,6 +26,7 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import java.time.Duration
 import java.time.Instant
 
 /**
@@ -385,6 +386,7 @@ object FareStore : FareSink {
                 cabinMixed = cabinKeys.size > 1,
                 fareBrand = itinerary.fareBrand,
                 farePolicyKey = itinerary.farePolicyKey,
+                refundEvidenceJson = itinerary.refundEvidence?.let { flightJson.encodeToString(RefundEvidence.serializer(), it) },
                 offerIdentity = offerIdentity,
             )
         val dto =
@@ -418,6 +420,7 @@ object FareStore : FareSink {
                 cabinClass = itinerary.cabinKey.ifBlank { null },
                 fareBrand = itinerary.fareBrand,
                 farePolicyKey = itinerary.farePolicyKey,
+                refundEvidenceJson = itinerary.refundEvidence?.let { flightJson.encodeToString(RefundEvidence.serializer(), it) },
                 offerIdentity = offerIdentity,
             )
         val current =
@@ -480,7 +483,29 @@ object FareStore : FareSink {
                 returnDateHint = flight.plannedReturnDate,
             )
         val storedLinks = flight.linksJson?.let { runCatching { flightJson.decodeFromString(links, it) }.getOrNull() }.orEmpty()
-        val restored = built.copy(fareBrand = flight.fareBrand, farePolicyKey = flight.farePolicyKey)
+        val refund =
+            flight.refundEvidenceJson?.let { raw ->
+                runCatching {
+                    flightJson.decodeFromString(RefundEvidence.serializer(), raw)
+                }.getOrNull()
+            }
+        val quoteAge =
+            runCatching { Duration.between(Instant.parse(latest.checkedAt), Instant.now()) }.getOrNull()
+        val stillFresh =
+            quoteAge != null &&
+                !quoteAge.isNegative &&
+                quoteAge <= Duration.ofHours(2) &&
+                refund?.isExpired() != true
+        val currentLive = flight.livePrice && flight.sourceLabel == "live" && stillFresh
+        val label = if (flight.sourceLabel == "live" && !currentLive) "cached" else flight.sourceLabel ?: "cached"
+        val restored =
+            built.copy(
+                fareBrand = flight.fareBrand,
+                farePolicyKey = flight.farePolicyKey,
+                refundEvidence = refund,
+                sourceLabel = label,
+                livePrice = currentLive,
+            )
         return if (storedLinks.isEmpty()) restored else restored.copy(links = storedLinks)
     }
 

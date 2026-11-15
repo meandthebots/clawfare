@@ -22,6 +22,9 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
       
+      - name: Compile Kotlin sources
+        run: ./gradlew compileKotlin
+
       - name: Run lint
         run: ./gradlew ktlintCheck
       
