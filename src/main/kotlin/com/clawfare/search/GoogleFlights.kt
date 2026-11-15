@@ -546,7 +546,7 @@ class GoogleFlightsProvider(
             linkedMapOf(
                 "engine" to "google_flights",
                 "currency" to query.currency.uppercase(),
-                "gl" to "uk",
+                "gl" to query.market,
                 "hl" to "en",
                 "adults" to query.adults.toString(),
                 "departure_id" to origin,
@@ -643,6 +643,10 @@ fun marketParams(market: String): Pair<String, String> =
         "mx" -> "mx" to "MXN"
         "ca" -> "ca" to "CAD"
         "es" -> "es" to "EUR"
+        "fr" -> "fr" to "EUR"
+        "de" -> "de" to "EUR"
+        "nl" -> "nl" to "EUR"
+        "dk" -> "dk" to "DKK"
         else -> "uk" to "GBP"
     }
 
