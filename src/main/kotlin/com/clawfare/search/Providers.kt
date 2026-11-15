@@ -626,7 +626,9 @@ class DuffelProvider(
      * Explicit, read-only repricing of an existing offer; never creates orders.
      * The caller must understand that a GET does not guarantee ticket inventory.
      */
-    fun refreshOffer(offerId: String): RefundEvidence {
+    fun refreshOffer(offerId: String): RefundEvidence = refreshOfferWithPricing(offerId).refund
+
+    fun refreshOfferWithPricing(offerId: String): DuffelOfferSnapshot {
         require(liveMode) { "Live Duffel verification requires DUFFEL_LIVE_ENABLED and a live token." }
         require(Regex("""^off_[A-Za-z0-9_]+$""").matches(offerId)) { "Invalid Duffel offer ID" }
         val response =
@@ -644,7 +646,9 @@ class DuffelProvider(
         val root = AppJson.parseToJsonElement(response.body) as? JsonObject ?: error("Malformed Duffel response")
         val offer = root["data"] as? JsonObject ?: error("Duffel offer data missing")
         val checkedAt = java.time.Instant.now()
-        return parseDuffelRefundEvidence(offer, checkedAt.toString())
+        val refreshed = parseDuffelOfferSnapshot(offer, checkedAt.toString())
+        require(refreshed.offerId == offerId) { "Duffel returned a different offer ID" }
+        return refreshed
     }
 
     private fun parseSegment(seg: JsonObject): Leg? {
