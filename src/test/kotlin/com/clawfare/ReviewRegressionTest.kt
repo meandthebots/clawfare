@@ -256,6 +256,20 @@ class ReviewRegressionTest {
             conn.createStatement().use { statement -> sql.forEach { statement.executeUpdate(it) } }
         }
         ClawfareDatabase.connect(file.absolutePath)
+        assertTrue(
+            file.parentFile.listFiles().orEmpty().any { candidate ->
+                candidate.name.startsWith(file.name + ".backup-") && candidate.name.endsWith(".sqlite")
+            },
+            "Expected an online pre-migration SQLite recovery snapshot",
+        )
+        DriverManager.getConnection("jdbc:sqlite:${file.absolutePath}").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery("PRAGMA user_version").use { version ->
+                    assertTrue(version.next())
+                    assertEquals(1, version.getInt(1))
+                }
+            }
+        }
         assertNotNull(FlightQueries.getById("old-id"))
         assertEquals(1200.0, PriceHistoryQueries.getByFlightId("old-id").single().amount)
         assertEquals(null, FlightQueries.getById("old-id")!!.offerIdentity)
