@@ -419,6 +419,7 @@ object FareStore : FareSink {
                 cabinClass = itinerary.cabinKey.ifBlank { null },
                 fareBrand = itinerary.fareBrand,
                 farePolicyKey = itinerary.farePolicyKey,
+                refundEvidenceJson = itinerary.refundEvidence?.let { flightJson.encodeToString(RefundEvidence.serializer(), it) },
                 offerIdentity = offerIdentity,
             )
         val current =
