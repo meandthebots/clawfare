@@ -239,6 +239,40 @@ class ReviewRegressionTest {
     }
 
     @Test
+    fun versionOneDatabaseIsBackedUpBeforeRefundEvidenceMigration() {
+        val file = File.createTempFile("clawfare-version-one", ".db")
+        file.delete()
+        val url = "jdbc:sqlite:${file.absolutePath}"
+        // Build the current schema, then recreate the exact v1->v2 delta.
+        ClawfareDatabase.connect(file.absolutePath)
+        DriverManager.getConnection(url).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeUpdate("ALTER TABLE flights DROP COLUMN refund_evidence_json")
+                statement.executeUpdate("PRAGMA user_version = 1")
+            }
+        }
+        ClawfareDatabase.connect(file.absolutePath)
+        val backups =
+            file.parentFile.listFiles().orEmpty().filter { candidate ->
+                candidate.name.startsWith(file.name + ".backup-") && candidate.name.endsWith(".sqlite")
+            }
+        assertTrue(backups.isNotEmpty(), "Expected recovery backup before upgrading schema v1 to v2.")
+        DriverManager.getConnection(url).use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery("PRAGMA user_version").use { result ->
+                    assertTrue(result.next())
+                    assertEquals(2, result.getInt(1))
+                }
+                statement.executeQuery("PRAGMA table_info(flights)").use { columns ->
+                    val names = mutableSetOf<String>()
+                    while (columns.next()) names += columns.getString("name")
+                    assertTrue("refund_evidence_json" in names)
+                }
+            }
+        }
+    }
+
+    @Test
     fun migrationPreservesPopulatedOlderSchema() {
         val file = File.createTempFile("clawfare-old-schema", ".db")
         file.deleteOnExit()
