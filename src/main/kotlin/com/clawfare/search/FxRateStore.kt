@@ -36,8 +36,8 @@ object FxRateStore {
             root["rates"]
                 ?.jsonObject
                 ?.mapNotNull { (currency, value) ->
-                val rate = value.jsonPrimitive.doubleOrNull
-                if (rate != null && rate > 0.0 && rate.isFinite()) currency.uppercase() to rate else null
+                    val rate = value.jsonPrimitive.doubleOrNull
+                    if (rate != null && rate > 0.0 && rate.isFinite()) currency.uppercase() to rate else null
                 }?.toMap() ?: error("Missing FX rates")
         require("USD" in rates && "EUR" in rates) { "FX snapshot requires USD and EUR" }
         return FxSnapshot(date, rates + ("GBP" to 1.0))
