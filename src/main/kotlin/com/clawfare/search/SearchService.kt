@@ -248,6 +248,15 @@ class SearchService(
         return SearchResponse(ok = true, result = saved)
     }
 
+    /** One account/status call per configured provider; no flight searches. */
+    fun providerQuotas(ids: Set<String>): List<QuotaView> =
+        providers
+            .filter { it.id in ids }
+            .map { provider ->
+                runCatching { provider.quota() }
+                    .getOrElse { QuotaView(provider.id, provider.configured, note = "Quota check failed") }
+            }
+
     fun listSearches(): List<ResultSet> = sink.list()
 
     fun open(id: String): ResultSet? {
