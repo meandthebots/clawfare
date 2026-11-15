@@ -116,7 +116,7 @@ class FareBatchRunCommand : Callable<Int> {
         }
         val audit =
             System.getenv("CLAWFARE_BATCH_AUDIT")?.let(::File)
-                ?: File(ClawfareDatabase.defaultPath).parentFile.resolve("batch-attempts.tsv")
+                ?: File(ClawfareDatabase.defaultPath).parentFile.resolve("batch-attempts.ndjson")
         val run = BatchSweep.run(config, service, confirmed = true, auditFile = audit)
         println("Executed ${run.executed}; saved ${run.saved}; failures ${run.failures.size}. Audit: ${audit.absolutePath}")
         run.failures.forEach { Output.error(it) }
