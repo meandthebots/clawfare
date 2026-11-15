@@ -375,6 +375,8 @@ object FareStore : FareSink {
                 tags = tagList,
                 bookingClass = itinerary.cabinKey.ifBlank { null },
                 cabinMixed = cabinKeys.size > 1,
+                fareBrand = itinerary.fareBrand,
+                farePolicyKey = itinerary.farePolicyKey,
                 offerIdentity = offerIdentity,
             )
         val dto =
