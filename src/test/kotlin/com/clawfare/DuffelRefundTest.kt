@@ -178,7 +178,10 @@ class DuffelRefundTest {
                 }
             }
         val provider = DuffelProvider("duffel_live_fixture", http, true)
-        assertEquals("no_airline_penalty", provider.refreshOffer("off_12345").refundStatus)
+        val snapshot = provider.refreshOfferWithPricing("off_12345")
+        assertEquals("no_airline_penalty", snapshot.refund.refundStatus)
+        assertEquals(4400.0, snapshot.totalAmount)
+        assertEquals("GBP", snapshot.totalCurrency)
         assertEquals(listOf("GET https://api.duffel.com/air/offers/off_12345"), methods)
     }
 }
