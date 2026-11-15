@@ -43,6 +43,17 @@ These dry-run commands do not call fare-search APIs. A confirmed run
 never proceeds if the configured **maximum possible live calls** (including
 possible return expansions) exceeds `maxLiveCalls`.
 
+A watch cycle also reserves its worst-case possible requests in a durable
+`~/.clawfare/batch-budget.ndjson` journal **before** any flight API call.
+The default cumulative UTC-day budget is `maxLiveCalls`: a full-size watch
+run can execute once per day. To allow multiple bounded runs, set an explicit
+`maxDailyLiveCalls` in the private JSON, for example `20`. All cycles on
+the same machine and local data directory share the same journal and lock.
+If a cycle crashes after the reservation, those calls remain reserved until
+the next UTC day to protect against accidental overspend. If the journal is
+corrupt or missing entries, restore it from private backup rather than
+discarding past reservations. Removing the ledger resets the safeguard.
+
 For additional protection, set `minQuotaReserve` (for instance 10) in the
 batch JSON. Set `requireNumericQuota=true` to **fail closed** whenever a
 configured provider cannot report a numeric remaining quota. This works
@@ -82,6 +93,9 @@ checking in this code.
 - `~/.clawfare/batch-attempts.ndjson`: append-only, one record per attempted
   route/date search, with a hash of the normalized query, provider names,
   timestamp, maximum call reservation and status. No API secrets.
+- `~/.clawfare/batch-budget.ndjson`: UTC-day maximum-call reservations,
+  synced to disk before any watch flight-search request. Protect and back up
+  this file with the database.
 - `~/.clawfare/batch-alerts.ndjson`: new and material price-drop notices for
   recently retrieved live (not mock/cached) quotes with **complete all-in
   costs**. Alerts explicitly say fare/refundability is *unverified*.
