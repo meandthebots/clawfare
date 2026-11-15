@@ -239,9 +239,12 @@ class SearchService(
 }
 
 private fun flightKey(it: Itinerary): String {
-    val out = it.outbound.legs.joinToString(",") { "${it.flightNumber}@${it.departDate}" }
-    val ret = it.returning?.legs?.joinToString(",") { "${it.flightNumber}@${it.departDate}" } ?: "none"
-    return "$out|$ret"
+    val out = it.outbound.legs.joinToString(",") { "${it.flightNumber}@${it.departDate}:${it.departTime}:${it.from}:${it.to}" }
+    val ret = it.returning?.legs?.joinToString(",") { "${it.flightNumber}@${it.departDate}:${it.departTime}:${it.from}:${it.to}" } ?: "none"
+    // Same physical flight can have different fares, rules and providers.
+    // Duffel offer IDs are distinct sellable offers even on the same flight.
+    val offer = if (it.source == "duffel") it.id else ""
+    return listOf(it.source, it.cabinKey, it.passengers.toString(), it.fareBrand.orEmpty(), it.farePolicyKey.orEmpty(), offer, out, ret).joinToString("|")
 }
 
 private fun rank(it: Itinerary): Int =
