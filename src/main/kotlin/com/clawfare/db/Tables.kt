@@ -79,6 +79,8 @@ object Flights : Table("flights") {
     val stale = integer("stale").default(0)
     val aircraftType = text("aircraft_type").nullable()
     val fareBrand = text("fare_brand").nullable()
+    val farePolicyKey = text("fare_policy_key").nullable()
+    val offerIdentity = text("offer_identity").nullable()
     val disqualified = text("disqualified").nullable()
     val notes = text("notes").nullable()
     val tags = text("tags").nullable()
