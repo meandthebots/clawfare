@@ -3,8 +3,8 @@ package com.clawfare.cli
 import com.clawfare.db.ClawfareDatabase
 import com.clawfare.export.JsonExporter
 import com.clawfare.export.TopNGenerator
-import com.clawfare.search.Export
 import com.clawfare.search.DuffelProvider
+import com.clawfare.search.Export
 import com.clawfare.search.FareStore
 import com.clawfare.search.FxRateStore
 import com.clawfare.search.SampleSeeder
@@ -244,8 +244,10 @@ class FareVerifyDuffelCommand : Callable<Int> {
         val evidence = latest.refund
         println("Offer ${latest.offerId}: total ${latest.totalAmount} ${latest.totalCurrency}")
         println("Observed: ${evidence.observedAt}; expires: ${evidence.expiresAt ?: "unknown"}")
-        println("Refund status: ${evidence.refundStatus}; airline penalty: " +
-            "${evidence.penaltyAmount ?: "unknown"} ${evidence.penaltyCurrency ?: ""}")
+        println(
+            "Refund status: ${evidence.refundStatus}; airline penalty: " +
+                "${evidence.penaltyAmount ?: "unknown"} ${evidence.penaltyCurrency ?: ""}",
+        )
         println("Return method: ${evidence.method}; extra servicing fee: ${evidence.servicingFeeAmount ?: "unknown"}")
         println("Confirmed cash refund to original payment method: NO — requires independent fare evidence.")
         return 0
