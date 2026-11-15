@@ -341,7 +341,8 @@ object FareStore : FareSink {
         val offerIdentity =
             if (old != null &&
                 old.source == itinerary.source &&
-                old.displayId == itinerary.id &&
+                (old.displayId == itinerary.id ||
+                    (old.displayId != null && itinerary.id.startsWith("${itinerary.source}-${old.displayId}-"))) &&
                 old.fareBrand.orEmpty() == itinerary.fareBrand.orEmpty()
             ) {
                 null
