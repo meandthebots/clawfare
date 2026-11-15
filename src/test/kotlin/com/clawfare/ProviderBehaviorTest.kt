@@ -99,7 +99,8 @@ class ProviderBehaviorTest {
         val duffel = DuffelProvider("duffel_test_abc", ScriptedFetcher()).quota()
         assertTrue(duffel.note.orEmpty().contains("Mock"))
         val liveLooking = DuffelProvider("duffel_live_not_really", ScriptedFetcher()).quota()
-        assertTrue(liveLooking.note.orEmpty().contains("not marked"))
+        assertTrue(liveLooking.note.orEmpty().contains("disabled"))
+        assertFalse(liveLooking.configured)
         val noDuffel = DuffelProvider(null, ScriptedFetcher()).quota()
         assertFalse(noDuffel.configured)
     }
