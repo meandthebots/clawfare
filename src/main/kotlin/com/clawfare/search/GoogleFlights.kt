@@ -343,6 +343,7 @@ class GoogleFlightsProvider(
                 java.time.Instant
                     .now()
                     .toString(),
+                itinerary.passengers,
             )
         return VendorFetch(rows, warnings, live, cachedHits)
     }
@@ -375,7 +376,7 @@ class GoogleFlightsProvider(
                 "currency" to currency,
                 "gl" to gl,
                 "hl" to "en",
-                "adults" to "1",
+                "adults" to itinerary.passengers.toString(),
                 "departure_id" to from,
                 "arrival_id" to to,
                 "outbound_date" to date,
