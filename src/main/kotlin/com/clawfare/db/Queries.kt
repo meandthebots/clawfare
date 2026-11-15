@@ -516,7 +516,6 @@ object FlightQueries {
                     it[fareBrand] = dto.fareBrand
                     it[farePolicyKey] = dto.farePolicyKey
                     it[refundEvidenceJson] = dto.refundEvidenceJson
-                it[refundEvidenceJson] = dto.refundEvidenceJson
                     it[offerIdentity] = dto.offerIdentity
                     it[disqualified] = dto.disqualified
                     it[notes] = dto.notes
