@@ -112,7 +112,9 @@ class DuffelRefundTest {
         }
 
         val sandbox = DuffelProvider("duffel_test_fixture", http, liveEnabled = false)
-        val testFare = sandbox.search(q, emptyCache(), allowNetwork = true).itineraries.single()
+        val sharedCache = emptyCache()
+        val testFare = sandbox.search(q, sharedCache, allowNetwork = true).itineraries.single()
+        assertEquals("test", sandbox.baseCalls(q).single().params["duffel_mode"])
         assertEquals("mock", testFare.sourceLabel)
         assertFalse(Filters.matches(testFare, FilterSpec(verifiedCashRefundOnly = true)))
         val disabled = DuffelProvider("duffel_live_fixture", http, liveEnabled = false)
@@ -120,11 +122,18 @@ class DuffelRefundTest {
         assertEquals("mock", disabled.priceKind)
         val live = DuffelProvider("duffel_live_fixture", http, liveEnabled = true)
         assertTrue(live.configured)
-        val actualFare = live.search(q, emptyCache(), allowNetwork = true).itineraries.single()
+        val actualFare = live.search(q, sharedCache, allowNetwork = true).itineraries.single()
+        assertEquals("live", live.baseCalls(q).single().params["duffel_mode"])
         assertEquals("live", actualFare.sourceLabel)
         assertEquals(2200.0, actualFare.pricePerPerson)
         assertEquals("no_airline_penalty", actualFare.refundEvidence?.refundStatus)
         assertFalse(Filters.matches(actualFare, FilterSpec(verifiedCashRefundOnly = true)))
+        // Reusing the same cache must NOT promote sandbox prices to live.
+        assertEquals(2, fetchedUrls.size)
+        val cachedAgain = live.search(q, sharedCache, allowNetwork = true).itineraries.single()
+        assertEquals("cached", cachedAgain.sourceLabel)
+        assertFalse(cachedAgain.livePrice)
+        assertEquals(2, fetchedUrls.size)
         assertTrue(fetchedUrls.all { it.endsWith("/air/offer_requests?return_offers=true") })
         assertTrue(fetchedUrls.all { it.startsWith("POST ") })
     }
