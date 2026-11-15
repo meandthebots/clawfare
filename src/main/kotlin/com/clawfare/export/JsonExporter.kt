@@ -146,6 +146,7 @@ object JsonExporter {
             tags = tags,
             bookingClass = fwp.bookingClass,
             cabinMixed = fwp.cabinMixed,
+            offerIdentity = fwp.flight.offerIdentity,
         )
     }
 }
