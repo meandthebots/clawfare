@@ -5,6 +5,7 @@ import com.clawfare.db.ClawfareDatabase
 import com.clawfare.db.FlightQueries
 import com.clawfare.db.PriceHistoryQueries
 import com.clawfare.export.JsonExporter
+import com.clawfare.importer.JsonImporter
 import com.clawfare.model.FlightValidator
 import com.clawfare.search.DiskCache
 import com.clawfare.search.FareProvider
@@ -160,6 +161,10 @@ class ReviewRegressionTest {
             val entry = JsonExporter.flightWithPriceToEntry(FlightQueries.getWithPrice(it.id)!!)
             assertTrue(FlightValidator.validate(entry).isValid, FlightValidator.validate(entry).errors.joinToString())
             assertNotNull(entry.offerIdentity)
+            val imported = JsonImporter.entryToDto(entry, "copy-of-review")
+            assertEquals(entry.offerIdentity, imported.offerIdentity)
+            assertEquals(entry.fareBrand, imported.fareBrand)
+            assertEquals(entry.farePolicyKey, imported.farePolicyKey)
         }
         val flex = flights.first { it.source == "serpapi" && it.fareBrand == "Flex" }
         val refreshed =
