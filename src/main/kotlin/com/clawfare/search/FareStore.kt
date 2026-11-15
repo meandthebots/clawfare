@@ -385,6 +385,7 @@ object FareStore : FareSink {
                 cabinMixed = cabinKeys.size > 1,
                 fareBrand = itinerary.fareBrand,
                 farePolicyKey = itinerary.farePolicyKey,
+                refundEvidenceJson = itinerary.refundEvidence?.let { flightJson.encodeToString(RefundEvidence.serializer(), it) },
                 offerIdentity = offerIdentity,
             )
         val dto =
@@ -480,7 +481,8 @@ object FareStore : FareSink {
                 returnDateHint = flight.plannedReturnDate,
             )
         val storedLinks = flight.linksJson?.let { runCatching { flightJson.decodeFromString(links, it) }.getOrNull() }.orEmpty()
-        val restored = built.copy(fareBrand = flight.fareBrand, farePolicyKey = flight.farePolicyKey)
+        val refund = flight.refundEvidenceJson?.let { runCatching { flightJson.decodeFromString(RefundEvidence.serializer(), it) }.getOrNull() }
+        val restored = built.copy(fareBrand = flight.fareBrand, farePolicyKey = flight.farePolicyKey, refundEvidence = refund)
         return if (storedLinks.isEmpty()) restored else restored.copy(links = storedLinks)
     }
 
