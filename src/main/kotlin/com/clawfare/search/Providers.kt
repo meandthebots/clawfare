@@ -374,7 +374,8 @@ class TravelpayoutsProvider(
             return null
         }
         cache.put(id, params, res.body, listOf(secret))
-        val observedAt = cache.get(id, params)?.cachedAt ?: java.time.Instant.now().toString()
+        val fallback = java.time.Instant.now()
+        val observedAt = cache.get(id, params)?.cachedAt ?: fallback.toString()
         return Triple(
             false,
             res.body,
@@ -539,7 +540,8 @@ class DuffelProvider(
             return null
         }
         cache.put(id, params, res.body, listOf(secret))
-        val observedAt = cache.get(id, params)?.cachedAt ?: java.time.Instant.now().toString()
+        val fallback = java.time.Instant.now()
+        val observedAt = cache.get(id, params)?.cachedAt ?: fallback.toString()
         return Triple(
             false,
             res.body,
