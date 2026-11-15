@@ -195,6 +195,8 @@ object ClawfareDatabase {
             addColumnIfMissing(stmt, flightsCols, "flights", "planned_return_date", "TEXT")
             addColumnIfMissing(stmt, flightsCols, "flights", "links_json", "TEXT")
             addColumnIfMissing(stmt, flightsCols, "flights", "cabin_class", "TEXT")
+            addColumnIfMissing(stmt, flightsCols, "flights", "fare_policy_key", "TEXT")
+            addColumnIfMissing(stmt, flightsCols, "flights", "offer_identity", "TEXT")
 
             stmt.close()
         }
