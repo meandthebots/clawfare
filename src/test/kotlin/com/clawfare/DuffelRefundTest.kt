@@ -141,7 +141,7 @@ class DuffelRefundTest {
 
     @Test
     fun offerModeAndExpiryCannotTurnSandboxPricesIntoBookableOffers() {
-        fun searchThis(offer: JsonObject) : com.clawfare.search.Itinerary {
+        fun searchThis(offer: JsonObject): com.clawfare.search.Itinerary {
             val payload = """{"data":{"offers":[${AppJson.encodeToString(JsonObject.serializer(), offer)}]}}"""
             val http =
                 object : HttpFetcher {
