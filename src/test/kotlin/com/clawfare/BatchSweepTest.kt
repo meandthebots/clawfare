@@ -91,7 +91,8 @@ class BatchSweepTest {
         assertEquals(36, expanded.map { it.signature }.toSet().size)
         assertTrue(
             expanded.all { entry ->
-                val storedId = com.clawfare.search.normalizeQuery(entry.query).investigation
+                val storedId =
+                    com.clawfare.search.normalizeQuery(entry.query).investigation
                 entry.signature == storedId
             },
         )
