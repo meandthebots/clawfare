@@ -207,6 +207,7 @@ class ReviewRegressionTest {
             )
         val initial = service.search(query)
         assertTrue(initial.ok, initial.error)
+        assertEquals(1900.0, initial.result!!.itineraries.single().pricePerPerson)
         assertEquals(1, networkCalls)
         val again = service.search(query.copy(cacheOnly = true))
         assertTrue(again.ok, again.error)
