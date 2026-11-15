@@ -643,7 +643,8 @@ class DuffelProvider(
         require(response.status in 200..299) { "Duffel offer refresh failed: HTTP ${response.status}" }
         val root = AppJson.parseToJsonElement(response.body) as? JsonObject ?: error("Malformed Duffel response")
         val offer = root["data"] as? JsonObject ?: error("Duffel offer data missing")
-        return parseDuffelRefundEvidence(offer, java.time.Instant.now().toString())
+        val checkedAt = java.time.Instant.now()
+        return parseDuffelRefundEvidence(offer, checkedAt.toString())
     }
 
     private fun parseSegment(seg: JsonObject): Leg? {
