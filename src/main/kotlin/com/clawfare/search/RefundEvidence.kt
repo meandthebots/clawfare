@@ -72,8 +72,9 @@ fun parseDuffelOfferSnapshot(
     observedAt: String,
 ): DuffelOfferSnapshot {
     val id = offer["id"]?.jsonPrimitive?.contentOrNull ?: error("Duffel offer missing ID")
-    val amount = offer["total_amount"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
-        ?: error("Duffel offer missing total amount")
+    val amount =
+        offer["total_amount"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+            ?: error("Duffel offer missing total amount")
     val currency = offer["total_currency"]?.jsonPrimitive?.contentOrNull ?: error("Duffel offer missing currency")
     return DuffelOfferSnapshot(id, amount, currency, parseDuffelRefundEvidence(offer, observedAt))
 }
