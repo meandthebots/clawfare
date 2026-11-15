@@ -75,7 +75,7 @@ class ReviewRegressionTest {
         assertTrue(urls.isNotEmpty())
         assertTrue(urls.all { "adults=2" in it }, urls.joinToString(","))
         assertTrue(sellers.rows.any { it.roundTrip == 4200.0 })
-        assertEquals(VendorMath.bagFee("us", "", 2, 1, 1) * 2, VendorMath.bagFee("us", "", 2, 1, 2))
+        assertEquals(VendorMath.bagFee("us", "1st checked bag: 40", 2, 1, 1) * 2, VendorMath.bagFee("us", "1st checked bag: 40", 2, 1, 2))
     }
 
     private fun products(): List<Itinerary> {
