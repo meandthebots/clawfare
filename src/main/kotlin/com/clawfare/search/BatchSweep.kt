@@ -81,7 +81,9 @@ object BatchSweep {
                 normalized.origins.flatMap { origin ->
                     normalized.destinations.map { destination ->
                         val key = listOf(scenario.id, origin, destination, departure, returning.orEmpty()).joinToString("-")
-                        val slug = (config.name + "-" + key).lowercase().replace(Regex("[^a-z0-9-]"), "-").take(120).trim('-')
+                        val safeKey = (config.name + "-" + key).lowercase()
+                        val legalKey = safeKey.replace(Regex("[^a-z0-9-]"), "-")
+                        val slug = legalKey.take(120).trim('-')
                         val q =
                             normalized.copy(
                                 origins = listOf(origin),
