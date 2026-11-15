@@ -592,6 +592,11 @@ class DuffelProvider(
                 livePrice = false,
                 fetchedAt = fetchedAt,
                 notes = "Duffel test-mode offer. Not a real price.",
+            ).copy(
+                fareBrand = offer.str("fare_brand_name"),
+                // Refund rules are not yet verified. Retain the raw-policy fingerprint
+                // so two differently conditioned offers cannot overwrite one another.
+                farePolicyKey = offer["conditions"]?.toString()?.let(::sha256),
             )
         }
     }
