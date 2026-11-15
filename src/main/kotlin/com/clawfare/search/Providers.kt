@@ -342,6 +342,27 @@ class TravelpayoutsProvider(
         }
     }
 
+    /**
+     * Sandbox and live Duffel searches must NEVER share cache identity.
+     * The scope is not a secret and is also included in the estimate's call key.
+     */
+    private fun requestParams(
+        query: SearchQuery,
+        origin: String,
+        dest: String,
+        outbound: String,
+        returning: String?,
+    ): Map<String, String> =
+        mapOf(
+            "origin" to origin,
+            "destination" to dest,
+            "outbound" to outbound,
+            "return" to (returning ?: ""),
+            "cabin" to query.cabin,
+            "adults" to query.adults.toString(),
+            "duffel_mode" to if (liveMode) "live" else "test",
+        )
+
     private fun read(
         cache: ResponseCache,
         params: Map<String, String>,
@@ -454,15 +475,8 @@ class DuffelProvider(
                 query.destinations.map { dest ->
                     CallSpec(
                         id,
-                        "Duffel mock $origin→$dest $out${ret?.let { "→$it" } ?: ""}",
-                        mapOf(
-                            "origin" to origin,
-                            "destination" to dest,
-                            "outbound" to out,
-                            "return" to (ret ?: ""),
-                            "cabin" to query.cabin,
-                            "adults" to query.adults.toString(),
-                        ),
+                        "Duffel ${if (liveMode) "live" else "mock"} $origin→$dest $out${ret?.let { "→$it" } ?: ""}",
+                        requestParams(query, origin, dest, out, ret),
                     )
                 }
             }
@@ -488,18 +502,10 @@ class DuffelProvider(
         for ((outDate, ret) in datePairs(query)) {
             for (origin in query.origins) {
                 for (dest in query.destinations) {
-                    val params =
-                        mapOf(
-                            "origin" to origin,
-                            "destination" to dest,
-                            "outbound" to outDate,
-                            "return" to (ret ?: ""),
-                            "cabin" to query.cabin,
-                            "adults" to query.adults.toString(),
-                        )
+                    val params = requestParams(query, origin, dest, outDate, ret)
                     val loaded = read(cache, params, query, origin, dest, outDate, ret, allowNetwork, warnings) ?: continue
                     if (loaded.first) cached++ else live++
-                    out += parseOffers(loaded.second, query, loaded.third)
+                    out += parseOffers(loaded.second, query, loaded.third, fromCache = loaded.first)
                 }
             }
         }
@@ -577,6 +583,7 @@ class DuffelProvider(
         body: String,
         query: SearchQuery,
         fetchedAt: String,
+        fromCache: Boolean,
     ): List<Itinerary> {
         val root = runCatching { AppJson.parseToJsonElement(body) as JsonObject }.getOrNull() ?: return emptyList()
         val data = root["data"] as? JsonObject ?: return emptyList()
@@ -605,14 +612,14 @@ class DuffelProvider(
                 returnLegs = directions.getOrNull(1),
                 returnMissing = query.tripType != "one_way" && directions.getOrNull(1).isNullOrEmpty(),
                 source = id,
-                sourceLabel = if (liveMode) "live" else "mock",
-                livePrice = liveMode,
+                sourceLabel = if (!liveMode) "mock" else if (fromCache) "cached" else "live",
+                livePrice = liveMode && !fromCache,
                 fetchedAt = fetchedAt,
                 notes =
-                    if (liveMode) {
-                        "Duffel live quote; confirm refund method and all fees independently."
-                    } else {
-                        "Duffel test-mode offer. Not a real price."
+                    when {
+                        !liveMode -> "Duffel test-mode offer. Not a real price."
+                        fromCache -> "Historical Duffel live quote: cached, not verified available now."
+                        else -> "Duffel live quote; confirm refund method and all fees independently."
                     },
             ).copy(
                 fareBrand = offer.str("fare_brand_name"),
