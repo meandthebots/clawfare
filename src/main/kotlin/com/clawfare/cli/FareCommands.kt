@@ -93,7 +93,7 @@ class FareEstimateCommand : Callable<Int> {
 
     override fun call(): Int {
         parent.parent.ensureDb()
-        val estimate = fareService().estimate(queryFrom(this))
+        val estimate = fareService().estimate(queryFrom(this), includeQuota = true)
         println(formatEstimate(estimate))
         return if (estimate.warnings.any {
                 it.startsWith("Enter") ||
