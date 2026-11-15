@@ -2,6 +2,7 @@ package com.clawfare.search
 
 import kotlinx.serialization.Serializable
 import java.io.File
+import java.io.FileOutputStream
 import java.nio.channels.FileChannel
 import java.nio.file.StandardOpenOption
 import java.time.Duration
@@ -20,6 +21,15 @@ data class WatchAlert(
     val reason: String,
     /** Never promoted to verified refundable on the basis of price alone. */
     val verification: String = "fare_and_cash_refund_unverified",
+)
+
+@Serializable
+data class DailyBudgetReservation(
+    val createdAt: String,
+    val utcDay: String,
+    val maxNetworkCalls: Int,
+    /** Hash only; actual itinerary and dates remain in the private search config. */
+    val configHash: String,
 )
 
 data class WatchOutcome(
@@ -48,6 +58,41 @@ object FareWatch {
         FileChannel.open(lockFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE).use { channel ->
             val lock = channel.tryLock() ?: error("Another collection cycle is already running for this file.")
             lock.use {
+                // Reserve the worst-case call count durably BEFORE starting any paid
+                // flight requests. Lost/crashed cycles consume budget conservatively.
+                val planned = BatchSweep.estimate(config, service)
+                val dailyLimit = config.maxDailyLiveCalls ?: config.maxLiveCalls
+                require(dailyLimit >= 0) { "Daily call budget must not be negative." }
+                val ledger = File(auditFile.parentFile, "batch-budget.ndjson")
+                val today = Instant.now().toString().take(10)
+                val reservations =
+                    if (ledger.isFile) {
+                        ledger.readLines().filter { it.isNotBlank() }.map { line ->
+                            AppJson.decodeFromString(DailyBudgetReservation.serializer(), line)
+                        }
+                    } else {
+                        emptyList()
+                    }
+                val used = reservations.filter { it.utcDay == today }.sumOf { it.maxNetworkCalls.toLong() }
+                val requested = planned.upperBound.toLong()
+                require(used + requested <= dailyLimit.toLong()) {
+                    "Daily call budget exceeded: $used reserved, $requested requested, $dailyLimit allowed."
+                }
+                if (requested > 0L) {
+                    val record =
+                        DailyBudgetReservation(
+                            createdAt = Instant.now().toString(),
+                            utcDay = today,
+                            maxNetworkCalls = planned.upperBound,
+                            configHash = sha256(AppJson.encodeToString(BatchConfig.serializer(), config)),
+                        )
+                    ledger.parentFile?.mkdirs()
+                    FileOutputStream(ledger, true).use { output ->
+                        output.write((AppJson.encodeToString(DailyBudgetReservation.serializer(), record) + "\\n").toByteArray())
+                        output.fd.sync()
+                    }
+                }
+
                 val previous = BatchSweep.compare(config, sink)
                 val previousPrices =
                     previous
