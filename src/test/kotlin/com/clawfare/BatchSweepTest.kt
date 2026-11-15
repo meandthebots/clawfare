@@ -4,7 +4,6 @@ import com.clawfare.search.BatchConfig
 import com.clawfare.search.BatchScenario
 import com.clawfare.search.BatchSweep
 import com.clawfare.search.CallSpec
-import com.clawfare.search.CachedResponse
 import com.clawfare.search.DiskCache
 import com.clawfare.search.FareProvider
 import com.clawfare.search.FareSink
@@ -12,7 +11,6 @@ import com.clawfare.search.GoogleFlightsProvider
 import com.clawfare.search.GoogleFlightsStyle
 import com.clawfare.search.HttpFetcher
 import com.clawfare.search.HttpResult
-import com.clawfare.search.Itinerary
 import com.clawfare.search.NoopSink
 import com.clawfare.search.ProviderOutcome
 import com.clawfare.search.QuotaView
@@ -28,8 +26,8 @@ import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class BatchSweepTest {
     private val dates =
@@ -77,7 +75,11 @@ class BatchSweepTest {
         }
 
     private fun service(provider: FareProvider = stubProvider()): SearchService {
-        val dir = File.createTempFile("batch-cache", "").apply { delete(); mkdirs() }
+        val dir =
+            File.createTempFile("batch-cache", "").apply {
+                delete()
+                mkdirs()
+            }
         return SearchService(listOf(provider), DiskCache(dir), NoopSink)
     }
 
@@ -109,7 +111,8 @@ class BatchSweepTest {
     @Test
     fun transitCountryRestrictionsFailClosedIncludingUnknownAndCodeshares() {
         val base = SampleData.florida().itineraries.first()
-        val first = base.outbound.legs.first().copy(from = "LHR", to = "HKG")
+        val original = base.outbound.legs.first()
+        val first = original.copy(from = "LHR", to = "HKG")
         val second = first.copy(from = "HKG", to = "HND")
         val viaHongKong = base.copy(outbound = base.outbound.copy(legs = listOf(first, second)))
         assertFalse(TransitRules.allows(viaHongKong, emptyList(), listOf("CN", "HK", "MO")))
@@ -168,12 +171,12 @@ class BatchSweepTest {
                 override fun list(): List<ResultSet> = emptyList()
             }
         assertEquals(3670.0, BatchSweep.compare(config, sink).single().allInGbp)
-        assertNull(
+        val incomplete =
             BatchSweep.compare(
                 config.copy(scenarios = listOf(scenario.copy(hotelsGbp = null))),
                 sink,
-            ).single().allInGbp,
-        )
+            )
+        assertNull(incomplete.single().allInGbp)
     }
 
     @Test
