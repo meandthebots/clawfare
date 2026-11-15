@@ -178,6 +178,7 @@ object Filters {
         f: FilterSpec,
     ): Boolean {
         if (f.hideMock && it.sourceLabel == "mock") return false
+        if (f.verifiedCashRefundOnly && it.refundEvidence?.isVerifiedFullCashRefund(it.livePrice, it.passengers) != true) return false
         val stops = if (it.stopsRet == null) it.stopsOut else maxOf(it.stopsOut, it.stopsRet)
         if (f.nonstopOnly && (it.stopsOut != 0 || it.returnMissing || it.stopsRet != 0)) return false
         if (f.maxStops != null && stops > f.maxStops) return false

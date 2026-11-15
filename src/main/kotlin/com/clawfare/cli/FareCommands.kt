@@ -6,6 +6,7 @@ import com.clawfare.export.TopNGenerator
 import com.clawfare.search.AppJson
 import com.clawfare.search.BatchConfig
 import com.clawfare.search.BatchSweep
+import com.clawfare.search.DuffelProvider
 import com.clawfare.search.Export
 import com.clawfare.search.FareStore
 import com.clawfare.search.FxRateStore
@@ -37,6 +38,7 @@ private fun splitCodes(raw: String): List<String> = raw.split(Regex("[,\\s]+")).
         FareQuotaCommand::class,
         FareLoadSampleCommand::class,
         FareFxRefreshCommand::class,
+        FareVerifyDuffelCommand::class,
         FareBatchCommand::class,
     ],
 )
@@ -350,6 +352,44 @@ class FareFxRefreshCommand : Callable<Int> {
             Output.error("FX refresh failed: ${e.message ?: "unknown error"}")
             1
         }
+}
+
+@Command(
+    name = "verify-duffel",
+    description = ["Refresh a live Duffel offer by ID (read-only, never books)"],
+    mixinStandardHelpOptions = true,
+)
+class FareVerifyDuffelCommand : Callable<Int> {
+    @Parameters(index = "0", description = ["Exact Duffel offer ID (off_...)"])
+    lateinit var offerId: String
+
+    @Option(names = ["--confirm"], description = ["Authorize one live offer GET request"])
+    var confirm: Boolean = false
+
+    override fun call(): Int {
+        if (!confirm) {
+            println("No API request made. Re-run with --confirm to refresh this specific Duffel offer.")
+            return 2
+        }
+        val provider = providersFromEnv().filterIsInstance<DuffelProvider>().single()
+        val latest =
+            try {
+                provider.refreshOfferWithPricing(offerId)
+            } catch (e: Exception) {
+                Output.error("Offer recheck failed: ${e.message ?: "unknown error"}")
+                return 1
+            }
+        val evidence = latest.refund
+        println("Offer ${latest.offerId}: total ${latest.totalAmount} ${latest.totalCurrency}")
+        println("Observed: ${evidence.observedAt}; expires: ${evidence.expiresAt ?: "unknown"}")
+        println(
+            "Refund status: ${evidence.refundStatus}; airline penalty: " +
+                "${evidence.penaltyAmount ?: "unknown"} ${evidence.penaltyCurrency ?: ""}",
+        )
+        println("Return method: ${evidence.method}; extra servicing fee: ${evidence.servicingFeeAmount ?: "unknown"}")
+        println("Confirmed cash refund to original payment method: NO — requires independent fare evidence.")
+        return 0
+    }
 }
 
 @Command(name = "reingest", description = ["Parse cached provider responses again. Does not call the network."])

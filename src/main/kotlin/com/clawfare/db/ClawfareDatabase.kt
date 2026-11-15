@@ -14,7 +14,7 @@ import java.sql.DriverManager
  * Database connection and schema management for Clawfare.
  */
 object ClawfareDatabase {
-    private const val SCHEMA_VERSION = 1
+    private const val SCHEMA_VERSION = 2
 
     private var initialized = false
     private var currentDb: Database? = null
@@ -252,6 +252,7 @@ object ClawfareDatabase {
             addColumnIfMissing(stmt, flightsCols, "flights", "links_json", "TEXT")
             addColumnIfMissing(stmt, flightsCols, "flights", "cabin_class", "TEXT")
             addColumnIfMissing(stmt, flightsCols, "flights", "fare_policy_key", "TEXT")
+            addColumnIfMissing(stmt, flightsCols, "flights", "refund_evidence_json", "TEXT")
             addColumnIfMissing(stmt, flightsCols, "flights", "offer_identity", "TEXT")
 
             stmt.close()

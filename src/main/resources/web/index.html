@@ -218,6 +218,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
       <label><input type="checkbox" id="fNonstop"> Nonstop only</label>
       <label><input type="checkbox" id="fEu"> European premium</label>
       <label><input type="checkbox" id="fHideMock" checked> Hide mocks</label>
+      <label><input type="checkbox" id="fCashRefund"> Verified cash refund only</label>
       <label><input type="checkbox" id="fHide"> Hide infeasible</label>
       <label><input type="checkbox" id="fLhr"> Heathrow only</label>
     </div>
@@ -269,7 +270,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     return {
       maxStops: "", maxLayoverHours: "", excludeReturn: "", excludeOut: "",
       allow: "", block: "", maxTravelHours: "", departAfter: "", departBefore: "", returnAfter: "",
-      nonstop: false, eu: false, hideMock: true, cabin: "all", nights: "all", origin: "all",
+      nonstop: false, eu: false, hideMock: true, cashRefund: false, cabin: "all", nights: "all", origin: "all",
       hide: false, lhr: false, sort: "date", market: "all", vsort: "allin", sel: null
     };
   }
@@ -382,6 +383,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
       returnDepartAfter: state.returnAfter || null,
       nonstopOnly: !!state.nonstop,
       hideMock: state.hideMock !== false,
+      verifiedCashRefundOnly: !!state.cashRefund,
       cabin: cabin,
       nights: state.nights === "all" ? null : Number(state.nights),
       origin: state.lhr ? "LHR" : (state.origin === "all" ? null : state.origin)
@@ -389,6 +391,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
   }
   function matches(it, f) {
     if (f.hideMock && it.sourceLabel === "mock") return false;
+    if (f.verifiedCashRefundOnly && !verifiedCashRefund(it)) return false;
     var stops = it.stopsRet == null ? it.stopsOut : Math.max(it.stopsOut, it.stopsRet);
     if (f.nonstopOnly && (it.stopsOut !== 0 || it.returnMissing || it.stopsRet !== 0)) return false;
     if (f.maxStops != null && stops > f.maxStops) return false;
@@ -421,7 +424,41 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     }
     return rows;
   }
-  function quoteable(it) { return it.sourceLabel !== "mock"; }
+  function quoteable(it) {
+    if (it.sourceLabel !== "live" || it.livePrice !== true) return false;
+    var observed = Date.parse(it.fetchedAt || "");
+    var age = Date.now() - observed;
+    if (!Number.isFinite(observed) || age < 0 || age > 2 * 60 * 60 * 1000) return false;
+    var expiry = it.refundEvidence && it.refundEvidence.expiresAt;
+    return !it.refundEvidence || (expiry && Date.parse(expiry) > Date.now());
+  }
+  function verifiedCashRefund(it) {
+    var e = it.refundEvidence;
+    if (!e || it.sourceLabel !== "live" || !it.livePrice || e.allowed !== true ||
+        e.penaltyAmount == null || Number(e.penaltyAmount) !== 0 ||
+        e.method !== "original_payment" || e.servicingFeeAmount == null ||
+        Number(e.servicingFeeAmount) !== 0 || !e.expiresAt) return false;
+    var expires = Date.parse(e.expiresAt);
+    if (!Number.isFinite(expires) || expires <= Date.now()) return false;
+    return e.availablePassengers == null || e.availablePassengers >= it.passengers;
+  }
+  function refundDetails(it) {
+    var e = it.refundEvidence;
+    if (!e) return "<div class='sec'><h3>Cancellation / refund evidence</h3><div class='muted'>No verified cancellation terms were provided for this fare. The refund method, penalties and servicing fees are unknown.</div></div>";
+    var permission = e.allowed === true ? "Allowed by airline" : (e.allowed === false ? "Airline says no refund" : "Unknown");
+    var penalty = e.penaltyAmount == null ? "Unknown" : money(e.penaltyAmount, e.penaltyCurrency || "");
+    var method = e.method === "original_payment" ? "Original payment method" : (e.method === "travel_credit" ? "Travel credit" : "Unknown");
+    var serviceFee = e.servicingFeeAmount == null ? "Unknown" : money(e.servicingFeeAmount, e.servicingFeeCurrency || "");
+    var heading = verifiedCashRefund(it) ? "Cash-refund evidence complete — reconfirm at booking" : "Fully refundable to original payment method: NOT VERIFIED";
+    return "<div class='sec'><h3>Cancellation / refund evidence</h3>" +
+      "<div class='muted'><b>" + esc(heading) + "</b></div>" +
+      "<div>Airline pre-departure cancellation: " + esc(permission) + "</div>" +
+      "<div>Airline penalty: " + esc(penalty) + "; refund method: " + esc(method) + "; servicing fees: " + esc(serviceFee) + "</div>" +
+      "<div class='muted'>Offer: " + esc(e.offerId || "not supplied") + " · Expires: " + esc(e.expiresAt || "unknown") +
+      " · Observed: " + esc(e.observedAt || "unknown") + " · Source: " + esc(e.sourceDescription || e.provider || "unknown") + "</div>" +
+      (e.baggageEvidence && e.baggageEvidence.length ? "<div class='muted'>Bag allowance evidence: " + esc(e.baggageEvidence.join(", ")) + "</div>" : "") +
+      "<div class='muted'>A Duffel zero-penalty condition does not by itself prove cash reimbursement or absence of ticketing/agency fees.</div></div>";
+  }
   function totalOf(it) { return (it.pricePerPerson || 0) * (it.passengers || 1); }
   function cheapestCell(rows, pred) {
     var cells = cellMap();
@@ -487,6 +524,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     $("fNonstop").checked = state.nonstop;
     $("fEu").checked = state.eu || state.cabin === "EU";
     $("fHideMock").checked = state.hideMock;
+    $("fCashRefund").checked = state.cashRefund;
     $("fHide").checked = state.hide;
     $("fLhr").checked = state.lhr;
     markSeg("cabinSeg", state.cabin);
@@ -507,6 +545,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     state.nonstop = $("fNonstop").checked;
     state.eu = $("fEu").checked;
     state.hideMock = $("fHideMock").checked;
+    state.cashRefund = $("fCashRefund").checked;
     state.hide = $("fHide").checked;
     state.lhr = $("fLhr").checked;
     if (state.eu && state.cabin !== "business" && state.cabin !== "premium_economy") state.cabin = "EU";
@@ -554,6 +593,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
   }
   function sourceTag(it) {
     var label = it.sourceLabel || "";
+    if (label === "live" && !quoteable(it)) label = "cached";
     var cls = label === "mock" ? "mock" : (label === "live" ? "live" : "cached");
     var text = label === "mock" ? "Mock" : (label === "cached" ? "Cached" : (label === "sample" ? "Sample" : (label === "live" ? "Live" : label)));
     if (!it.livePrice && label !== "mock" && label !== "sample") text += " · not a live fare";
@@ -605,7 +645,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
       banners.push("<div class='banner bad'>Duffel rows are test-mode mocks. They are hidden from the cheapest highlight and, with “Hide mocks” on, from the tables.</div>");
     }
     if ((result.itineraries || []).some(function (it) { return it.sourceLabel === "cached"; })) {
-      banners.push("<div class='banner'>Travelpayouts rows are cached calendar fares, not live itineraries.</div>");
+      banners.push("<div class='banner'>Cached fares (including historic Duffel live quotes and Travelpayouts) are not verified bookable at the displayed price.</div>");
     }
     $("banners").innerHTML = banners.join("");
   }
@@ -882,6 +922,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     } else {
       html += "<div class='sec'><h3>Price</h3><table class='price'><tr><td>" + gbp(it.pricePerPerson) + " per person × " + it.passengers + "</td><td>" + gbp(totalOf(it)) + "</td></tr></table></div>";
     }
+    html += refundDetails(it);
     html += "<div class='booknote'>Links open for <b>1 adult</b>. Set the passenger count on Google Flights before choosing a booking option. " + esc(it.sourceLabel === "mock" ? "This Duffel price is a mock." : "Re-check the fare before paying.") + "</div>";
     html += "<div class='actions'><button type='button' id='btnVendorsFor'>Seller comparison</button> <button type='button' id='btnTrack'>Save to a trip</button></div>";
     $("pBody").innerHTML = html;

@@ -80,6 +80,7 @@ object Flights : Table("flights") {
     val aircraftType = text("aircraft_type").nullable()
     val fareBrand = text("fare_brand").nullable()
     val farePolicyKey = text("fare_policy_key").nullable()
+    val refundEvidenceJson = text("refund_evidence_json").nullable()
     val offerIdentity = text("offer_identity").nullable()
     val disqualified = text("disqualified").nullable()
     val notes = text("notes").nullable()
