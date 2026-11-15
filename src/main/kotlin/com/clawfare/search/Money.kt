@@ -66,13 +66,14 @@ object VendorMath {
         baggageText: String,
         directions: Int,
         checkedBags: Int,
+        passengers: Int = 1,
     ): Double {
         if (checkedBags <= 0) return 0.0
         val text = baggageText.lowercase()
         if ("free checked" in text) return 0.0
         val listed = BAG_LISTED.find(baggageText)
-        if (listed != null) return listed.groupValues[1].replace(",", "").toDouble()
-        val usd = 30.0 * directions * checkedBags.coerceAtMost(1)
+        if (listed != null) return listed.groupValues[1].replace(",", "").toDouble() * passengers
+        val usd = 30.0 * directions * checkedBags.coerceAtMost(1) * passengers
         val marketPerGbp = Fx.PER_GBP[Fx.currencyOf(market)] ?: Fx.PER_GBP.getValue("USD")
         val usdPerGbp = Fx.PER_GBP.getValue("USD")
         return round(usd * marketPerGbp / usdPerGbp)
@@ -83,6 +84,7 @@ object VendorMath {
         checkedBags: Int,
         links: Map<String, List<BookLink>> = emptyMap(),
         fetchedAt: String? = null,
+        passengers: Int = 1,
     ): List<VendorRow> {
         val out = mutableListOf<VendorRow>()
         for ((market, q) in quotes) {
@@ -100,15 +102,16 @@ object VendorMath {
                         null,
                         links[market].orEmpty(),
                         fetchedAt,
+                        passengers,
                     )
             }
             if (q.outbound.isNotEmpty() && q.inbound.isNotEmpty()) {
-                val outBest = q.outbound.minBy { it.value.price + bagFee(market, it.value.bags, 1, checkedBags) }
+                val outBest = q.outbound.minBy { it.value.price + bagFee(market, it.value.bags, 1, checkedBags, passengers) }
                 val backBest = q.inbound.minBy { it.value.price + bagFee(market, it.value.bags, 1, checkedBags) }
                 val mixName = "Mix (any vendor): ${outBest.key} out + ${backBest.key} back"
                 val worst = worseTrust(trustOf(outBest.key).second, trustOf(backBest.key).second)
                 out +=
-                    row(market, mixName, null, outBest.value, backBest.value, checkedBags, true, worst, links[market].orEmpty(), fetchedAt)
+                    row(market, mixName, null, outBest.value, backBest.value, checkedBags, true, worst, links[market].orEmpty(), fetchedAt, passengers)
             }
         }
         return out.sortedWith(compareBy({ it.allInGbp == null }, { it.allInGbp ?: Double.MAX_VALUE }))
@@ -125,16 +128,17 @@ object VendorMath {
         trustOverride: String?,
         links: List<BookLink>,
         fetchedAt: String?,
+        passengers: Int,
     ): VendorRow {
         val base =
             vendor.substringBefore(" — ").substringBefore(" out +").let {
                 if (vendor.startsWith("Mix")) vendor.substringAfter(": ").substringBefore(" out +") else it
             }
         val (type, trust) = if (trustOverride != null) "OTA" to trustOverride else trustOf(if (mix) base else vendor.substringBefore(" — "))
-        val rtb = rt?.let { it.price + bagFee(market, it.bags, 2, checkedBags) }
+        val rtb = rt?.let { it.price + bagFee(market, it.bags, 2, checkedBags, passengers) }
         val sb =
             if (ow != null && back != null) {
-                ow.price + bagFee(market, ow.bags, 1, checkedBags) + back.price + bagFee(market, back.bags, 1, checkedBags)
+                ow.price + bagFee(market, ow.bags, 1, checkedBags, passengers) + back.price + bagFee(market, back.bags, 1, checkedBags, passengers)
             } else {
                 null
             }
