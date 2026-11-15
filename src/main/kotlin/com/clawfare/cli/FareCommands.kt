@@ -4,6 +4,9 @@ import com.clawfare.db.ClawfareDatabase
 import com.clawfare.export.JsonExporter
 import com.clawfare.export.TopNGenerator
 import com.clawfare.search.Export
+import com.clawfare.search.AppJson
+import com.clawfare.search.BatchConfig
+import com.clawfare.search.BatchSweep
 import com.clawfare.search.FareStore
 import com.clawfare.search.FxRateStore
 import com.clawfare.search.SampleSeeder
@@ -34,6 +37,7 @@ private fun splitCodes(raw: String): List<String> = raw.split(Regex("[,\\s]+")).
         FareQuotaCommand::class,
         FareLoadSampleCommand::class,
         FareFxRefreshCommand::class,
+        FareBatchCommand::class,
     ],
 )
 class FareCommand : Callable<Int> {
@@ -42,6 +46,116 @@ class FareCommand : Callable<Int> {
 
     override fun call(): Int {
         picocli.CommandLine(this).usage(System.out)
+        return 0
+    }
+}
+
+@Command(
+    name = "batch",
+    description = ["Plan, execute and compare private multi-route fare searches"],
+    subcommands = [
+        FareBatchPlanCommand::class,
+        FareBatchRunCommand::class,
+        FareBatchReportCommand::class,
+    ],
+)
+class FareBatchCommand : Callable<Int> {
+    @ParentCommand
+    lateinit var parent: FareCommand
+
+    override fun call(): Int {
+        picocli.CommandLine(this).usage(System.out)
+        return 0
+    }
+}
+
+@Command(name = "plan", description = ["Estimate route/date matrix and hard network upper bound; no network"])
+class FareBatchPlanCommand : Callable<Int> {
+    @ParentCommand
+    lateinit var parent: FareBatchCommand
+
+    @Parameters(index = "0", description = ["Private local JSON batch config"])
+    lateinit var file: String
+
+    override fun call(): Int {
+        parent.parent.parent.ensureDb()
+        val config = AppJson.decodeFromString(BatchConfig.serializer(), File(file).readText())
+        val estimate = BatchSweep.estimate(config, fareService())
+        println("${estimate.entries.size} scenario/date/route searches: ${estimate.liveCalls} live, " +
+            "${estimate.cachedCalls} cached, up to ${estimate.extraReturnCalls} returns.")
+        println("Upper bound ${estimate.upperBound}; configured hard cap ${config.maxLiveCalls}.")
+        estimate.entries.forEach { println("  ${it.signature}") }
+        return if (estimate.upperBound > config.maxLiveCalls) 2 else 0
+    }
+}
+
+@Command(name = "run", description = ["Execute capped batch only with --confirm; otherwise dry-run"])
+class FareBatchRunCommand : Callable<Int> {
+    @ParentCommand
+    lateinit var parent: FareBatchCommand
+
+    @Parameters(index = "0", description = ["Private local JSON batch config"])
+    lateinit var file: String
+
+    @Option(names = ["--confirm"], description = ["Explicitly authorize live searches within cap"])
+    var confirm: Boolean = false
+
+    override fun call(): Int {
+        parent.parent.parent.ensureDb()
+        val config = AppJson.decodeFromString(BatchConfig.serializer(), File(file).readText())
+        val service = fareService()
+        val estimate = BatchSweep.estimate(config, service)
+        println("Upper bound: ${estimate.upperBound} network calls for ${estimate.entries.size} searches; cap ${config.maxLiveCalls}.")
+        if (!confirm) {
+            println("Dry-run only. No network calls made. Re-run with --confirm after reviewing the estimate.")
+            return 0
+        }
+        if (estimate.upperBound > config.maxLiveCalls) {
+            Output.error("Search matrix exceeds maxLiveCalls; no provider calls made.")
+            return 2
+        }
+        val audit =
+            System.getenv("CLAWFARE_BATCH_AUDIT")?.let(::File)
+                ?: File(ClawfareDatabase.defaultPath).parentFile.resolve("batch-attempts.tsv")
+        val run = BatchSweep.run(config, service, confirmed = true, auditFile = audit)
+        println("Executed ${run.executed}; saved ${run.saved}; failures ${run.failures.size}. Audit: ${audit.absolutePath}")
+        run.failures.forEach { Output.error(it) }
+        return if (run.failures.isEmpty()) 0 else 1
+    }
+}
+
+@Command(name = "report", description = ["Export comparable party fare + stopover costs as CSV"])
+class FareBatchReportCommand : Callable<Int> {
+    @ParentCommand
+    lateinit var parent: FareBatchCommand
+
+    @Parameters(index = "0", description = ["Private local JSON batch config"])
+    lateinit var file: String
+
+    @Option(names = ["--out"], required = true, description = ["Private CSV output path"])
+    lateinit var out: String
+
+    override fun call(): Int {
+        parent.parent.parent.ensureDb()
+        val config = AppJson.decodeFromString(BatchConfig.serializer(), File(file).readText())
+        val rows = BatchSweep.compare(config, FareStore)
+        fun cell(value: Any?): String = "\"" + value.toString().replace("\"", "\"\"") + "\""
+        val fields =
+            listOf("signature", "origin", "destination", "date", "source", "label", "partyFareGbp",
+                "allInGbp", "expenseEvidence", "retrievedAt", "journeyType")
+        val csv =
+            buildString {
+                appendLine(fields.joinToString(","))
+                for (row in rows) {
+                    appendLine(
+                        listOf(row.signature, row.origin, row.destination, row.date, row.source, row.sourceLabel,
+                            row.partyFareGbp, row.allInGbp, row.expenseEvidence, row.retrievedAt, row.journeyType)
+                            .joinToString(",") { cell(it ?: "") },
+                    )
+                }
+            }
+        File(out).writeText(csv)
+        println("Exported ${rows.size} observations to $out. Unknown all-in costs stay blank.")
         return 0
     }
 }
