@@ -510,9 +510,7 @@ class GoogleFlightsProvider(
                 cache.put(id, params, res.body, listOf(secret))
                 return Loaded(
                     res.body,
-                    java.time.Instant
-                        .now()
-                        .toString(),
+                    cache.get(id, params)?.cachedAt ?: java.time.Instant.now().toString(),
                     fromCache = false,
                 )
             }
@@ -525,9 +523,7 @@ class GoogleFlightsProvider(
                 cache.put(id, params, res.body, listOf(secret))
                 return Loaded(
                     res.body,
-                    java.time.Instant
-                        .now()
-                        .toString(),
+                    cache.get(id, params)?.cachedAt ?: java.time.Instant.now().toString(),
                     fromCache = false,
                 )
             }
