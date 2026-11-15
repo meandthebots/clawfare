@@ -9,7 +9,6 @@ import com.clawfare.search.FilterSpec
 import com.clawfare.search.Filters
 import com.clawfare.search.HttpFetcher
 import com.clawfare.search.HttpResult
-import com.clawfare.search.RefundEvidence
 import com.clawfare.search.ResultSet
 import com.clawfare.search.SearchQuery
 import com.clawfare.search.StoredResult
@@ -110,6 +109,7 @@ class DuffelRefundTest {
             temp.mkdirs()
             return DiskCache(temp)
         }
+
         val sandbox = DuffelProvider("duffel_test_fixture", http, liveEnabled = false)
         val testFare = sandbox.search(q, emptyCache(), allowNetwork = true).itineraries.single()
         assertEquals("mock", testFare.sourceLabel)
@@ -146,10 +146,13 @@ class DuffelRefundTest {
                     url: String,
                     headers: Map<String, String>,
                     body: String?,
-                ): HttpResult =
-                    HttpResult(200, """{"data":{"offers":[${AppJson.encodeToString(JsonObject.serializer(), offer())}]}}""")
+                ): HttpResult = HttpResult(200, """{"data":{"offers":[${AppJson.encodeToString(JsonObject.serializer(), offer())}]}}""")
             }
-        val directory = File.createTempFile("duffel-db", "").apply { delete(); mkdirs() }
+        val directory =
+            File.createTempFile("duffel-db", "").apply {
+                delete()
+                mkdirs()
+            }
         val flight = DuffelProvider("duffel_live_fixture", http, true).search(q, DiskCache(directory), true).itineraries.single()
         FareStore.save(StoredResult(ResultSet(id = "duffel-refund", title = "Duffel refund check", itineraries = listOf(flight))))
         val restored = FareStore.project("duffel-refund")!!.itineraries.single()
