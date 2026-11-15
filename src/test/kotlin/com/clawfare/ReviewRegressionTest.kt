@@ -29,9 +29,9 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import picocli.CommandLine
 import java.io.File
 import java.sql.DriverManager
-import picocli.CommandLine
 
 class ReviewRegressionTest {
     @Test
@@ -220,14 +220,16 @@ class ReviewRegressionTest {
             )
         val initial = service.search(query)
         assertTrue(initial.ok, initial.error)
-        assertEquals(1900.0, initial.result!!.itineraries.single().pricePerPerson)
+        val initialFare = initial.result!!.itineraries.single()
+        assertEquals(1900.0, initialFare.pricePerPerson)
         assertEquals(1, networkCalls)
         val again = service.search(query.copy(cacheOnly = true))
         assertTrue(again.ok, again.error)
         assertEquals(1, networkCalls)
         val flight = FlightQueries.listByInvestigation("review-reingest").single()
         assertEquals(1, PriceHistoryQueries.getByFlightId(flight.id).size)
-        val token = FareStore.load("review-reingest")!!.tokens.values.single()
+        val stored = FareStore.load("review-reingest")!!
+        val token = stored.tokens.values.single()
         assertEquals("book-live-123", token.bookingToken)
     }
 
