@@ -3,6 +3,7 @@ package com.clawfare.export
 import com.clawfare.db.FlightQueries
 import com.clawfare.db.FlightWithPrice
 import com.clawfare.db.PriceHistoryQueries
+import com.clawfare.search.Fx
 import com.clawfare.model.FlightSegment
 import kotlinx.serialization.json.Json
 import java.time.ZonedDateTime
@@ -79,11 +80,17 @@ object TopNGenerator {
         limit: Int = 10,
         title: String = "Top Flights",
     ): String {
-        // Sort by price (ascending) and take top N
+        // Never rank mock offers as bookable; normalize currencies before comparing.
+        // Unknown currencies cannot safely participate in a cross-currency ranking.
+        val comparable =
+            flights.filter { item ->
+                item.flight.sourceLabel != "mock" &&
+                    Fx.toGbpOrNull(item.priceAmount, item.priceCurrency) != null
+            }
         val sortedFlights =
-            flights
-                .sortedBy { it.priceAmount }
-                .take(limit)
+            comparable
+                .sortedWith(compareBy({ Fx.toGbpOrNull(it.priceAmount, it.priceCurrency) ?: Double.MAX_VALUE }, { it.id }))
+                .take(limit.coerceAtLeast(0))
 
         if (sortedFlights.isEmpty()) {
             return buildString {
@@ -97,6 +104,9 @@ object TopNGenerator {
             appendLine("# $title")
             appendLine()
             appendLine("Generated: ${ZonedDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME)}")
+            appendLine("Comparable GBP ranking uses ${Fx.AS_OF}; refresh FX before booking.")
+            val skipped = flights.size - comparable.size
+            if (skipped > 0) appendLine("Excluded $skipped mock or unconvertible offers.")
             appendLine()
 
             sortedFlights.forEachIndexed { index, flight ->
