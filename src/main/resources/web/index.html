@@ -1008,14 +1008,15 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
       render();
       return;
     }
+    var vendorMarkets = ["uk", "us"];
     api("/api/results/" + encodeURIComponent(result.id) + "/vendors", {
-      itineraryId: it.id, markets: ["uk"], cacheOnly: $("cacheOnly").checked, confirmed: false
+      itineraryId: it.id, markets: vendorMarkets, cacheOnly: $("cacheOnly").checked, confirmed: false
     }).then(function (res) {
       if (res.body.needsConfirmation) {
         var go = window.confirm((res.body.estimate && res.body.estimate.lines || []).join("\n") + "\n\nFetch seller offers now?");
         if (!go) return;
         return api("/api/results/" + encodeURIComponent(result.id) + "/vendors", {
-          itineraryId: it.id, markets: ["uk", "us"], cacheOnly: $("cacheOnly").checked, confirmed: true
+          itineraryId: it.id, markets: vendorMarkets, cacheOnly: $("cacheOnly").checked, confirmed: true
         });
       }
       return res;
