@@ -103,6 +103,7 @@ class DuffelRefundTest {
                 adults = 2,
                 cabin = "business",
             )
+
         fun emptyCache(): DiskCache {
             val temp = File.createTempFile("duffel-cache", "")
             temp.delete()
