@@ -470,9 +470,10 @@ object FlightValidator {
     fun validateId(entry: FlightEntry): List<String> {
         val errors = mutableListOf<String>()
 
-        val expectedId = generateId(entry.shareLink)
+        val key = entry.offerIdentity?.let { "${entry.shareLink}|$it" } ?: entry.shareLink
+        val expectedId = generateId(key)
         if (entry.id != expectedId) {
-            errors.add("id (${entry.id}) does not match expected sha256(share_link)[:12] ($expectedId)")
+            errors.add("id (${entry.id}) does not match expected sha256(share_link|offer_identity)[:12] ($expectedId)")
         }
 
         return errors
