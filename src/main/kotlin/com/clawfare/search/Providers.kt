@@ -425,21 +425,28 @@ class TravelpayoutsProvider(
 class DuffelProvider(
     private val token: String?,
     private val http: HttpFetcher,
+    private val liveEnabled: Boolean = System.getenv("DUFFEL_LIVE_ENABLED").equals("true", true),
 ) : FareProvider {
     override val id = "duffel"
     override val displayName = "Duffel"
-    override val configured = !token.isNullOrBlank()
-    override val priceKind = "mock"
     private val secret = token.orEmpty()
+    private val testMode = secret.startsWith("duffel_test_")
+    private val liveMode = secret.startsWith("duffel_live_") && liveEnabled
+    override val configured = testMode || liveMode
+    override val priceKind = if (liveMode) "live" else "mock"
 
-    override fun quota(): QuotaView {
-        val mode = if (secret.contains("test")) "Test token detected." else "Token is not marked as a test key."
-        return QuotaView(
+    override fun quota(): QuotaView =
+        QuotaView(
             id,
             configured,
-            note = if (configured) "Mock offers only — never a real price. $mode" else "Set DUFFEL_ACCESS_TOKEN (test mode).",
+            note =
+                when {
+                    liveMode -> "Live mode explicitly enabled; search and offer GET only (no order creation)."
+                    testMode -> "Sandbox token; all prices are mock."
+                    secret.startsWith("duffel_live_") -> "Live token is disabled; set DUFFEL_LIVE_ENABLED=true explicitly."
+                    else -> "Set DUFFEL_ACCESS_TOKEN to a test token or opt in to live mode.",
+                },
         )
-    }
 
     override fun baseCalls(query: SearchQuery): List<CallSpec> =
         datePairs(query).flatMap { (out, ret) ->
@@ -466,10 +473,11 @@ class DuffelProvider(
         cache: ResponseCache,
         allowNetwork: Boolean,
     ): ProviderOutcome {
-        val warnings = mutableListOf("Duffel offers are test-mode mocks and are not real prices.")
-        if (!secret.contains("test") && configured) {
-            warnings += "DUFFEL_ACCESS_TOKEN does not look like a test token. Results are still labelled mock."
-        }
+        val warnings =
+            mutableListOf(
+                if (liveMode) "Duffel live offers expire quickly; refund method and servicing fees remain unverified."
+                else "Duffel offers are test-mode mocks and are not real prices.",
+            )
         if (!configured && allowNetwork) return ProviderOutcome(warnings = warnings + "Duffel is not configured (DUFFEL_ACCESS_TOKEN).")
         var live = 0
         var cached = 0
@@ -594,17 +602,36 @@ class DuffelProvider(
                 returnLegs = directions.getOrNull(1),
                 returnMissing = query.tripType != "one_way" && directions.getOrNull(1).isNullOrEmpty(),
                 source = id,
-                sourceLabel = "mock",
-                livePrice = false,
+                sourceLabel = if (liveMode) "live" else "mock",
+                livePrice = liveMode,
                 fetchedAt = fetchedAt,
-                notes = "Duffel test-mode offer. Not a real price.",
+                notes = if (liveMode) "Duffel live quote; confirm refund method and all fees independently." else "Duffel test-mode offer. Not a real price.",
             ).copy(
                 fareBrand = offer.str("fare_brand_name"),
-                // Refund rules are not yet verified. Retain the raw-policy fingerprint
-                // so two differently conditioned offers cannot overwrite one another.
                 farePolicyKey = offer["conditions"]?.toString()?.let(::sha256),
+                refundEvidence = parseDuffelRefundEvidence(offer, fetchedAt),
             )
         }
+    }
+
+    /**
+     * Explicit, read-only repricing of an existing offer; never creates orders.
+     * The caller must understand that a GET does not guarantee ticket inventory.
+     */
+    fun refreshOffer(offerId: String): RefundEvidence {
+        require(liveMode) { "Live Duffel verification requires DUFFEL_LIVE_ENABLED and a live token." }
+        require(Regex("""^off_[A-Za-z0-9_]+$""").matches(offerId)) { "Invalid Duffel offer ID" }
+        val response =
+            http.request(
+                "GET",
+                "https://api.duffel.com/air/offers/$offerId",
+                mapOf("Authorization" to "Bearer $secret", "Duffel-Version" to "v2", "Accept" to "application/json"),
+                null,
+            )
+        require(response.status in 200..299) { "Duffel offer refresh failed: HTTP ${response.status}" }
+        val root = AppJson.parseToJsonElement(response.body) as? JsonObject ?: error("Malformed Duffel response")
+        val offer = root["data"] as? JsonObject ?: error("Duffel offer data missing")
+        return parseDuffelRefundEvidence(offer, java.time.Instant.now().toString())
     }
 
     private fun parseSegment(seg: JsonObject): Leg? {
