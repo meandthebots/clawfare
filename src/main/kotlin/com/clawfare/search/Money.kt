@@ -4,8 +4,9 @@ import kotlin.math.round
 
 /** Pounds sterling per 1 unit is not stored; [PER_GBP] is how many units of that currency buy £1. */
 object Fx {
-    const val AS_OF: String = "14 Oct 2026 ECB reference rates (frankfurter.dev): £1 = $1.3267 = MX\$24.365 = C\$1.8864 = €1.185"
-    val PER_GBP: Map<String, Double> =
+    private const val FALLBACK_AS_OF =
+        "14 Oct 2026 ECB reference rates (frankfurter.dev): £1 = $1.3267 = MX$24.365 = C$1.8864 = €1.185"
+    private val fallbackRates: Map<String, Double> =
         mapOf(
             "GBP" to 1.0,
             "USD" to 1.3267,
@@ -13,6 +14,24 @@ object Fx {
             "CAD" to 1.8864,
             "EUR" to 1.185,
         )
+
+    private val savedSnapshot by lazy { FxRateStore.load() }
+
+    @Volatile
+    private var refreshedSnapshot: FxSnapshot? = null
+
+    fun useSnapshot(snapshot: FxSnapshot) {
+        refreshedSnapshot = snapshot
+    }
+
+    private fun snapshot(): FxSnapshot? = refreshedSnapshot ?: savedSnapshot
+
+    val AS_OF: String
+        get() = snapshot()?.let { "Frankfurter GBP reference rates for ${it.date}" } ?: FALLBACK_AS_OF
+
+    val PER_GBP: Map<String, Double>
+        get() = snapshot()?.perGbp ?: fallbackRates
+
     val MARKET_CURRENCY: Map<String, String> =
         mapOf(
             "uk" to "GBP",
@@ -20,17 +39,14 @@ object Fx {
             "mx" to "MXN",
             "ca" to "CAD",
             "es" to "EUR",
+            "fr" to "EUR",
+            "de" to "EUR",
+            "nl" to "EUR",
+            "dk" to "DKK",
         )
 
     fun currencyOf(marketOrCode: String): String =
-        when (marketOrCode.lowercase()) {
-            "uk" -> "GBP"
-            "us" -> "USD"
-            "mx" -> "MXN"
-            "ca" -> "CAD"
-            "es" -> "EUR"
-            else -> marketOrCode.uppercase()
-        }
+        MARKET_CURRENCY[marketOrCode.lowercase()] ?: marketOrCode.uppercase()
 
     /** Whole pounds, matching the published pages. Null when the currency is unknown. */
     fun toGbpOrNull(
