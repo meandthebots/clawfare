@@ -508,7 +508,8 @@ class GoogleFlightsProvider(
             }
             FailureKind.EMPTY -> {
                 cache.put(id, params, res.body, listOf(secret))
-                val observedAt = cache.get(id, params)?.cachedAt ?: java.time.Instant.now().toString()
+                val fallback = java.time.Instant.now()
+                val observedAt = cache.get(id, params)?.cachedAt ?: fallback.toString()
                 return Loaded(
                     res.body,
                     observedAt,
@@ -522,7 +523,8 @@ class GoogleFlightsProvider(
             }
             FailureKind.NONE -> {
                 cache.put(id, params, res.body, listOf(secret))
-                val observedAt = cache.get(id, params)?.cachedAt ?: java.time.Instant.now().toString()
+                val fallback = java.time.Instant.now()
+                val observedAt = cache.get(id, params)?.cachedAt ?: fallback.toString()
                 return Loaded(
                     res.body,
                     observedAt,
