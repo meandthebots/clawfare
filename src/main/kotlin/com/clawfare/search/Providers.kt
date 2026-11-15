@@ -623,6 +623,7 @@ class DuffelProvider(
                     when {
                         !verifiedLiveMode -> "mock"
                         fromCache -> "cached"
+                        !seatsAvailable -> "unavailable"
                         !currentlyValid -> "expired"
                         else -> "live"
                     },
@@ -632,6 +633,7 @@ class DuffelProvider(
                     when {
                         !verifiedLiveMode -> "Duffel sandbox or unverified mode. Not a real live price."
                         fromCache -> "Historical Duffel live quote: cached, not verified available now."
+                        !seatsAvailable -> "Duffel reports fewer seats than the requested passenger count."
                         !currentlyValid -> "Duffel offer expired or missing expiry; not a current offer."
                         else -> "Duffel live quote; confirm refund method and all fees independently."
                     },
