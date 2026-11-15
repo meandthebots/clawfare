@@ -239,6 +239,17 @@ object InvestigationQueries {
                     it[maxTripDays] = dto.maxTripDays
                     it[mustIncludeDate] = dto.mustIncludeDate
                     it[maxLayoverMinutes] = dto.maxLayoverMinutes
+                    it[excludedAirlines] = dto.excludedAirlines
+                    it[includedAirlines] = dto.includedAirlines
+                    it[origins] = dto.origins
+                    it[destinations] = dto.destinations
+                    it[checkedBags] = dto.checkedBags
+                    it[passengers] = dto.passengers
+                    it[currency] = dto.currency
+                    it[nights] = dto.nights
+                    it[scenario] = dto.scenario
+                    it[queryJson] = dto.queryJson
+                    it[presentationJson] = dto.presentationJson
                     it[updatedAt] = Instant.now().toString()
                 }
             if (updated > 0) getBySlug(dto.slug) else null
