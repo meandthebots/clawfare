@@ -1,6 +1,7 @@
 package com.clawfare
 
 import com.clawfare.db.ClawfareDatabase
+import com.clawfare.cli.ClawfareCommand
 import com.clawfare.db.FlightQueries
 import com.clawfare.db.PriceHistoryQueries
 import com.clawfare.export.JsonExporter
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.sql.DriverManager
+import picocli.CommandLine
 
 class ReviewRegressionTest {
     @Test
@@ -236,4 +238,23 @@ class ReviewRegressionTest {
         assertEquals(1200.0, PriceHistoryQueries.getByFlightId("old-id").single().amount)
         assertEquals(null, FlightQueries.getById("old-id")!!.offerIdentity)
     }
+    @Test
+    fun legacyInvestigationAndFlightCommandsReadPortedProviderRecords() {
+        ClawfareDatabase.connectInMemory()
+        val result =
+            SampleData.florida().copy(
+                id = "review-cli-compat",
+                itineraries = products().take(1),
+                addons = emptyList(),
+                vendors = emptyList(),
+                vendorItineraryId = null,
+                scenarioLabel = null,
+            )
+        FareStore.save(StoredResult(result))
+        val flight = FlightQueries.listByInvestigation(result.id).single()
+        assertEquals(0, CommandLine(ClawfareCommand()).execute("inv", "show", result.id))
+        assertEquals(0, CommandLine(ClawfareCommand()).execute("flight", "show", flight.id))
+        assertEquals(0, CommandLine(ClawfareCommand()).execute("flight", "history", result.id, "--by-flight"))
+    }
+
 }
