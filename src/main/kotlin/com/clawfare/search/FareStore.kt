@@ -327,7 +327,27 @@ object FareStore : FareSink {
         if (amount <= 0.0 || itinerary.outbound.legs.isEmpty()) return null
         val currency = itinerary.priceCurrency.uppercase().ifBlank { "GBP" }
         val share = bookingShareLink(itinerary)
-        val id = FlightValidator.generateId(share)
+        // Legacy/manual entries retain the original share-link identity. Provider quotes
+        // use a distinct product key while retaining the real, unmodified booking URL.
+        val productKey =
+            if (itinerary.source in setOf("serpapi", "searchapi", "duffel", "travelpayouts")) {
+                listOf(itinerary.source, itinerary.id, itinerary.fareBrand.orEmpty(), itinerary.farePolicyKey.orEmpty()).joinToString("|")
+            } else {
+                null
+            }
+        // Existing provider records from before this migration keep their history.
+        val old = FlightQueries.getById(FlightValidator.generateId(share))
+        val offerIdentity =
+            if (old != null &&
+                old.source == itinerary.source &&
+                old.displayId == itinerary.id &&
+                old.fareBrand.orEmpty() == itinerary.fareBrand.orEmpty()
+            ) {
+                null
+            } else {
+                productKey
+            }
+        val id = FlightValidator.generateId(offerIdentity?.let { "$share|$it" } ?: share)
         val outbound = toSegment(itinerary.outbound)
         val returning = itinerary.returning?.takeIf { it.legs.isNotEmpty() }?.let { toSegment(it) }
         val returnMissing = returning == null && !itinerary.returnDate.isNullOrBlank()
@@ -355,6 +375,7 @@ object FareStore : FareSink {
                 tags = tagList,
                 bookingClass = itinerary.cabinKey.ifBlank { null },
                 cabinMixed = cabinKeys.size > 1,
+                offerIdentity = offerIdentity,
             )
         val dto =
             FlightDto(
@@ -385,6 +406,9 @@ object FareStore : FareSink {
                 plannedReturnDate = if (returnMissing) itinerary.returnDate else null,
                 linksJson = flightJson.encodeToString(links, itinerary.links),
                 cabinClass = itinerary.cabinKey.ifBlank { null },
+                fareBrand = itinerary.fareBrand,
+                farePolicyKey = itinerary.farePolicyKey,
+                offerIdentity = offerIdentity,
             )
         val current =
             PriceHistoryDto(
@@ -446,7 +470,8 @@ object FareStore : FareSink {
                 returnDateHint = flight.plannedReturnDate,
             )
         val storedLinks = flight.linksJson?.let { runCatching { flightJson.decodeFromString(links, it) }.getOrNull() }.orEmpty()
-        return if (storedLinks.isEmpty()) built else built.copy(links = storedLinks)
+        val restored = built.copy(fareBrand = flight.fareBrand, farePolicyKey = flight.farePolicyKey)
+        return if (storedLinks.isEmpty()) restored else restored.copy(links = storedLinks)
     }
 
     private fun toSegment(direction: Direction): FlightSegment {
