@@ -22,8 +22,10 @@ object FxRateStore {
     private const val ENDPOINT = "https://api.frankfurter.dev/v1/latest?base=GBP"
 
     fun defaultFile(): File =
-        File(System.getenv("CLAWFARE_FX_FILE")?.takeIf { it.isNotBlank() }
-            ?: "${System.getProperty("user.home")}/.clawfare/fx-rates.json")
+        File(
+            System.getenv("CLAWFARE_FX_FILE")?.takeIf { it.isNotBlank() }
+                ?: "${System.getProperty("user.home")}/.clawfare/fx-rates.json",
+        )
 
     fun parse(raw: String): FxSnapshot {
         val root = Json.parseToJsonElement(raw).jsonObject
@@ -31,16 +33,17 @@ object FxRateStore {
         val date = root["date"]?.jsonPrimitive?.content ?: error("Missing FX date")
         LocalDate.parse(date)
         val rates =
-            root["rates"]?.jsonObject?.mapNotNull { (currency, value) ->
+            root["rates"]
+                ?.jsonObject
+                ?.mapNotNull { (currency, value) ->
                 val rate = value.jsonPrimitive.doubleOrNull
                 if (rate != null && rate > 0.0 && rate.isFinite()) currency.uppercase() to rate else null
-            }?.toMap() ?: error("Missing FX rates")
+                }?.toMap() ?: error("Missing FX rates")
         require("USD" in rates && "EUR" in rates) { "FX snapshot requires USD and EUR" }
         return FxSnapshot(date, rates + ("GBP" to 1.0))
     }
 
-    fun load(path: File = defaultFile()): FxSnapshot? =
-        if (!path.isFile) null else runCatching { parse(path.readText()) }.getOrNull()
+    fun load(path: File = defaultFile()): FxSnapshot? = if (!path.isFile) null else runCatching { parse(path.readText()) }.getOrNull()
 
     fun refresh(
         http: HttpFetcher = JdkHttpFetcher(),
