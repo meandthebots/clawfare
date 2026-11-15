@@ -47,7 +47,17 @@ A watch cycle also reserves its worst-case possible requests in a durable
 `~/.clawfare/batch-budget.ndjson` journal **before** any flight API call.
 The default cumulative UTC-day budget is `maxLiveCalls`: a full-size watch
 run can execute once per day. To allow multiple bounded runs, set an explicit
-`maxDailyLiveCalls` in the private JSON, for example `20`. All cycles on
+ `maxDailyLiveCalls` in the private JSON, for example `20`. A minimal
+private config excerpt is:
+```json
+{
+  "maxLiveCalls": 8,
+  "maxDailyLiveCalls": 20,
+  "minQuotaReserve": 5,
+  "requireNumericQuota": true
+}
+```
+All cycles on
 the same machine and local data directory share the same journal and lock.
 If a cycle crashes after the reservation, those calls remain reserved until
 the next UTC day to protect against accidental overspend. If the journal is
