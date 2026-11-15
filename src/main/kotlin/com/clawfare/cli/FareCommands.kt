@@ -197,7 +197,11 @@ class FareFetchCommand : Callable<Int> {
     }
 }
 
-@Command(name = "fx-refresh", description = ["Fetch and persist dated GBP-based reference exchange rates"])
+@Command(
+    name = "fx-refresh",
+    description = ["Fetch and persist dated GBP-based reference exchange rates"],
+    mixinStandardHelpOptions = true,
+)
 class FareFxRefreshCommand : Callable<Int> {
     override fun call(): Int =
         try {
