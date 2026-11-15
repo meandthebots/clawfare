@@ -5,6 +5,7 @@ import com.clawfare.export.JsonExporter
 import com.clawfare.export.TopNGenerator
 import com.clawfare.search.Export
 import com.clawfare.search.FareStore
+import com.clawfare.search.FxRateStore
 import com.clawfare.search.SampleSeeder
 import com.clawfare.search.SearchQuery
 import com.clawfare.search.SearchService
@@ -32,6 +33,7 @@ private fun splitCodes(raw: String): List<String> = raw.split(Regex("[,\\s]+")).
         FareReingestCommand::class,
         FareQuotaCommand::class,
         FareLoadSampleCommand::class,
+        FareFxRefreshCommand::class,
     ],
 )
 class FareCommand : Callable<Int> {
@@ -75,6 +77,9 @@ class FareEstimateCommand : Callable<Int> {
 
     @Option(names = ["--providers"], defaultValue = "serpapi,searchapi,travelpayouts,duffel")
     var providers: String = "serpapi,searchapi,travelpayouts,duffel"
+
+    @Option(names = ["--exclude-airlines"], defaultValue = "LO", description = ["Blocked airline codes (comma-separated; empty to allow LOT)"])
+    var excludedAirlines: String = "LO"
 
     @Option(names = ["--nonstop"], description = ["Nonstop only"])
     var nonstop: Boolean = false
@@ -136,6 +141,9 @@ class FareFetchCommand : Callable<Int> {
     @Option(names = ["--providers"], defaultValue = "serpapi,searchapi,travelpayouts,duffel")
     var providers: String = "serpapi,searchapi,travelpayouts,duffel"
 
+    @Option(names = ["--exclude-airlines"], defaultValue = "LO", description = ["Blocked airline codes (comma-separated; empty to allow LOT)"])
+    var excludedAirlines: String = "LO"
+
     @Option(names = ["--nonstop"])
     var nonstop: Boolean = false
 
@@ -157,6 +165,7 @@ class FareFetchCommand : Callable<Int> {
                 cabin = cabin,
                 adults = adults,
                 bags = bags,
+                excludedAirlines = excludedAirlines,
                 providers = providers,
                 nonstop = nonstop,
                 cacheOnly = cacheOnly,
@@ -178,6 +187,19 @@ class FareFetchCommand : Callable<Int> {
         result.warnings.forEach { println("  $it") }
         return 0
     }
+}
+
+@Command(name = "fx-refresh", description = ["Fetch and persist dated GBP-based reference exchange rates"])
+class FareFxRefreshCommand : Callable<Int> {
+    override fun call(): Int =
+        try {
+            val snapshot = FxRateStore.refresh()
+            println("Saved reference rates for ${snapshot.date} to ${FxRateStore.defaultFile().absolutePath}.")
+            0
+        } catch (e: Exception) {
+            Output.error("FX refresh failed: ${e.message ?: "unknown error"}")
+            1
+        }
 }
 
 @Command(name = "reingest", description = ["Parse cached provider responses again. Does not call the network."])
@@ -399,6 +421,7 @@ private fun queryFrom(command: FareEstimateCommand): SearchQuery =
         cabin = command.cabin,
         adults = command.adults,
         bags = command.bags,
+        excludedAirlines = command.excludedAirlines,
         providers = command.providers,
         nonstop = command.nonstop,
         cacheOnly = command.cacheOnly,
@@ -415,6 +438,7 @@ private fun queryFrom(
     cabin: String,
     adults: Int,
     bags: Int,
+    excludedAirlines: String,
     providers: String,
     nonstop: Boolean,
     cacheOnly: Boolean,
@@ -434,6 +458,7 @@ private fun queryFrom(
         cabin = cabin,
         adults = adults,
         checkedBags = bags,
+        excludedAirlines = excludedAirlines.split(Regex("[,\\s]+")).map { it.trim().uppercase() }.filter { it.isNotBlank() },
         currency = "GBP",
         providers = providers.split(Regex("[,\\s]+")).map { it.trim().lowercase() }.filter { it.isNotEmpty() },
         nonstopOnly = nonstop,
