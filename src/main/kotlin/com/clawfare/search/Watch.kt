@@ -88,7 +88,8 @@ object FareWatch {
                         )
                     ledger.parentFile?.mkdirs()
                     FileOutputStream(ledger, true).use { output ->
-                        output.write((AppJson.encodeToString(DailyBudgetReservation.serializer(), record) + "\\n").toByteArray())
+                        val line = AppJson.encodeToString(DailyBudgetReservation.serializer(), record) + System.lineSeparator()
+                        output.write(line.toByteArray(Charsets.UTF_8))
                         output.fd.sync()
                     }
                 }
