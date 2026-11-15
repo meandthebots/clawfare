@@ -1,6 +1,7 @@
 package com.clawfare.search
 
 import kotlinx.serialization.Serializable
+import java.io.File
 import java.time.Instant
 
 /** Keep the actual trip-specific JSON configuration on private/local disk. */
@@ -118,6 +119,7 @@ object BatchSweep {
         config: BatchConfig,
         service: SearchService,
         confirmed: Boolean = false,
+        auditFile: File? = null,
     ): BatchRunSummary {
         val planned = estimate(config, service)
         require(config.maxLiveCalls >= 0) { "maxLiveCalls must not be negative" }
@@ -129,6 +131,7 @@ object BatchSweep {
         val failures = mutableListOf<String>()
         var saved = 0
         var reserved = 0
+        var executed = 0
         for (entry in planned.entries) {
             val remaining = config.maxLiveCalls - reserved
             val estimate = service.estimate(entry.query)
@@ -138,10 +141,19 @@ object BatchSweep {
                 break
             }
             val response = service.search(entry.query.copy(confirmed = confirmed, maxLiveCalls = remaining))
+            executed++
             if (response.ok) saved++ else failures += "${entry.signature}: ${response.error ?: "unknown search error"}"
+            // Append every attempted scenario, including zero-result and failed searches.
+            auditFile?.let { target ->
+                target.parentFile?.mkdirs()
+                target.appendText(
+                    "${Instant.now()}\t${entry.signature}\t${if (response.ok) "ok" else "error"}\t$upper\t" +
+                        "${response.result?.itineraries?.size ?: 0}\n",
+                )
+            }
             reserved += upper
         }
-        return BatchRunSummary(planned, planned.entries.size, saved, failures, Instant.now().toString())
+        return BatchRunSummary(planned, executed, saved, failures, Instant.now().toString())
     }
 
     /**
