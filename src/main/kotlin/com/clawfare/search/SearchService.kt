@@ -16,13 +16,14 @@ class SearchService(
         var cached = 0
         var skipped = 0
         var returns = 0
+        val effectiveCache = if (q.cacheOnly) cache else FreshResponseCache(cache)
         for (provider in selected(q)) {
             val calls = provider.baseCalls(q)
             if ((provider.id == "serpapi" || provider.id == "searchapi") && q.fetchReturns && q.tripType != "one_way") {
                 returns += calls.size * q.returnChoices
             }
             for (call in calls) {
-                val hit = cache.get(provider.id, call.params) != null
+                val hit = effectiveCache.get(provider.id, call.params) != null
                 when {
                     hit -> {
                         cached++
@@ -78,12 +79,13 @@ class SearchService(
             return SearchResponse(ok = false, needsConfirmation = true, estimate = est)
         }
         val warnings = est.warnings.toMutableList()
+        val effectiveCache = if (q.cacheOnly) cache else FreshResponseCache(cache)
         val found = mutableListOf<Itinerary>()
         val tokens = mutableMapOf<String, FlightTokens>()
         for (provider in selected(q)) {
             val outcome =
                 try {
-                    provider.search(q, cache, allowNetwork = !q.cacheOnly && provider.configured)
+                    provider.search(q, effectiveCache, allowNetwork = !q.cacheOnly && provider.configured)
                 } catch (e: Exception) {
                     warnings += "${provider.displayName} failed: ${redact(e.message ?: "error")}"
                     continue
@@ -195,13 +197,14 @@ class SearchService(
                     ),
             )
         }
+        val effectiveCache = if (request.cacheOnly) cache else FreshResponseCache(cache)
         val fetch =
             provider.vendors(
                 itinerary,
                 stored.tokens[itinerary.id],
                 markets,
                 stored.result.checkedBags,
-                cache,
+                effectiveCache,
                 allowNetwork = !request.cacheOnly,
             )
         val updated =
