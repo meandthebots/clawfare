@@ -444,7 +444,7 @@ class DuffelProvider(
                     liveMode -> "Live mode explicitly enabled; search and offer GET only (no order creation)."
                     testMode -> "Sandbox token; all prices are mock."
                     secret.startsWith("duffel_live_") -> "Live token is disabled; set DUFFEL_LIVE_ENABLED=true explicitly."
-                    else -> "Set DUFFEL_ACCESS_TOKEN to a test token or opt in to live mode.",
+                    else -> "Set DUFFEL_ACCESS_TOKEN to a test token or opt in to live mode."
                 },
         )
 
