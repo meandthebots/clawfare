@@ -148,6 +148,11 @@ fun normalizeQuery(q: SearchQuery): SearchQuery {
         cabin = cabinKeyOf(q.cabin),
         cabinShortHaul = cabinKeyOf(q.cabinShortHaul),
         checkedBags = q.checkedBags.coerceIn(0, 4),
+        excludedAirlines =
+            q.excludedAirlines
+                .map { it.trim().uppercase() }
+                .filter { it.isNotBlank() }
+                .distinct(),
         currency = q.currency.uppercase().ifBlank { "GBP" },
         providers =
             q.providers
@@ -449,6 +454,7 @@ class DuffelProvider(
                             "outbound" to out,
                             "return" to (ret ?: ""),
                             "cabin" to query.cabin,
+                            "adults" to query.adults.toString(),
                         ),
                     )
                 }

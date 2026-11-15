@@ -968,7 +968,11 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     if (est.returnLookupsUpperBound) bits.push("up to <b>" + est.returnLookupsUpperBound + "</b> return lookups");
     var lines = (est.lines || []).slice(0, 12).map(function (l) { return "<li>" + esc(l) + "</li>"; }).join("");
     var warns = (est.warnings || []).map(function (w) { return "<div>" + esc(w) + "</div>"; }).join("");
-    $("estimate").innerHTML = bits.join(" · ") + warns + (lines ? "<ul>" + lines + "</ul>" : "");
+    var quota = (est.quota || []).map(function (q) {
+      var remaining = q.remaining == null ? "remaining unknown" : q.remaining + " remaining";
+      return "<span>" + esc(q.provider) + ": " + esc(remaining) + (q.note ? " (" + esc(q.note) + ")" : "") + "</span>";
+    }).join(" · ");
+    $("estimate").innerHTML = bits.join(" · ") + (quota ? "<div>" + quota + "</div>" : "") + warns + (lines ? "<ul>" + lines + "</ul>" : "");
     $("btnRun").disabled = !canRun;
     pendingQuery = canRun ? queryFromForm() : null;
   }
@@ -1008,14 +1012,15 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
       render();
       return;
     }
+    var vendorMarkets = ["uk", "us"];
     api("/api/results/" + encodeURIComponent(result.id) + "/vendors", {
-      itineraryId: it.id, markets: ["uk"], cacheOnly: $("cacheOnly").checked, confirmed: false
+      itineraryId: it.id, markets: vendorMarkets, cacheOnly: $("cacheOnly").checked, confirmed: false
     }).then(function (res) {
       if (res.body.needsConfirmation) {
         var go = window.confirm((res.body.estimate && res.body.estimate.lines || []).join("\n") + "\n\nFetch seller offers now?");
         if (!go) return;
         return api("/api/results/" + encodeURIComponent(result.id) + "/vendors", {
-          itineraryId: it.id, markets: ["uk", "us"], cacheOnly: $("cacheOnly").checked, confirmed: true
+          itineraryId: it.id, markets: vendorMarkets, cacheOnly: $("cacheOnly").checked, confirmed: true
         });
       }
       return res;

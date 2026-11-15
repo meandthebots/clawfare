@@ -120,9 +120,9 @@ class FeasibilityTest {
 class VendorMathTest {
     @Test
     fun bagFeeAndSampleRows() {
-        assertEquals(45.0, VendorMath.bagFee("uk", "1 free carry-on", 2, 1))
-        assertEquals(882.0, 837 + VendorMath.bagFee("uk", "1 free carry-on", 2, 1))
-        assertEquals(40.0, VendorMath.bagFee("us", "1st checked bag: 40", 2, 1))
+        assertEquals(0.0, VendorMath.bagFee("uk", "1 free carry-on", 2, 1))
+        assertEquals(837.0, 837 + VendorMath.bagFee("uk", "1 free carry-on", 2, 1))
+        assertEquals(80.0, VendorMath.bagFee("us", "1st checked bag: 40", 2, 1))
         assertEquals(0.0, VendorMath.bagFee("uk", "Premier includes a free checked bag", 2, 1))
         val rows = SampleData.florida().vendors
         assertEquals(165, rows.size)

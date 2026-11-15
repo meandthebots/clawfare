@@ -79,7 +79,7 @@ fun Application.clawfareModule() {
     install(StatusPages) {
         exception<Throwable> { call, cause ->
             call.respondText(
-                """{"error":"${redact(cause.message ?: "Something went wrong").replace("\"", "'")}"}""",
+                """{"error":"${redact(cause.message ?: "Something went wrong", serverSecrets()).replace("\"", "'")}"}""",
                 ContentType.Application.Json,
                 HttpStatusCode.InternalServerError,
             )
@@ -116,7 +116,8 @@ fun Application.clawfareModule() {
         }
         post("/api/estimate") {
             val query = call.receive<SearchQuery>()
-            call.respond(service.estimate(query))
+            val estimate = withContext(Dispatchers.IO) { service.estimate(query, includeQuota = true) }
+            call.respond(estimate)
         }
         post("/api/search") {
             val query = call.receive<SearchQuery>()
@@ -135,7 +136,7 @@ fun Application.clawfareModule() {
             val slug =
                 runCatching { FareStore.track(id, body.itineraryId, body.tripSlug) }.getOrElse { error ->
                     call.respondText(
-                        """{"error":"${redact(error.message ?: "Could not save").replace("\"", "'")}"}""",
+                        """{"error":"${redact(error.message ?: "Could not save", serverSecrets()).replace("\"", "'")}"}""",
                         ContentType.Application.Json,
                         HttpStatusCode.BadRequest,
                     )
@@ -161,6 +162,15 @@ fun Application.clawfareModule() {
         }
     }
 }
+
+/** Redact actual configured credentials even when exception text lacks a recognizable key prefix. */
+private fun serverSecrets(): List<String> =
+    listOfNotNull(
+        System.getenv("SERPAPI_API_KEY"),
+        System.getenv("SEARCHAPI_API_KEY"),
+        System.getenv("TRAVELPAYOUTS_API_TOKEN"),
+        System.getenv("DUFFEL_ACCESS_TOKEN"),
+    ).filter { it.isNotBlank() }
 
 private fun idleNote(provider: com.clawfare.search.FareProvider): String =
     when {

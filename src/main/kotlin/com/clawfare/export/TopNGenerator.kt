@@ -4,6 +4,7 @@ import com.clawfare.db.FlightQueries
 import com.clawfare.db.FlightWithPrice
 import com.clawfare.db.PriceHistoryQueries
 import com.clawfare.model.FlightSegment
+import com.clawfare.search.Fx
 import kotlinx.serialization.json.Json
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -79,11 +80,13 @@ object TopNGenerator {
         limit: Int = 10,
         title: String = "Top Flights",
     ): String {
-        // Sort by price (ascending) and take top N
-        val sortedFlights =
-            flights
-                .sortedBy { it.priceAmount }
-                .take(limit)
+        val sortedFlights = rankComparable(flights, limit)
+        val comparableCount =
+            flights.count { item ->
+                item.flight.sourceLabel != "mock" &&
+                    Fx.toGbpOrNull(item.priceAmount, item.priceCurrency) != null
+            }
+        val skipped = flights.size - comparableCount
 
         if (sortedFlights.isEmpty()) {
             return buildString {
@@ -97,6 +100,8 @@ object TopNGenerator {
             appendLine("# $title")
             appendLine()
             appendLine("Generated: ${ZonedDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME)}")
+            appendLine("Comparable GBP ranking uses ${Fx.AS_OF}; refresh FX before booking.")
+            if (skipped > 0) appendLine("Excluded $skipped mock or unconvertible offers.")
             appendLine()
 
             sortedFlights.forEachIndexed { index, flight ->
@@ -120,6 +125,18 @@ object TopNGenerator {
             }
         }
     }
+
+    /** Currency-normalized, mock-free subset for every Top-N export. */
+    fun rankComparable(
+        flights: List<FlightWithPrice>,
+        limit: Int,
+    ): List<FlightWithPrice> =
+        flights
+            .filter { item ->
+                item.flight.sourceLabel != "mock" &&
+                    Fx.toGbpOrNull(item.priceAmount, item.priceCurrency) != null
+            }.sortedWith(compareBy({ Fx.toGbpOrNull(it.priceAmount, it.priceCurrency) ?: Double.MAX_VALUE }, { it.id }))
+            .take(limit.coerceAtLeast(0))
 
     /**
      * Format a single flight entry for the markdown report.

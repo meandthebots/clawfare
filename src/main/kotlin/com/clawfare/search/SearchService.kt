@@ -7,7 +7,10 @@ class SearchService(
     private val cache: ResponseCache,
     private val sink: FareSink = NoopSink,
 ) {
-    fun estimate(query: SearchQuery): Estimate {
+    fun estimate(
+        query: SearchQuery,
+        includeQuota: Boolean = false,
+    ): Estimate {
         val q = normalizeQuery(query)
         val problem = validateQuery(q)
         if (problem != null) return Estimate(0, 0, 0, 0, warnings = listOf(problem))
@@ -16,13 +19,14 @@ class SearchService(
         var cached = 0
         var skipped = 0
         var returns = 0
+        val effectiveCache = if (q.cacheOnly) cache else FreshResponseCache(cache)
         for (provider in selected(q)) {
             val calls = provider.baseCalls(q)
             if ((provider.id == "serpapi" || provider.id == "searchapi") && q.fetchReturns && q.tripType != "one_way") {
                 returns += calls.size * q.returnChoices
             }
             for (call in calls) {
-                val hit = cache.get(provider.id, call.params) != null
+                val hit = effectiveCache.get(provider.id, call.params) != null
                 when {
                     hit -> {
                         cached++
@@ -57,8 +61,20 @@ class SearchService(
         if ("duffel" in q.providers) warnings += "Duffel prices are mocks and are not quoted as real fares."
         if ("travelpayouts" in q.providers) warnings += "Travelpayouts fares are cached calendar prices, not a live search."
         if (selected(q).isEmpty()) warnings += "Pick at least one provider, or open the Florida sample."
+        if (q.excludedAirlines.isNotEmpty()) {
+            warnings += "Excluded marketing/operating airlines: ${q.excludedAirlines.joinToString(", ")}."
+        }
         val shown = if (lines.size > 40) lines.take(40) + "… and ${lines.size - 40} more" else lines
-        return Estimate(live, cached, skipped, returns, shown, warnings)
+        val quota =
+            selected(q).map { provider ->
+                if (includeQuota) {
+                    runCatching { provider.quota() }
+                        .getOrElse { QuotaView(provider.id, provider.configured, note = "Quota check failed") }
+                } else {
+                    QuotaView(provider.id, provider.configured, note = "Remaining quota not queried; use fare quota.")
+                }
+            }
+        return Estimate(live, cached, skipped, returns, shown, warnings, quota)
     }
 
     fun search(query: SearchQuery): SearchResponse {
@@ -71,19 +87,27 @@ class SearchService(
             return SearchResponse(ok = false, needsConfirmation = true, estimate = est)
         }
         val warnings = est.warnings.toMutableList()
+        val effectiveCache = if (q.cacheOnly) cache else FreshResponseCache(cache)
         val found = mutableListOf<Itinerary>()
         val tokens = mutableMapOf<String, FlightTokens>()
         for (provider in selected(q)) {
             val outcome =
                 try {
-                    provider.search(q, cache, allowNetwork = !q.cacheOnly && provider.configured)
+                    provider.search(q, effectiveCache, allowNetwork = !q.cacheOnly && provider.configured)
                 } catch (e: Exception) {
                     warnings += "${provider.displayName} failed: ${redact(e.message ?: "error")}"
                     continue
                 }
             warnings += outcome.warnings
             for ((id, token) in outcome.tokens) tokens[id] = token
-            found += outcome.itineraries
+            // Enforce exclusions before storing, ranking or exporting provider results.
+            // These preferences are independent of the browser's display-only filters.
+            val restricted = FilterSpec(airlineBlock = q.excludedAirlines)
+            val eligible = outcome.itineraries.filter { Filters.matches(it, restricted) }
+            if (eligible.size != outcome.itineraries.size) {
+                warnings += "${outcome.itineraries.size - eligible.size} fares excluded by airline preference."
+            }
+            found += eligible
         }
         val (itineraries, keptTokens) = dedupe(found, tokens)
         val id =
@@ -181,13 +205,14 @@ class SearchService(
                     ),
             )
         }
+        val effectiveCache = if (request.cacheOnly) cache else FreshResponseCache(cache)
         val fetch =
             provider.vendors(
                 itinerary,
                 stored.tokens[itinerary.id],
                 markets,
                 stored.result.checkedBags,
-                cache,
+                effectiveCache,
                 allowNetwork = !request.cacheOnly,
             )
         val updated =
@@ -198,7 +223,7 @@ class SearchService(
                     listOf(
                         NoteCard(
                             "Sellers",
-                            "Seller prices and all-in GBP are totals for ${itinerary.passengers} adult(s), unlike the itinerary grid, which displays per-person fares. The baggage estimate includes ${stored.result.checkedBags} checked bag(s) per adult. Where Google listed a first-bag fee, that fee is used; otherwise an illustrative US\$30 per bag per direction fallback is applied (verify actual airline baggage terms).",
+                            "Seller prices and all-in GBP are totals for ${itinerary.passengers} adult(s), unlike the itinerary grid, which displays per-person fares. The baggage estimate includes ${stored.result.checkedBags} checked bag(s) per adult. Where Google lists bag fees for every requested checked bag, they are estimated per person and direction. Unknown bag charges remain unverified and are excluded from all-in ranking.",
                         ),
                         NoteCard(
                             "Reputation",

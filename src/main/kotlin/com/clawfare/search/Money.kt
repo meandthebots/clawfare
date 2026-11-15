@@ -4,8 +4,9 @@ import kotlin.math.round
 
 /** Pounds sterling per 1 unit is not stored; [PER_GBP] is how many units of that currency buy £1. */
 object Fx {
-    const val AS_OF: String = "14 Oct 2026 ECB reference rates (frankfurter.dev): £1 = $1.3267 = MX\$24.365 = C\$1.8864 = €1.185"
-    val PER_GBP: Map<String, Double> =
+    private const val FALLBACK_AS_OF =
+        "14 Oct 2026 ECB reference rates (frankfurter.dev): £1 = $1.3267 = MX$24.365 = C$1.8864 = €1.185"
+    private val fallbackRates: Map<String, Double> =
         mapOf(
             "GBP" to 1.0,
             "USD" to 1.3267,
@@ -13,6 +14,24 @@ object Fx {
             "CAD" to 1.8864,
             "EUR" to 1.185,
         )
+
+    private val savedSnapshot by lazy { FxRateStore.load() }
+
+    @Volatile
+    private var refreshedSnapshot: FxSnapshot? = null
+
+    fun useSnapshot(snapshot: FxSnapshot) {
+        refreshedSnapshot = snapshot
+    }
+
+    private fun snapshot(): FxSnapshot? = refreshedSnapshot ?: savedSnapshot
+
+    val AS_OF: String
+        get() = snapshot()?.let { "Frankfurter GBP reference rates for ${it.date}" } ?: FALLBACK_AS_OF
+
+    val PER_GBP: Map<String, Double>
+        get() = snapshot()?.perGbp ?: fallbackRates
+
     val MARKET_CURRENCY: Map<String, String> =
         mapOf(
             "uk" to "GBP",
@@ -20,17 +39,13 @@ object Fx {
             "mx" to "MXN",
             "ca" to "CAD",
             "es" to "EUR",
+            "fr" to "EUR",
+            "de" to "EUR",
+            "nl" to "EUR",
+            "dk" to "DKK",
         )
 
-    fun currencyOf(marketOrCode: String): String =
-        when (marketOrCode.lowercase()) {
-            "uk" -> "GBP"
-            "us" -> "USD"
-            "mx" -> "MXN"
-            "ca" -> "CAD"
-            "es" -> "EUR"
-            else -> marketOrCode.uppercase()
-        }
+    fun currencyOf(marketOrCode: String): String = MARKET_CURRENCY[marketOrCode.lowercase()] ?: marketOrCode.uppercase()
 
     /** Whole pounds, matching the published pages. Null when the currency is unknown. */
     fun toGbpOrNull(
@@ -56,28 +71,48 @@ data class SellerQuote(
 
 object VendorMath {
     /**
-     * First checked bag, in the market currency.
-     * An explicit "1st checked bag" figure from the provider wins. Otherwise Aeromexico's
-     * US–Mexico transborder rate of US$30 per direction is used (the assumption on the sample page).
-     * [directions] is 2 for a round trip and 1 for a one-way.
+     * Estimate checked-bag cost only when the provider supplied enough details.
+     * Returns null for unknown fees: replacing them with a US-Mexico fallback
+     * incorrectly favors vendors on unrelated routes.
+     * A "1st checked bag" charge is interpreted per passenger and direction.
      */
+    fun knownBagFee(
+        baggageText: String,
+        directions: Int,
+        checkedBags: Int,
+        passengers: Int = 1,
+    ): Double? {
+        if (checkedBags <= 0) return 0.0
+        val text = baggageText.lowercase()
+        val freeCount =
+            Regex("""\b([1-4])\s+(?:free\s+)?checked\s+bags?\b""")
+                .find(text)
+                ?.groupValues
+                ?.get(1)
+                ?.toIntOrNull()
+        if (freeCount != null && checkedBags <= freeCount && "free" in text) return 0.0
+        if (checkedBags == 1 && ("free checked" in text || "includes a free checked bag" in text)) return 0.0
+
+        val ordinal = mapOf("first" to 1, "second" to 2, "third" to 3, "fourth" to 4)
+        val fees = mutableMapOf<Int, Double>()
+        for (match in BAG_LISTED.findAll(baggageText)) {
+            val index = ordinal[match.groupValues[1].lowercase()] ?: match.groupValues[1].take(1).toIntOrNull() ?: continue
+            val token = match.groupValues[2].lowercase()
+            val value = if (token == "free" || token == "included") 0.0 else token.replace(",", "").toDoubleOrNull()
+            if (value != null) fees[index] = value
+        }
+        if ((1..checkedBags).any { it !in fees }) return null
+        return (1..checkedBags).sumOf { fees.getValue(it) } * directions * passengers
+    }
+
+    /** Compatibility helper for callers requiring a numeric amount; unknown is zero, not a quoted fee. */
     fun bagFee(
         market: String,
         baggageText: String,
         directions: Int,
         checkedBags: Int,
         passengers: Int = 1,
-    ): Double {
-        if (checkedBags <= 0) return 0.0
-        val text = baggageText.lowercase()
-        if ("free checked" in text) return 0.0
-        val listed = BAG_LISTED.find(baggageText)
-        if (listed != null) return listed.groupValues[1].replace(",", "").toDouble() * passengers
-        val usd = 30.0 * directions * checkedBags.coerceAtMost(1) * passengers
-        val marketPerGbp = Fx.PER_GBP[Fx.currencyOf(market)] ?: Fx.PER_GBP.getValue("USD")
-        val usdPerGbp = Fx.PER_GBP.getValue("USD")
-        return round(usd * marketPerGbp / usdPerGbp)
-    }
+    ): Double = knownBagFee(baggageText, directions, checkedBags, passengers) ?: 0.0
 
     fun rows(
         quotes: Map<String, MarketQuotes>,
@@ -105,9 +140,15 @@ object VendorMath {
                         passengers,
                     )
             }
-            if (q.outbound.isNotEmpty() && q.inbound.isNotEmpty()) {
-                val outBest = q.outbound.minBy { it.value.price + bagFee(market, it.value.bags, 1, checkedBags, passengers) }
-                val backBest = q.inbound.minBy { it.value.price + bagFee(market, it.value.bags, 1, checkedBags, passengers) }
+            val outBest =
+                q.outbound
+                    .filterValues { knownBagFee(it.bags, 1, checkedBags, passengers) != null }
+                    .minByOrNull { it.value.price + knownBagFee(it.value.bags, 1, checkedBags, passengers)!! }
+            val backBest =
+                q.inbound
+                    .filterValues { knownBagFee(it.bags, 1, checkedBags, passengers) != null }
+                    .minByOrNull { it.value.price + knownBagFee(it.value.bags, 1, checkedBags, passengers)!! }
+            if (outBest != null && backBest != null) {
                 val mixName = "Mix (any vendor): ${outBest.key} out + ${backBest.key} back"
                 val worst = worseTrust(trustOf(outBest.key).second, trustOf(backBest.key).second)
                 out +=
@@ -147,12 +188,12 @@ object VendorMath {
                 if (vendor.startsWith("Mix")) vendor.substringAfter(": ").substringBefore(" out +") else it
             }
         val (type, trust) = if (trustOverride != null) "OTA" to trustOverride else trustOf(if (mix) base else vendor.substringBefore(" — "))
-        val rtb = rt?.let { it.price + bagFee(market, it.bags, 2, checkedBags, passengers) }
+        val rtb = rt?.let { quote -> knownBagFee(quote.bags, 2, checkedBags, passengers)?.let { quote.price + it } }
         val sb =
             if (ow != null && back != null) {
-                val outbound = ow.price + bagFee(market, ow.bags, 1, checkedBags, passengers)
-                val inbound = back.price + bagFee(market, back.bags, 1, checkedBags, passengers)
-                outbound + inbound
+                val outFee = knownBagFee(ow.bags, 1, checkedBags, passengers)
+                val backFee = knownBagFee(back.bags, 1, checkedBags, passengers)
+                if (outFee != null && backFee != null) ow.price + outFee + back.price + backFee else null
             } else {
                 null
             }
@@ -220,7 +261,8 @@ object VendorMath {
         return if (rank.indexOf(a) >= rank.indexOf(b)) a else b
     }
 
-    private val BAG_LISTED = Regex("""1st checked bag:\s*([\d,]+)""")
+    private val BAG_LISTED =
+        Regex("""(?i)\b(1st|2nd|3rd|4th|first|second|third|fourth)\s+checked\s+bag\s*:\s*(?:[£$€]\s*)?([\d,]+(?:\.\d+)?|free|included)\b""")
 
     val MARKET_LABELS =
         mapOf(
