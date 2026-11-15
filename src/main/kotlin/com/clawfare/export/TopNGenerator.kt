@@ -81,11 +81,12 @@ object TopNGenerator {
         title: String = "Top Flights",
     ): String {
         val sortedFlights = rankComparable(flights, limit)
-        val skipped =
-            flights.size - flights.count { item ->
+        val comparableCount =
+            flights.count { item ->
                 item.flight.sourceLabel != "mock" &&
                     Fx.toGbpOrNull(item.priceAmount, item.priceCurrency) != null
             }
+        val skipped = flights.size - comparableCount
 
         if (sortedFlights.isEmpty()) {
             return buildString {
