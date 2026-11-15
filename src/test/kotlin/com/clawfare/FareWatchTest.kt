@@ -2,6 +2,7 @@ package com.clawfare
 
 import com.clawfare.search.BatchConfig
 import com.clawfare.search.BatchScenario
+import com.clawfare.search.CallSpec
 import com.clawfare.search.DiskCache
 import com.clawfare.search.FareProvider
 import com.clawfare.search.FareSink
@@ -14,7 +15,6 @@ import com.clawfare.search.SampleData
 import com.clawfare.search.SearchQuery
 import com.clawfare.search.SearchService
 import com.clawfare.search.StoredResult
-import com.clawfare.search.CallSpec
 import org.junit.jupiter.api.Test
 import java.io.File
 import java.time.Instant
@@ -93,8 +93,12 @@ class FareWatchTest {
     fun oneShotWatchOnlyAlertsOnNewOrMaterialPriceDrops() {
         val source = Scripted()
         val sink = MemorySink()
-        val dir = File.createTempFile("watch-run", "").apply { delete(); mkdirs() }
+        val dir = File.createTempFile("watch-run", "").apply {
+                delete()
+                mkdirs()
+            }
         val service = SearchService(listOf(source), DiskCache(dir), sink)
+
         fun cycle() =
             FareWatch.runOnce(
                 config,
@@ -127,7 +131,10 @@ class FareWatchTest {
         val source = Scripted()
         source.remaining = 1
         val sink = MemorySink()
-        val dir = File.createTempFile("watch-cap", "").apply { delete(); mkdirs() }
+        val dir = File.createTempFile("watch-cap", "").apply {
+                delete()
+                mkdirs()
+            }
         val service = SearchService(listOf(source), DiskCache(dir), sink)
         assertFailsWith<IllegalArgumentException> {
             FareWatch.runOnce(
