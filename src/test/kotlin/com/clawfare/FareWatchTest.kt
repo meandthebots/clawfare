@@ -53,8 +53,7 @@ class FareWatchTest {
 
         override fun quota(): QuotaView = QuotaView(id, true, remaining = remaining)
 
-        override fun baseCalls(query: SearchQuery): List<CallSpec> =
-            listOf(CallSpec(id, "scripted", mapOf("date" to query.outboundFrom)))
+        override fun baseCalls(query: SearchQuery): List<CallSpec> = listOf(CallSpec(id, "scripted", mapOf("date" to query.outboundFrom)))
 
         override fun search(
             query: SearchQuery,
@@ -93,7 +92,8 @@ class FareWatchTest {
     fun oneShotWatchOnlyAlertsOnNewOrMaterialPriceDrops() {
         val source = Scripted()
         val sink = MemorySink()
-        val dir = File.createTempFile("watch-run", "").apply {
+        val dir =
+            File.createTempFile("watch-run", "").apply {
                 delete()
                 mkdirs()
             }
@@ -131,7 +131,8 @@ class FareWatchTest {
         val source = Scripted()
         source.remaining = 1
         val sink = MemorySink()
-        val dir = File.createTempFile("watch-cap", "").apply {
+        val dir =
+            File.createTempFile("watch-cap", "").apply {
                 delete()
                 mkdirs()
             }
