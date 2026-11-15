@@ -164,7 +164,8 @@ object BatchSweep {
         config: BatchConfig,
         sink: FareSink,
     ): List<BatchRow> =
-        expand(config).flatMap { entry ->
+        expand(config)
+            .flatMap { entry ->
             val result = sink.load(entry.signature)?.result ?: return@flatMap emptyList()
             result.itineraries.map { itinerary ->
                 val fare = itinerary.pricePerPerson?.let { it * itinerary.passengers }
