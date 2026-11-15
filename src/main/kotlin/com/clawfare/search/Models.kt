@@ -20,6 +20,8 @@ data class SearchQuery(
     /** Domestic / short-haul legs may be this cabin or higher. */
     val cabinShortHaul: String = "economy",
     val checkedBags: Int = 0,
+    /** Default traveller preference. Set to an empty list to include LOT. */
+    val excludedAirlines: List<String> = listOf("LO"),
     val currency: String = "GBP",
     val providers: List<String> = listOf("serpapi", "searchapi", "travelpayouts", "duffel"),
     val nonstopOnly: Boolean = false,
