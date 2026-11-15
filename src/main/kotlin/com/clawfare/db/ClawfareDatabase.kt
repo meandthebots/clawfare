@@ -97,7 +97,14 @@ object ClawfareDatabase {
      */
     fun createTables() {
         transaction {
-            SchemaUtils.create(Investigations, Flights, PriceHistory)
+            SchemaUtils.create(
+                Investigations,
+                Flights,
+                PriceHistory,
+                SellerOffers,
+                ProviderCache,
+                FlightProviderTokens,
+            )
         }
     }
 
@@ -117,14 +124,18 @@ object ClawfareDatabase {
             // Migration: Add source_url to price_history if missing
             if (!priceHistoryCols.contains("source_url")) {
                 stmt.executeUpdate("ALTER TABLE price_history ADD COLUMN source_url TEXT DEFAULT ''")
-                // Migrate existing share_links from flights to price_history
-                stmt.executeUpdate("""
-                    UPDATE price_history 
-                    SET source_url = (
-                        SELECT share_link FROM flights WHERE flights.id = price_history.flight_id
+                // Older databases stored the booking URL on the flight. Copy it only when that column exists.
+                if (flightsCols.contains("share_link")) {
+                    stmt.executeUpdate(
+                        """
+                        UPDATE price_history
+                        SET source_url = (
+                            SELECT share_link FROM flights WHERE flights.id = price_history.flight_id
+                        )
+                        WHERE source_url IS NULL OR source_url = ''
+                        """.trimIndent(),
                     )
-                    WHERE source_url IS NULL OR source_url = ''
-                """.trimIndent())
+                }
             }
 
             // Migration: Make flights.share_link nullable if needed (already nullable in new schema)
@@ -166,6 +177,24 @@ object ClawfareDatabase {
             if (!invCols.contains("included_airlines")) {
                 stmt.executeUpdate("ALTER TABLE investigations ADD COLUMN included_airlines TEXT")
             }
+            addColumnIfMissing(stmt, invCols, "investigations", "origins", "TEXT")
+            addColumnIfMissing(stmt, invCols, "investigations", "destinations", "TEXT")
+            addColumnIfMissing(stmt, invCols, "investigations", "checked_bags", "INTEGER DEFAULT 0")
+            addColumnIfMissing(stmt, invCols, "investigations", "passengers", "INTEGER DEFAULT 1")
+            addColumnIfMissing(stmt, invCols, "investigations", "currency", "TEXT DEFAULT 'GBP'")
+            addColumnIfMissing(stmt, invCols, "investigations", "nights", "INTEGER")
+            addColumnIfMissing(stmt, invCols, "investigations", "scenario", "TEXT")
+            addColumnIfMissing(stmt, invCols, "investigations", "query_json", "TEXT")
+            addColumnIfMissing(stmt, invCols, "investigations", "presentation_json", "TEXT")
+
+            addColumnIfMissing(stmt, flightsCols, "flights", "checked_bags", "INTEGER DEFAULT 0")
+            addColumnIfMissing(stmt, flightsCols, "flights", "passengers", "INTEGER DEFAULT 1")
+            addColumnIfMissing(stmt, flightsCols, "flights", "source_label", "TEXT")
+            addColumnIfMissing(stmt, flightsCols, "flights", "live_price", "INTEGER DEFAULT 0")
+            addColumnIfMissing(stmt, flightsCols, "flights", "display_id", "TEXT")
+            addColumnIfMissing(stmt, flightsCols, "flights", "planned_return_date", "TEXT")
+            addColumnIfMissing(stmt, flightsCols, "flights", "links_json", "TEXT")
+            addColumnIfMissing(stmt, flightsCols, "flights", "cabin_class", "TEXT")
 
             stmt.close()
         }
@@ -174,7 +203,22 @@ object ClawfareDatabase {
     /**
      * Get list of column names for a table.
      */
-    private fun getTableColumns(conn: Connection, tableName: String): Set<String> {
+    private fun addColumnIfMissing(
+        stmt: java.sql.Statement,
+        columns: Set<String>,
+        table: String,
+        column: String,
+        type: String,
+    ) {
+        if (!columns.contains(column)) {
+            stmt.executeUpdate("ALTER TABLE $table ADD COLUMN $column $type")
+        }
+    }
+
+    private fun getTableColumns(
+        conn: Connection,
+        tableName: String,
+    ): Set<String> {
         val columns = mutableSetOf<String>()
         val rs = conn.createStatement().executeQuery("PRAGMA table_info($tableName)")
         while (rs.next()) {
@@ -189,7 +233,14 @@ object ClawfareDatabase {
      */
     fun dropTables() {
         transaction {
-            SchemaUtils.drop(PriceHistory, Flights, Investigations)
+            SchemaUtils.drop(
+                FlightProviderTokens,
+                SellerOffers,
+                ProviderCache,
+                PriceHistory,
+                Flights,
+                Investigations,
+            )
         }
     }
 

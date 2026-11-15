@@ -26,6 +26,11 @@ data class FlightLeg(
     @SerialName("duration_minutes")
     val durationMinutes: Int,
     val aircraft: String? = null,
+    /** Carrier that flies the aircraft when it differs from the marketing airline. */
+    @SerialName("operating_carrier")
+    val operatingCarrier: String? = null,
+    @SerialName("operating_carrier_code")
+    val operatingCarrierCode: String? = null,
 )
 
 /**
@@ -45,6 +50,17 @@ data class FlightSegment(
     val durationMinutes: Int,
     val stops: Int,
     val legs: List<FlightLeg>,
+    /** Provider-reported layovers, used when clock times are not enough to derive them. */
+    val layovers: List<StoredLayover>? = null,
+)
+
+/**
+ * A connection wait that could not be derived from the leg times.
+ */
+@Serializable
+data class StoredLayover(
+    val airport: String,
+    val minutes: Int,
 )
 
 /**

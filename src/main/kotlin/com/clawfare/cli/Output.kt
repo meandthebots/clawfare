@@ -130,7 +130,7 @@ object Output {
             if (!flight.notes.isNullOrBlank()) {
                 appendLine("  Notes:     ${flight.notes}")
             }
-            
+
             // Price section
             appendLine()
             if (latestPrice != null) {
@@ -142,13 +142,13 @@ object Output {
             } else {
                 appendLine("  Price:     No price history")
             }
-            
+
             // Legacy link (if different from price link)
             if (!flight.shareLink.isNullOrBlank() && flight.shareLink != latestPrice?.sourceUrl) {
                 appendLine()
                 appendLine("  Legacy Link: ${flight.shareLink}")
             }
-            
+
             appendLine()
             appendLine("  Captured:  ${flight.capturedAt}")
         }
@@ -259,13 +259,21 @@ object Output {
                 val departDate = outbound?.departTime?.substring(0, 10) ?: "?"
                 val typeFlag = if (flight.tripType == "round_trip") "RT" else "OW"
                 val staleFlag = if (flight.flight.stale) "!" else "✓"
-                val days = if (outbound != null && returnSeg != null) {
-                    try {
-                        val d1 = java.time.ZonedDateTime.parse(outbound.departTime)
-                        val d2 = java.time.ZonedDateTime.parse(returnSeg.departTime)
-                        java.time.Duration.between(d1, d2).toDays().toString()
-                    } catch (_: Exception) { "?" }
-                } else "—"
+                val days =
+                    if (outbound != null && returnSeg != null) {
+                        try {
+                            val d1 = java.time.ZonedDateTime.parse(outbound.departTime)
+                            val d2 = java.time.ZonedDateTime.parse(returnSeg.departTime)
+                            java.time.Duration
+                                .between(d1, d2)
+                                .toDays()
+                                .toString()
+                        } catch (_: Exception) {
+                            "?"
+                        }
+                    } else {
+                        "—"
+                    }
                 listOf(
                     flight.id.take(8),
                     formatPrice(flight.priceAmount, flight.priceCurrency),
@@ -322,7 +330,11 @@ object Output {
             try {
                 val arrive = java.time.ZonedDateTime.parse(legs[i].arriveTime)
                 val depart = java.time.ZonedDateTime.parse(legs[i + 1].departTime)
-                val minutes = java.time.Duration.between(arrive, depart).toMinutes().toInt()
+                val minutes =
+                    java.time.Duration
+                        .between(arrive, depart)
+                        .toMinutes()
+                        .toInt()
                 parts.add("${formatDuration(minutes)} at ${legs[i].arriveAirport}")
             } catch (_: Exception) {
                 parts.add("? at ${legs[i].arriveAirport}")
@@ -341,7 +353,11 @@ object Output {
         for (i in 0 until segment.legs.size - 1) {
             val arriveTime = java.time.OffsetDateTime.parse(segment.legs[i].arriveTime)
             val departTime = java.time.OffsetDateTime.parse(segment.legs[i + 1].departTime)
-            val layoverMinutes = java.time.Duration.between(arriveTime, departTime).toMinutes().toInt()
+            val layoverMinutes =
+                java.time.Duration
+                    .between(arriveTime, departTime)
+                    .toMinutes()
+                    .toInt()
             totalLayover += layoverMinutes
         }
 
@@ -370,7 +386,11 @@ object Output {
                 val nextLeg = segment.legs[i + 1]
                 val arriveTime = java.time.OffsetDateTime.parse(leg.arriveTime)
                 val departTime = java.time.OffsetDateTime.parse(nextLeg.departTime)
-                val layoverMinutes = java.time.Duration.between(arriveTime, departTime).toMinutes().toInt()
+                val layoverMinutes =
+                    java.time.Duration
+                        .between(arriveTime, departTime)
+                        .toMinutes()
+                        .toInt()
                 sb.appendLine("            ⏱ ${formatDuration(layoverMinutes)} layover in ${leg.arriveAirport}")
             }
         }

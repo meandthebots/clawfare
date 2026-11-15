@@ -10,7 +10,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.test.assertTrue
 
 class QueriesTest {
     @TempDir
@@ -432,15 +431,18 @@ class MigrationTest {
 
         // Create DB with old schema (no source_url)
         val conn = java.sql.DriverManager.getConnection("jdbc:sqlite:$dbPath")
-        conn.createStatement().executeUpdate("""
+        conn.createStatement().executeUpdate(
+            """
             CREATE TABLE investigations (
                 slug TEXT PRIMARY KEY, origin TEXT, destination TEXT,
                 depart_start TEXT, depart_end TEXT, return_start TEXT, return_end TEXT,
                 cabin_class TEXT, max_stops INTEGER, created_at TEXT, updated_at TEXT,
                 min_trip_days INTEGER, max_trip_days INTEGER, must_include_date TEXT, max_layover_minutes INTEGER
             )
-        """)
-        conn.createStatement().executeUpdate("""
+        """,
+        )
+        conn.createStatement().executeUpdate(
+            """
             CREATE TABLE flights (
                 id TEXT PRIMARY KEY, investigation_slug TEXT, share_link TEXT, source TEXT,
                 trip_type TEXT, ticket_structure TEXT,
@@ -450,17 +452,26 @@ class MigrationTest {
                 aircraft_type TEXT, fare_brand TEXT, disqualified TEXT, notes TEXT, tags TEXT,
                 captured_at TEXT
             )
-        """)
-        conn.createStatement().executeUpdate("""
+        """,
+        )
+        conn.createStatement().executeUpdate(
+            """
             CREATE TABLE price_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, flight_id TEXT, amount DOUBLE,
                 currency TEXT, checked_at TEXT, source TEXT DEFAULT 'manual', price_market TEXT DEFAULT 'UK'
             )
-        """)
+        """,
+        )
         // Insert test data
-        conn.createStatement().executeUpdate("INSERT INTO investigations VALUES ('test', 'LHR', 'NRT', '2026-05-01', '2026-05-15', '2026-05-15', '2026-05-30', 'business', 1, '2026-01-01', '2026-01-01', 14, 18, '2026-05-16', 300)")
-        conn.createStatement().executeUpdate("INSERT INTO flights VALUES ('f1', 'test', 'https://example.com/flight1', 'gf', 'round_trip', 'single', 2500, 'GBP', 'UK', '2026-03-01', 'LHR', 'NRT', '{\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\",\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\",\"duration_minutes\":720,\"stops\":0,\"legs\":[{\"flight_number\":\"123\",\"airline\":\"BA\",\"airline_code\":\"BA\",\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\",\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\",\"duration_minutes\":720}]}', NULL, 'business', 0, 0, NULL, NULL, NULL, NULL, NULL, '2026-03-01')")
-        conn.createStatement().executeUpdate("INSERT INTO price_history (flight_id, amount, currency, checked_at) VALUES ('f1', 2500, 'GBP', '2026-03-01')")
+        conn.createStatement().executeUpdate(
+            "INSERT INTO investigations VALUES ('test', 'LHR', 'NRT', '2026-05-01', '2026-05-15', '2026-05-15', '2026-05-30', 'business', 1, '2026-01-01', '2026-01-01', 14, 18, '2026-05-16', 300)",
+        )
+        conn.createStatement().executeUpdate(
+            "INSERT INTO flights VALUES ('f1', 'test', 'https://example.com/flight1', 'gf', 'round_trip', 'single', 2500, 'GBP', 'UK', '2026-03-01', 'LHR', 'NRT', '{\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\",\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\",\"duration_minutes\":720,\"stops\":0,\"legs\":[{\"flight_number\":\"123\",\"airline\":\"BA\",\"airline_code\":\"BA\",\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\",\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\",\"duration_minutes\":720}]}', NULL, 'business', 0, 0, NULL, NULL, NULL, NULL, NULL, '2026-03-01')",
+        )
+        conn.createStatement().executeUpdate(
+            "INSERT INTO price_history (flight_id, amount, currency, checked_at) VALUES ('f1', 2500, 'GBP', '2026-03-01')",
+        )
         conn.close()
 
         // Verify old schema has no source_url
@@ -493,15 +504,18 @@ class MigrationTest {
 
         // Create DB without stale column
         val conn = java.sql.DriverManager.getConnection("jdbc:sqlite:$dbPath")
-        conn.createStatement().executeUpdate("""
+        conn.createStatement().executeUpdate(
+            """
             CREATE TABLE investigations (
                 slug TEXT PRIMARY KEY, origin TEXT, destination TEXT,
                 depart_start TEXT, depart_end TEXT, return_start TEXT, return_end TEXT,
                 cabin_class TEXT, max_stops INTEGER, created_at TEXT, updated_at TEXT,
                 min_trip_days INTEGER, max_trip_days INTEGER, must_include_date TEXT, max_layover_minutes INTEGER
             )
-        """)
-        conn.createStatement().executeUpdate("""
+        """,
+        )
+        conn.createStatement().executeUpdate(
+            """
             CREATE TABLE flights (
                 id TEXT PRIMARY KEY, investigation_slug TEXT, share_link TEXT, source TEXT,
                 trip_type TEXT, ticket_structure TEXT,
@@ -511,23 +525,61 @@ class MigrationTest {
                 aircraft_type TEXT, fare_brand TEXT, disqualified TEXT, notes TEXT, tags TEXT,
                 captured_at TEXT
             )
-        """)
-        conn.createStatement().executeUpdate("""
+        """,
+        )
+        conn.createStatement().executeUpdate(
+            """
             CREATE TABLE price_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, flight_id TEXT, amount DOUBLE,
                 currency TEXT, source_url TEXT, checked_at TEXT, source TEXT DEFAULT 'manual', price_market TEXT DEFAULT 'UK'
             )
-        """)
+        """,
+        )
         conn.close()
 
         // Open with ClawfareDatabase — should add stale column
         ClawfareDatabase.connect(path = dbPath, createSchema = true)
 
         // Verify stale column exists by creating a flight
-        val now = java.time.Instant.now().toString()
-        InvestigationQueries.create(InvestigationDto(slug = "t", origin = "LHR", destination = "NRT", departStart = "2026-05-01", departEnd = "2026-05-15", returnStart = "2026-05-15", returnEnd = "2026-05-30", cabinClass = "business", maxStops = 1, createdAt = now, updatedAt = now))
-        val json = """{"depart_airport":"LHR","arrive_airport":"NRT","depart_time":"2026-05-01T10:00:00Z","arrive_time":"2026-05-02T06:00:00Z","duration_minutes":720,"stops":0,"legs":[{"flight_number":"1","airline":"BA","airline_code":"BA","depart_airport":"LHR","arrive_airport":"NRT","depart_time":"2026-05-01T10:00:00Z","arrive_time":"2026-05-02T06:00:00Z","duration_minutes":720}]}"""
-        FlightQueries.create(FlightDto(id = "f1", investigationSlug = "t", source = "gf", tripType = "round_trip", ticketStructure = "single", origin = "LHR", destination = "NRT", outboundJson = json, capturedAt = now))
+        val now =
+            java.time.Instant
+                .now()
+                .toString()
+        InvestigationQueries.create(
+            InvestigationDto(
+                slug = "t",
+                origin = "LHR",
+                destination = "NRT",
+                departStart = "2026-05-01",
+                departEnd = "2026-05-15",
+                returnStart = "2026-05-15",
+                returnEnd = "2026-05-30",
+                cabinClass = "business",
+                maxStops = 1,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+        val json =
+            "{\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\"," +
+                "\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\"," +
+                "\"duration_minutes\":720,\"stops\":0,\"legs\":[{\"flight_number\":\"1\"," +
+                "\"airline\":\"BA\",\"airline_code\":\"BA\",\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\"," +
+                "\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\"," +
+                "\"duration_minutes\":720}]}"
+        FlightQueries.create(
+            FlightDto(
+                id = "f1",
+                investigationSlug = "t",
+                source = "gf",
+                tripType = "round_trip",
+                ticketStructure = "single",
+                origin = "LHR",
+                destination = "NRT",
+                outboundJson = json,
+                capturedAt = now,
+            ),
+        )
 
         val flight = FlightQueries.getById("f1")
         assertNotNull(flight)

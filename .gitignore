@@ -18,6 +18,7 @@ libsqlitejdbc.so
 
 # Test databases
 *.db
+.env
 clawfare-linux-amd64
 
 # Project notes (not clawfare)

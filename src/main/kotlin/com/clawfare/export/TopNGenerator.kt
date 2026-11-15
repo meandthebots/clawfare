@@ -46,20 +46,23 @@ object TopNGenerator {
     ): String {
         // Get all flights with their prices
         val flights = FlightQueries.listAll()
-        val flightsWithPrices = flights.mapNotNull { flight ->
-            val latestPrice = PriceHistoryQueries.getLatest(flight.id)
-            if (latestPrice != null) {
-                FlightWithPrice(
-                    flight = flight,
-                    priceAmount = latestPrice.amount,
-                    priceCurrency = latestPrice.currency,
-                    priceMarket = latestPrice.priceMarket,
-                    priceCheckedAt = latestPrice.checkedAt,
-                    priceSource = latestPrice.source,
-                    sourceUrl = latestPrice.sourceUrl,
-                )
-            } else null
-        }
+        val flightsWithPrices =
+            flights.mapNotNull { flight ->
+                val latestPrice = PriceHistoryQueries.getLatest(flight.id)
+                if (latestPrice != null) {
+                    FlightWithPrice(
+                        flight = flight,
+                        priceAmount = latestPrice.amount,
+                        priceCurrency = latestPrice.currency,
+                        priceMarket = latestPrice.priceMarket,
+                        priceCheckedAt = latestPrice.checkedAt,
+                        priceSource = latestPrice.source,
+                        sourceUrl = latestPrice.sourceUrl,
+                    )
+                } else {
+                    null
+                }
+            }
         return generate(flightsWithPrices, limit, title ?: "Top $limit Flights")
     }
 

@@ -334,7 +334,10 @@ class InvResumeCommand : Callable<Int> {
             val staleFlights =
                 flightsWithPrices.filter { f ->
                     val checkedAt = java.time.Instant.parse(f.priceCheckedAt)
-                    val dayAgo = java.time.Instant.now().minusSeconds(86400)
+                    val dayAgo =
+                        java.time.Instant
+                            .now()
+                            .minusSeconds(86400)
                     checkedAt.isBefore(dayAgo)
                 }
             if (staleFlights.isNotEmpty()) {
@@ -416,7 +419,7 @@ class InvConfigCommand : Callable<Int> {
             println("  Depart before: ${investigation.departBefore ?: "any"}")
             println("  Trip days: ${investigation.minTripDays ?: "?"}-${investigation.maxTripDays ?: "?"}")
             println("  Must include: ${investigation.mustIncludeDate ?: "not set"}")
-            println("  Max layover: ${investigation.maxLayoverMinutes?.let { "${it}m (${it/60}h ${it%60}m)" } ?: "not set"}")
+            println("  Max layover: ${investigation.maxLayoverMinutes?.let { "${it}m (${it / 60}h ${it % 60}m)" } ?: "not set"}")
             println("  Excluded airlines: ${investigation.excludedAirlines ?: "none"}")
             println("  Included airlines: ${investigation.includedAirlines ?: "none"}")
             return 0
@@ -428,28 +431,48 @@ class InvConfigCommand : Callable<Int> {
 
         if (excludeAirline != null) {
             val code = excludeAirline!!.uppercase()
-            val current = newExcluded?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.toMutableSet() ?: mutableSetOf()
+            val current =
+                newExcluded
+                    ?.split(",")
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotBlank() }
+                    ?.toMutableSet() ?: mutableSetOf()
             current.add(code)
             newExcluded = current.sorted().joinToString(",")
             println("  Added $code to exclusion list")
         }
         if (removeExclude != null) {
             val code = removeExclude!!.uppercase()
-            val current = newExcluded?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.toMutableSet() ?: mutableSetOf()
+            val current =
+                newExcluded
+                    ?.split(",")
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotBlank() }
+                    ?.toMutableSet() ?: mutableSetOf()
             current.remove(code)
             newExcluded = if (current.isEmpty()) null else current.sorted().joinToString(",")
             println("  Removed $code from exclusion list")
         }
         if (includeAirline != null) {
             val code = includeAirline!!.uppercase()
-            val current = newIncluded?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.toMutableSet() ?: mutableSetOf()
+            val current =
+                newIncluded
+                    ?.split(",")
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotBlank() }
+                    ?.toMutableSet() ?: mutableSetOf()
             current.add(code)
             newIncluded = current.sorted().joinToString(",")
             println("  Added $code to inclusion list")
         }
         if (removeInclude != null) {
             val code = removeInclude!!.uppercase()
-            val current = newIncluded?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }?.toMutableSet() ?: mutableSetOf()
+            val current =
+                newIncluded
+                    ?.split(",")
+                    ?.map { it.trim() }
+                    ?.filter { it.isNotBlank() }
+                    ?.toMutableSet() ?: mutableSetOf()
             current.remove(code)
             newIncluded = if (current.isEmpty()) null else current.sorted().joinToString(",")
             println("  Removed $code from inclusion list")
@@ -676,7 +699,7 @@ class FlightCommand : Callable<Int> {
 
 /**
  * Add a new flight manually with full segment details.
- * 
+ *
  * For simpler entry, consider using `flight import --add-new` with JSON input.
  * See `flight import --schema` for the simplified format.
  */
@@ -937,15 +960,16 @@ class FlightListCommand : Callable<Int> {
         // Apply constraint filtering (default: hide violations)
         var hiddenCount = 0
         if (!showAll) {
-            val (passing, violating) = flights.partition { fwp ->
-                try {
-                    val outbound: FlightSegment = Json.decodeFromString(fwp.flight.outboundJson)
-                    val returnSeg: FlightSegment? = fwp.flight.returnJson?.let { Json.decodeFromString(it) }
-                    FlightValidator.checkConstraints(outbound, returnSeg, investigation).isEmpty()
-                } catch (_: Exception) {
-                    true // can't parse → don't filter out
+            val (passing, violating) =
+                flights.partition { fwp ->
+                    try {
+                        val outbound: FlightSegment = Json.decodeFromString(fwp.flight.outboundJson)
+                        val returnSeg: FlightSegment? = fwp.flight.returnJson?.let { Json.decodeFromString(it) }
+                        FlightValidator.checkConstraints(outbound, returnSeg, investigation).isEmpty()
+                    } catch (_: Exception) {
+                        true // can't parse → don't filter out
+                    }
                 }
-            }
             hiddenCount = violating.size
             flights = passing
         }
@@ -990,40 +1014,67 @@ class FlightListCommand : Callable<Int> {
             // Show with price history summary
             println("ID       │ Current   │ Min       │ Max       │ Change    │ Airline             │ Route   │ Depart")
             println("─────────┼───────────┼───────────┼───────────┼───────────┼─────────────────────┼─────────┼───────────")
-            
+
             flights.forEach { f ->
                 val history = PriceHistoryQueries.getByFlightId(f.id)
                 val outbound = Output.parseSegment(f.outboundJson)
-                val airline = outbound?.legs?.firstOrNull()?.airline?.take(19) ?: "?"
+                val airline =
+                    outbound
+                        ?.legs
+                        ?.firstOrNull()
+                        ?.airline
+                        ?.take(19) ?: "?"
                 val departDate = outbound?.departTime?.take(10) ?: "?"
-                
+
                 val minPrice = history.minOfOrNull { it.amount } ?: f.priceAmount
                 val maxPrice = history.maxOfOrNull { it.amount } ?: f.priceAmount
                 val firstPrice = history.minByOrNull { it.checkedAt }?.amount ?: f.priceAmount
                 val change = f.priceAmount - firstPrice
-                val changeStr = when {
-                    change > 0 -> "↑ +${Output.formatPrice(change, f.priceCurrency)}"
-                    change < 0 -> "↓ ${Output.formatPrice(change, f.priceCurrency)}"
-                    else -> "—"
-                }
-                
-                println("${f.id.take(8)} │ ${Output.formatPrice(f.priceAmount, f.priceCurrency).padStart(9)} │ ${Output.formatPrice(minPrice, f.priceCurrency).padStart(9)} │ ${Output.formatPrice(maxPrice, f.priceCurrency).padStart(9)} │ ${changeStr.padStart(9)} │ ${airline.padEnd(19)} │ ${f.origin}→${f.destination} │ $departDate")
+                val changeStr =
+                    when {
+                        change > 0 -> "↑ +${Output.formatPrice(change, f.priceCurrency)}"
+                        change < 0 -> "↓ ${Output.formatPrice(change, f.priceCurrency)}"
+                        else -> "—"
+                    }
+
+                println(
+                    "${f.id.take(
+                        8,
+                    )} │ ${Output.formatPrice(
+                        f.priceAmount,
+                        f.priceCurrency,
+                    ).padStart(
+                        9,
+                    )} │ ${Output.formatPrice(
+                        minPrice,
+                        f.priceCurrency,
+                    ).padStart(
+                        9,
+                    )} │ ${Output.formatPrice(
+                        maxPrice,
+                        f.priceCurrency,
+                    ).padStart(9)} │ ${changeStr.padStart(9)} │ ${airline.padEnd(19)} │ ${f.origin}→${f.destination} │ $departDate",
+                )
             }
-            
+
             // Summary
             println()
             val allHistory = flights.flatMap { PriceHistoryQueries.getByFlightId(it.id) }
-            val pricesDown = flights.count { f ->
-                val history = PriceHistoryQueries.getByFlightId(f.id)
-                val first = history.minByOrNull { it.checkedAt }?.amount ?: f.priceAmount
-                f.priceAmount < first
-            }
-            val pricesUp = flights.count { f ->
-                val history = PriceHistoryQueries.getByFlightId(f.id)
-                val first = history.minByOrNull { it.checkedAt }?.amount ?: f.priceAmount
-                f.priceAmount > first
-            }
-            println("${flights.size} flights │ ${allHistory.size} price observations │ $pricesDown↓ down │ $pricesUp↑ up │ ${flights.size - pricesDown - pricesUp} unchanged")
+            val pricesDown =
+                flights.count { f ->
+                    val history = PriceHistoryQueries.getByFlightId(f.id)
+                    val first = history.minByOrNull { it.checkedAt }?.amount ?: f.priceAmount
+                    f.priceAmount < first
+                }
+            val pricesUp =
+                flights.count { f ->
+                    val history = PriceHistoryQueries.getByFlightId(f.id)
+                    val first = history.minByOrNull { it.checkedAt }?.amount ?: f.priceAmount
+                    f.priceAmount > first
+                }
+            println(
+                "${flights.size} flights │ ${allHistory.size} price observations │ $pricesDown↓ down │ $pricesUp↑ up │ ${flights.size - pricesDown - pricesUp} unchanged",
+            )
         } else if (showHistory) {
             // Show full price history per flight
             flights.forEach { f ->
@@ -1031,35 +1082,43 @@ class FlightListCommand : Callable<Int> {
                 val outbound = Output.parseSegment(f.outboundJson)
                 val airline = outbound?.legs?.firstOrNull()?.airline ?: "?"
                 val departDate = outbound?.departTime?.take(10) ?: "?"
-                
+
                 println()
                 println("${f.id.take(8)} │ $airline │ ${f.origin}→${f.destination} │ $departDate")
                 println("─".repeat(70))
-                
+
                 if (history.isEmpty()) {
                     println("  No price history")
                 } else {
                     var prevPrice: Double? = null
                     history.sortedBy { it.checkedAt }.forEach { price ->
-                        val change = if (prevPrice != null) {
-                            val diff = price.amount - prevPrice!!
-                            when {
-                                diff > 0 -> "↑ +${Output.formatPrice(diff, price.currency)}"
-                                diff < 0 -> "↓ ${Output.formatPrice(diff, price.currency)}"
-                                else -> "—"
+                        val change =
+                            if (prevPrice != null) {
+                                val diff = price.amount - prevPrice!!
+                                when {
+                                    diff > 0 -> "↑ +${Output.formatPrice(diff, price.currency)}"
+                                    diff < 0 -> "↓ ${Output.formatPrice(diff, price.currency)}"
+                                    else -> "—"
+                                }
+                            } else {
+                                "—"
                             }
-                        } else "—"
-                        
+
                         val timestamp = price.checkedAt.take(16).replace("T", " ")
                         val sourceTag = if (price.source != "kraftwerker") " [${price.source}]" else ""
                         val urlTag = if (price.sourceUrl.isNotBlank()) " ${price.sourceUrl}" else ""
                         val idTag = if (price.id != null) "#${price.id} " else ""
-                        println("  $idTag$timestamp │ ${Output.formatPrice(price.amount, price.currency).padStart(9)} │ $change$sourceTag$urlTag")
+                        println(
+                            "  $idTag$timestamp │ ${Output.formatPrice(
+                                price.amount,
+                                price.currency,
+                            ).padStart(9)} │ $change$sourceTag$urlTag",
+                        )
                         prevPrice = price.amount
                     }
                 }
             }
-            
+
             // Summary
             println()
             val allHistory = flights.flatMap { PriceHistoryQueries.getByFlightId(it.id) }
@@ -1075,27 +1134,58 @@ class FlightListCommand : Callable<Int> {
                 val returnDate = returnSeg?.departTime?.take(10)
 
                 // Trip duration
-                val days = if (outbound != null && returnSeg != null) {
-                    try {
-                        val d1 = java.time.ZonedDateTime.parse(outbound.departTime)
-                        val d2 = java.time.ZonedDateTime.parse(returnSeg.departTime)
-                        java.time.Duration.between(d1, d2).toDays().toInt()
-                    } catch (_: Exception) { null }
-                } else null
+                val days =
+                    if (outbound != null && returnSeg != null) {
+                        try {
+                            val d1 = java.time.ZonedDateTime.parse(outbound.departTime)
+                            val d2 = java.time.ZonedDateTime.parse(returnSeg.departTime)
+                            java.time.Duration
+                                .between(d1, d2)
+                                .toDays()
+                                .toInt()
+                        } catch (_: Exception) {
+                            null
+                        }
+                    } else {
+                        null
+                    }
 
                 // Route with stops
                 val outStops = outbound?.stops ?: 0
                 val retStops = returnSeg?.stops ?: 0
-                val outRoute = if (outStops == 0) "${f.origin}→${f.destination} (nonstop)" else {
-                    val vias = outbound?.legs?.drop(0)?.dropLast(1)?.map { it.arriveAirport } ?: emptyList()
-                    if (vias.isNotEmpty()) "${f.origin}→${vias.joinToString("→")}→${f.destination}" 
-                    else "${f.origin}→${f.destination} ($outStops stop)"
-                }
-                val retRoute = if (returnSeg == null) null else if (retStops == 0) "${f.destination}→${f.origin} (nonstop)" else {
-                    val vias = returnSeg.legs.drop(0).dropLast(1).map { it.arriveAirport }
-                    if (vias.isNotEmpty()) "${f.destination}→${vias.joinToString("→")}→${f.origin}"
-                    else "${f.destination}→${f.origin} ($retStops stop)"
-                }
+                val outRoute =
+                    if (outStops == 0) {
+                        "${f.origin}→${f.destination} (nonstop)"
+                    } else {
+                        val vias =
+                            outbound
+                                ?.legs
+                                ?.drop(0)
+                                ?.dropLast(1)
+                                ?.map { it.arriveAirport } ?: emptyList()
+                        if (vias.isNotEmpty()) {
+                            "${f.origin}→${vias.joinToString("→")}→${f.destination}"
+                        } else {
+                            "${f.origin}→${f.destination} ($outStops stop)"
+                        }
+                    }
+                val retRoute =
+                    if (returnSeg == null) {
+                        null
+                    } else if (retStops == 0) {
+                        "${f.destination}→${f.origin} (nonstop)"
+                    } else {
+                        val vias =
+                            returnSeg.legs
+                                .drop(0)
+                                .dropLast(1)
+                                .map { it.arriveAirport }
+                        if (vias.isNotEmpty()) {
+                            "${f.destination}→${vias.joinToString("→")}→${f.origin}"
+                        } else {
+                            "${f.destination}→${f.origin} ($retStops stop)"
+                        }
+                    }
 
                 // Connection times
                 val outLayovers = Output.formatLayovers(outbound)
@@ -1104,11 +1194,12 @@ class FlightListCommand : Callable<Int> {
                 // Links — show what's stored. Bad links = data needs fixing.
                 // Prefer booking/share links from any price history entry, fall back to latest
                 val allHistory = PriceHistoryQueries.getByFlightId(f.id)
-                val bestLink = allHistory
-                    .map { it.sourceUrl }
-                    .firstOrNull { it.contains("/flights/s/") || it.contains("/flights/booking") || it.contains("/book/flight") }
-                    ?: allHistory.maxByOrNull { it.checkedAt }?.sourceUrl?.takeIf { it.isNotBlank() }
-                    ?: f.flight.shareLink.orEmpty()
+                val bestLink =
+                    allHistory
+                        .map { it.sourceUrl }
+                        .firstOrNull { it.contains("/flights/s/") || it.contains("/flights/booking") || it.contains("/book/flight") }
+                        ?: allHistory.maxByOrNull { it.checkedAt }?.sourceUrl?.takeIf { it.isNotBlank() }
+                        ?: f.flight.shareLink.orEmpty()
                 val link = bestLink
 
                 // Source of the latest price
@@ -1311,19 +1402,20 @@ class FlightUpdateCommand : Callable<Int> {
         }
 
         // Build updated DTO with only changed fields
-        val updated = flight.copy(
-            notes = notes ?: flight.notes,
-            disqualified = if (disqualified == "") null else (disqualified ?: flight.disqualified),
-            bookingClass = bookingClass ?: flight.bookingClass,
-            aircraftType = aircraftType ?: flight.aircraftType,
-            fareBrand = fareBrand ?: flight.fareBrand,
-            outboundJson = outboundJson ?: flight.outboundJson,
-            returnJson = if (returnJson == "") null else (returnJson ?: flight.returnJson),
-            shareLink = shareLink ?: flight.shareLink,
-            source = source ?: flight.source,
-            tripType = tripType ?: flight.tripType,
-            ticketStructure = ticketStructure ?: flight.ticketStructure,
-        )
+        val updated =
+            flight.copy(
+                notes = notes ?: flight.notes,
+                disqualified = if (disqualified == "") null else (disqualified ?: flight.disqualified),
+                bookingClass = bookingClass ?: flight.bookingClass,
+                aircraftType = aircraftType ?: flight.aircraftType,
+                fareBrand = fareBrand ?: flight.fareBrand,
+                outboundJson = outboundJson ?: flight.outboundJson,
+                returnJson = if (returnJson == "") null else (returnJson ?: flight.returnJson),
+                shareLink = shareLink ?: flight.shareLink,
+                source = source ?: flight.source,
+                tripType = tripType ?: flight.tripType,
+                ticketStructure = ticketStructure ?: flight.ticketStructure,
+            )
 
         // Check if anything actually changed
         if (updated == flight) {
@@ -1485,10 +1577,13 @@ class FlightPriceCommand : Callable<Int> {
     companion object {
         // Minimum believable one-way business class price (GBP)
         private const val MIN_BUSINESS_OW_GBP = 800.0
+
         // Minimum believable round-trip business class price (GBP)
         private const val MIN_BUSINESS_RT_GBP = 1500.0
+
         // Maximum believable price (GBP) — sanity ceiling
         private const val MAX_PRICE_GBP = 30000.0
+
         // Percentage deviation from previous price that triggers a warning
         private const val LARGE_DEVIATION_THRESHOLD = 0.50
     }
@@ -1532,15 +1627,18 @@ class FlightPriceCommand : Callable<Int> {
 
         // Price floor checks (hard errors — these are never valid)
         val isRT = flightWithPrice.flight.tripType == "round_trip"
-        val isBusiness = flightWithPrice.flight.bookingClass?.lowercase()?.contains("business") == true
+        val isBusiness =
+            flightWithPrice.flight.bookingClass
+                ?.lowercase()
+                ?.contains("business") == true
         if (newCurrency == "GBP" && isBusiness) {
             val floor = if (isRT) MIN_BUSINESS_RT_GBP else MIN_BUSINESS_OW_GBP
             val tripLabel = if (isRT) "round-trip" else "one-way"
             if (amount < floor) {
                 Output.error(
                     "£${String.format("%.0f", amount)} is below the minimum believable " +
-                    "business class $tripLabel price (£${String.format("%.0f", floor)}). " +
-                    "This is likely an economy price or a data entry error."
+                        "business class $tripLabel price (£${String.format("%.0f", floor)}). " +
+                        "This is likely an economy price or a data entry error.",
                 )
                 return 1
             }
@@ -1550,7 +1648,7 @@ class FlightPriceCommand : Callable<Int> {
         if (newCurrency == "GBP" && amount > MAX_PRICE_GBP) {
             Output.error(
                 "£${String.format("%.0f", amount)} exceeds maximum believable price " +
-                "(£${String.format("%.0f", MAX_PRICE_GBP)}). Check the currency and amount."
+                    "(£${String.format("%.0f", MAX_PRICE_GBP)}). Check the currency and amount.",
             )
             return 1
         }
@@ -1564,9 +1662,9 @@ class FlightPriceCommand : Callable<Int> {
                 val pctStr = String.format("%.0f%%", deviation * 100)
                 Output.warn(
                     "Price $direction of $pctStr " +
-                    "(${Output.formatPrice(oldAmount, flightWithPrice.priceCurrency)} → " +
-                    "${Output.formatPrice(amount, newCurrency)}). " +
-                    "Use --force to confirm this is correct."
+                        "(${Output.formatPrice(oldAmount, flightWithPrice.priceCurrency)} → " +
+                        "${Output.formatPrice(amount, newCurrency)}). " +
+                        "Use --force to confirm this is correct.",
                 )
                 return 1
             }
@@ -1598,7 +1696,7 @@ class FlightPriceCommand : Callable<Int> {
                 priceCurrency = newCurrency,
                 priceCheckedAt = now,
                 stale = false,
-            )
+            ),
         )
 
         val change = amount - flightWithPrice.priceAmount
@@ -1656,7 +1754,7 @@ class FlightMarkStaleCommand : Callable<Int> {
         if (flightId != null) {
             val flight = FlightQueries.getById(flightId!!) ?: FlightQueries.getByIdPrefix(flightId!!)
             if (flight == null) {
-                Output.error("Flight '${flightId}' not found")
+                Output.error("Flight '$flightId' not found")
                 return 1
             }
             if (dryRun) {
@@ -1687,21 +1785,27 @@ class FlightMarkStaleCommand : Callable<Int> {
         }
 
         // Filter by age if specified
-        val toMark = if (olderThanHours != null) {
-            val cutoff = java.time.Instant.now().minusSeconds(olderThanHours!!.toLong() * 3600)
-            flights.filter { 
-                try {
-                    java.time.Instant.parse(it.priceCheckedAt).isBefore(cutoff)
-                } catch (_: Exception) {
-                    true // Mark if we can't parse the date
+        val toMark =
+            if (olderThanHours != null) {
+                val cutoff =
+                    java.time.Instant
+                        .now()
+                        .minusSeconds(olderThanHours!!.toLong() * 3600)
+                flights.filter {
+                    try {
+                        java.time.Instant
+                            .parse(it.priceCheckedAt)
+                            .isBefore(cutoff)
+                    } catch (_: Exception) {
+                        true // Mark if we can't parse the date
+                    }
                 }
+            } else if (markAll) {
+                flights
+            } else {
+                Output.error("Specify --all, --older-than <hours>, or --id <flight-id>")
+                return 1
             }
-        } else if (markAll) {
-            flights
-        } else {
-            Output.error("Specify --all, --older-than <hours>, or --id <flight-id>")
-            return 1
-        }
 
         if (toMark.isEmpty()) {
             println("No flights match the criteria")
@@ -1753,9 +1857,15 @@ class FlightStaleCommand : Callable<Int> {
 
         val flight = flightWithPrice.flight
         val lastChecked = java.time.Instant.parse(flightWithPrice.priceCheckedAt)
-        val cutoff = java.time.Instant.now().minusSeconds(staleHours.toLong() * 3600)
+        val cutoff =
+            java.time.Instant
+                .now()
+                .minusSeconds(staleHours.toLong() * 3600)
         val isTimeStale = lastChecked.isBefore(cutoff)
-        val age = java.time.Duration.between(lastChecked, java.time.Instant.now()).toHours()
+        val age =
+            java.time.Duration
+                .between(lastChecked, java.time.Instant.now())
+                .toHours()
 
         println("Flight: ${flightWithPrice.id}")
         println("  Last checked: ${flightWithPrice.priceCheckedAt} (${age}h ago)")
@@ -1804,7 +1914,7 @@ class FlightHistoryCommand : Callable<Int> {
 
         // Get all price history for the investigation
         val allHistory = PriceHistoryQueries.getByInvestigation(slug)
-        
+
         if (jsonOutput) {
             println(Output.toJson(allHistory))
             return 0
@@ -1813,27 +1923,30 @@ class FlightHistoryCommand : Callable<Int> {
         if (byFlight) {
             // Group by flight
             val byFlightId = allHistory.groupBy { it.flightId }
-            
+
             flights.sortedBy { it.priceAmount }.forEach { flight ->
                 val history = byFlightId[flight.id] ?: return@forEach
                 val outbound = Output.parseSegment(flight.outboundJson)
                 val airline = outbound?.legs?.firstOrNull()?.airline ?: "?"
-                
+
                 println()
                 println("${flight.id.take(8)} | $airline | ${flight.origin}→${flight.destination}")
                 println("─".repeat(60))
-                
+
                 var prevPrice: Double? = null
                 history.sortedByDescending { it.checkedAt }.take(limit).reversed().forEach { price ->
-                    val change = if (prevPrice != null) {
-                        val diff = price.amount - prevPrice!!
-                        when {
-                            diff > 0 -> "↑ +${Output.formatPrice(diff, price.currency)}"
-                            diff < 0 -> "↓ ${Output.formatPrice(diff, price.currency)}"
-                            else -> "—"
+                    val change =
+                        if (prevPrice != null) {
+                            val diff = price.amount - prevPrice!!
+                            when {
+                                diff > 0 -> "↑ +${Output.formatPrice(diff, price.currency)}"
+                                diff < 0 -> "↓ ${Output.formatPrice(diff, price.currency)}"
+                                else -> "—"
+                            }
+                        } else {
+                            "—"
                         }
-                    } else "—"
-                    
+
                     val timestamp = price.checkedAt.take(16).replace("T", " ")
                     val sourceTag = if (price.source != "kraftwerker") " [${price.source}]" else ""
                     println("  $timestamp │ ${Output.formatPrice(price.amount, price.currency).padStart(9)} │ $change$sourceTag")
@@ -1843,22 +1956,22 @@ class FlightHistoryCommand : Callable<Int> {
         } else if (bySource) {
             // Group by source
             val bySourceName = allHistory.groupBy { it.source }
-            
+
             bySourceName.forEach { (source, prices) ->
                 println()
                 println("Source: $source (${prices.size} observations)")
                 println("─".repeat(60))
-                
+
                 val uniqueFlights = prices.map { it.flightId }.distinct().size
                 val minPrice = prices.minOfOrNull { it.amount } ?: 0.0
                 val maxPrice = prices.maxOfOrNull { it.amount } ?: 0.0
                 val avgPrice = prices.map { it.amount }.average()
                 val currency = prices.firstOrNull()?.currency ?: "GBP"
-                
+
                 println("  Flights checked: $uniqueFlights")
                 println("  Price range: ${Output.formatPrice(minPrice, currency)} - ${Output.formatPrice(maxPrice, currency)}")
                 println("  Average: ${Output.formatPrice(avgPrice, currency)}")
-                
+
                 // Recent activity
                 val recent = prices.sortedByDescending { it.checkedAt }.take(5)
                 println("  Recent:")
@@ -1873,16 +1986,26 @@ class FlightHistoryCommand : Callable<Int> {
             // Chronological view - all prices sorted by time
             println("Price History for $slug (${allHistory.size} observations)")
             println("─".repeat(80))
-            
+
             allHistory.sortedByDescending { it.checkedAt }.take(limit * flights.size).forEach { price ->
                 val flight = flights.find { it.id == price.flightId }
                 val outbound = flight?.let { Output.parseSegment(it.outboundJson) }
-                val airline = outbound?.legs?.firstOrNull()?.airline?.take(15) ?: "?"
+                val airline =
+                    outbound
+                        ?.legs
+                        ?.firstOrNull()
+                        ?.airline
+                        ?.take(15) ?: "?"
                 val route = flight?.let { "${it.origin}→${it.destination}" } ?: "?"
                 val timestamp = price.checkedAt.take(16).replace("T", " ")
                 val sourceTag = if (price.source != "kraftwerker") " [${price.source}]" else ""
-                
-                println("$timestamp │ ${Output.formatPrice(price.amount, price.currency).padStart(9)} │ $route │ ${airline.padEnd(15)}$sourceTag")
+
+                println(
+                    "$timestamp │ ${Output.formatPrice(
+                        price.amount,
+                        price.currency,
+                    ).padStart(9)} │ $route │ ${airline.padEnd(15)}$sourceTag",
+                )
             }
         }
 
@@ -1895,7 +2018,7 @@ class FlightHistoryCommand : Callable<Int> {
         if (sources.size > 1) {
             println("  Sources: ${sources.joinToString(", ")}")
         }
-        
+
         return 0
     }
 }
@@ -1930,7 +2053,10 @@ class FlightRefreshCommand : Callable<Int> {
         }
 
         // Get flights older than staleHours
-        val cutoff = java.time.Instant.now().minusSeconds(staleHours.toLong() * 3600)
+        val cutoff =
+            java.time.Instant
+                .now()
+                .minusSeconds(staleHours.toLong() * 3600)
         val needsRefresh =
             flightsWithPrices.filter { f ->
                 val lastChecked = java.time.Instant.parse(f.priceCheckedAt)
@@ -1947,10 +2073,11 @@ class FlightRefreshCommand : Callable<Int> {
                 println()
                 needsRefresh.forEach { f ->
                     val age =
-                        java.time.Duration.between(
-                            java.time.Instant.parse(f.priceCheckedAt),
-                            java.time.Instant.now(),
-                        ).toHours()
+                        java.time.Duration
+                            .between(
+                                java.time.Instant.parse(f.priceCheckedAt),
+                                java.time.Instant.now(),
+                            ).toHours()
                     println("${f.id.take(8)} | ${age}h ago | ${f.shareLink}")
                 }
             }
@@ -2012,13 +2139,18 @@ class FlightTasksCommand : Callable<Int> {
         println()
 
         // Group by source domain
-        val byDomain = flights.groupBy { flight ->
-            try {
-                java.net.URI(flight.sourceUrl).host?.replace("www.", "") ?: "unknown"
-            } catch (_: Exception) {
-                "unknown"
-            }
-        }.toSortedMap()
+        val byDomain =
+            flights
+                .groupBy { flight ->
+                    try {
+                        java.net
+                            .URI(flight.sourceUrl)
+                            .host
+                            ?.replace("www.", "") ?: "unknown"
+                    } catch (_: Exception) {
+                        "unknown"
+                    }
+                }.toSortedMap()
 
         for ((domain, domainFlights) in byDomain) {
             val limited = limit?.let { domainFlights.take(it) } ?: domainFlights
@@ -2026,10 +2158,12 @@ class FlightTasksCommand : Callable<Int> {
             println()
 
             // Group by airline within domain
-            val byAirline = limited.groupBy { flight ->
-                val segment = Output.parseSegment(flight.outboundJson)
-                segment?.legs?.firstOrNull()?.airline ?: "Unknown"
-            }.toSortedMap()
+            val byAirline =
+                limited
+                    .groupBy { flight ->
+                        val segment = Output.parseSegment(flight.outboundJson)
+                        segment?.legs?.firstOrNull()?.airline ?: "Unknown"
+                    }.toSortedMap()
 
             for ((airline, airlineFlights) in byAirline) {
                 println("### $airline")
@@ -2079,35 +2213,39 @@ class FlightCoverageCommand : Callable<Int> {
 
     // Airline groups for LHR→TYO searches (1 stop max)
     // Note: TAP Portugal doesn't fly to Asia, US carriers typically need 2+ stops
-    private val airlineGroups = mapOf(
-        "European" to listOf(
-            "BA" to "British Airways",
-            "LH" to "Lufthansa", 
-            "AF" to "Air France",
-            "KL" to "KLM",
-            "LX" to "SWISS",
-            "SK" to "SAS",
-            "AY" to "Finnair",
-            "AZ" to "ITA Airways",
-            "OS" to "Austrian",
-            "LO" to "LOT Polish",
-            // "TP" to "TAP Portugal",  // No Asia routes
-        ),
-        "Japanese" to listOf(
-            "JL" to "Japan Airlines",
-            "NH" to "ANA",
-        ),
-        "Korean" to listOf(
-            "KE" to "Korean Air",
-            "OZ" to "Asiana",
-        ),
-        // American carriers typically require 2+ stops LHR→TYO
-        // "American" to listOf(
-        //     "AA" to "American Airlines",
-        //     "UA" to "United",
-        //     "DL" to "Delta",
-        // ),
-    )
+    private val airlineGroups =
+        mapOf(
+            "European" to
+                listOf(
+                    "BA" to "British Airways",
+                    "LH" to "Lufthansa",
+                    "AF" to "Air France",
+                    "KL" to "KLM",
+                    "LX" to "SWISS",
+                    "SK" to "SAS",
+                    "AY" to "Finnair",
+                    "AZ" to "ITA Airways",
+                    "OS" to "Austrian",
+                    "LO" to "LOT Polish",
+                    // "TP" to "TAP Portugal",  // No Asia routes
+                ),
+            "Japanese" to
+                listOf(
+                    "JL" to "Japan Airlines",
+                    "NH" to "ANA",
+                ),
+            "Korean" to
+                listOf(
+                    "KE" to "Korean Air",
+                    "OZ" to "Asiana",
+                ),
+            // American carriers typically require 2+ stops LHR→TYO
+            // "American" to listOf(
+            //     "AA" to "American Airlines",
+            //     "UA" to "United",
+            //     "DL" to "Delta",
+            // ),
+        )
 
     override fun call(): Int {
         parent.parent.ensureDb()
@@ -2122,7 +2260,7 @@ class FlightCoverageCommand : Callable<Int> {
         val flightsWithPrices = FlightQueries.listWithPrices(slug)
 
         println("COVERAGE ANALYSIS: $slug")
-        println("=" .repeat(50))
+        println("=".repeat(50))
         println()
 
         // Print constraints
@@ -2133,21 +2271,23 @@ class FlightCoverageCommand : Callable<Int> {
         inv.returnStart?.let { println("  Return: $it to ${inv.returnEnd}") }
         println("  Cabin: ${inv.cabinClass}")
         println("  Max stops: ${inv.maxStops}")
-        inv.minTripDays?.let { println("  Trip length: ${it}-${inv.maxTripDays} days") }
+        inv.minTripDays?.let { println("  Trip length: $it-${inv.maxTripDays} days") }
         inv.mustIncludeDate?.let { println("  Must include: $it") }
         inv.maxLayoverMinutes?.let { println("  Max layover: ${it / 60}h ${it % 60}m") }
         println()
 
         // Analyze what we have
-        val flightsByDepartDate = flights.groupBy { flight ->
-            val segment = Output.parseSegment(flight.outboundJson)
-            segment?.departTime?.take(10) ?: "unknown"
-        }
+        val flightsByDepartDate =
+            flights.groupBy { flight ->
+                val segment = Output.parseSegment(flight.outboundJson)
+                segment?.departTime?.take(10) ?: "unknown"
+            }
 
-        val flightsByAirline = flights.groupBy { flight ->
-            val segment = Output.parseSegment(flight.outboundJson)
-            segment?.legs?.firstOrNull()?.airlineCode ?: "??"
-        }
+        val flightsByAirline =
+            flights.groupBy { flight ->
+                val segment = Output.parseSegment(flight.outboundJson)
+                segment?.legs?.firstOrNull()?.airlineCode ?: "??"
+            }
 
         // Generate all valid depart dates
         val departDates = generateDateRange(inv.departStart, inv.departEnd)
@@ -2191,9 +2331,10 @@ class FlightCoverageCommand : Callable<Int> {
         println()
 
         // Check date coverage
-        val missingDates = departDates.filter { date -> 
-            !flightsByDepartDate.containsKey(date) 
-        }
+        val missingDates =
+            departDates.filter { date ->
+                !flightsByDepartDate.containsKey(date)
+            }
 
         if (missingDates.isEmpty()) {
             println("  ✓ All departure dates have coverage")
@@ -2249,7 +2390,10 @@ class FlightCoverageCommand : Callable<Int> {
         return 0
     }
 
-    private fun generateDateRange(start: String, end: String): List<String> {
+    private fun generateDateRange(
+        start: String,
+        end: String,
+    ): List<String> {
         val dates = mutableListOf<String>()
         var current = java.time.LocalDate.parse(start)
         val endDate = java.time.LocalDate.parse(end)
@@ -2260,7 +2404,10 @@ class FlightCoverageCommand : Callable<Int> {
         return dates
     }
 
-    private fun analyzeTrips(inv: InvestigationDto, flights: List<FlightWithPrice>) {
+    private fun analyzeTrips(
+        inv: InvestigationDto,
+        flights: List<FlightWithPrice>,
+    ) {
         val mustInclude = java.time.LocalDate.parse(inv.mustIncludeDate!!)
         val minDays = inv.minTripDays!!
         val maxDays = inv.maxTripDays!!
@@ -2277,19 +2424,23 @@ class FlightCoverageCommand : Callable<Int> {
         println()
 
         // Find cheapest valid round-trip
-        val validRoundTrips = roundTrips.filter { flight ->
-            val outbound = Output.parseSegment(flight.outboundJson)
-            val returnSeg = flight.returnJson?.let { Output.parseSegment(it) }
-            if (outbound == null || returnSeg == null) return@filter false
+        val validRoundTrips =
+            roundTrips.filter { flight ->
+                val outbound = Output.parseSegment(flight.outboundJson)
+                val returnSeg = flight.returnJson?.let { Output.parseSegment(it) }
+                if (outbound == null || returnSeg == null) return@filter false
 
-            val departDate = java.time.LocalDate.parse(outbound.departTime.take(10))
-            val returnDate = java.time.LocalDate.parse(returnSeg.departTime.take(10))
-            val tripDays = java.time.temporal.ChronoUnit.DAYS.between(departDate, returnDate).toInt()
+                val departDate = java.time.LocalDate.parse(outbound.departTime.take(10))
+                val returnDate = java.time.LocalDate.parse(returnSeg.departTime.take(10))
+                val tripDays =
+                    java.time.temporal.ChronoUnit.DAYS
+                        .between(departDate, returnDate)
+                        .toInt()
 
-            tripDays in minDays..maxDays &&
-                !departDate.isAfter(mustInclude) &&
-                !returnDate.isBefore(mustInclude)
-        }
+                tripDays in minDays..maxDays &&
+                    !departDate.isAfter(mustInclude) &&
+                    !returnDate.isBefore(mustInclude)
+            }
 
         if (validRoundTrips.isNotEmpty()) {
             val cheapest = validRoundTrips.minByOrNull { it.priceAmount }!!
@@ -2312,7 +2463,10 @@ class FlightCoverageCommand : Callable<Int> {
                     val backDate = java.time.LocalDate.parse(backSeg.departTime.take(10))
                     if (backDate.isBefore(mustInclude)) continue
 
-                    val tripDays = java.time.temporal.ChronoUnit.DAYS.between(outDate, backDate).toInt()
+                    val tripDays =
+                        java.time.temporal.ChronoUnit.DAYS
+                            .between(outDate, backDate)
+                            .toInt()
                     if (tripDays !in minDays..maxDays) continue
 
                     val total = out.priceAmount + back.priceAmount
@@ -2325,8 +2479,16 @@ class FlightCoverageCommand : Callable<Int> {
 
             if (cheapestCombo != null) {
                 println("  Cheapest valid two-one-way: ${Output.formatPrice(cheapestTotal, "GBP")}")
-                println("    Out: ${cheapestCombo.first.id.take(8)} (${Output.formatPrice(cheapestCombo.first.priceAmount, cheapestCombo.first.priceCurrency)})")
-                println("    Back: ${cheapestCombo.second.id.take(8)} (${Output.formatPrice(cheapestCombo.second.priceAmount, cheapestCombo.second.priceCurrency)})")
+                println(
+                    "    Out: ${cheapestCombo.first.id.take(
+                        8,
+                    )} (${Output.formatPrice(cheapestCombo.first.priceAmount, cheapestCombo.first.priceCurrency)})",
+                )
+                println(
+                    "    Back: ${cheapestCombo.second.id.take(
+                        8,
+                    )} (${Output.formatPrice(cheapestCombo.second.priceAmount, cheapestCombo.second.priceCurrency)})",
+                )
             }
         }
     }
@@ -2392,8 +2554,20 @@ class FlightValidateCommand : Callable<Int> {
             }
 
             // Validate against rules
-            val outbound = try { Json.decodeFromString<FlightSegment>(f.outboundJson) } catch (e: Exception) { null }
-            val returnSeg = f.returnJson?.let { try { Json.decodeFromString<FlightSegment>(it) } catch (e: Exception) { null } }
+            val outbound =
+                try {
+                    Json.decodeFromString<FlightSegment>(f.outboundJson)
+                } catch (e: Exception) {
+                    null
+                }
+            val returnSeg =
+                f.returnJson?.let {
+                    try {
+                        Json.decodeFromString<FlightSegment>(it)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
 
             if (outbound != null) {
                 // Full constraint check (airline, layover, trip duration)
@@ -2574,7 +2748,10 @@ class FlightImportCommand : Callable<Int> {
                                 flightId = match.id,
                                 amount = imported.price,
                                 currency = imported.currency,
-                                checkedAt = java.time.Instant.now().toString(),
+                                checkedAt =
+                                    java.time.Instant
+                                        .now()
+                                        .toString(),
                                 priceMarket = match.priceMarket,
                             ),
                         )
@@ -2589,7 +2766,10 @@ class FlightImportCommand : Callable<Int> {
                                 flightId = match.id,
                                 amount = imported.price,
                                 currency = imported.currency,
-                                checkedAt = java.time.Instant.now().toString(),
+                                checkedAt =
+                                    java.time.Instant
+                                        .now()
+                                        .toString(),
                                 priceMarket = match.priceMarket,
                             ),
                         )
@@ -2600,7 +2780,12 @@ class FlightImportCommand : Callable<Int> {
                 // Flight not in DB
                 if (addNew) {
                     if (dryRun) {
-                        println("[DRY RUN] Would add: ${imported.airline} ${imported.origin}→${imported.destination} ${Output.formatPrice(imported.price, imported.currency)}")
+                        println(
+                            "[DRY RUN] Would add: ${imported.airline} ${imported.origin}→${imported.destination} ${Output.formatPrice(
+                                imported.price,
+                                imported.currency,
+                            )}",
+                        )
                         added++
                     } else {
                         val result = addNewFlight(inv, imported)
@@ -2640,8 +2825,11 @@ class FlightImportCommand : Callable<Int> {
             db.origin == imported.origin &&
                 db.destination == imported.destination &&
                 firstLeg.departTime.startsWith(imported.departDate) &&
-                (imported.airlineCode.isNotBlank() && firstLeg.airlineCode == imported.airlineCode ||
-                    firstLeg.airline.equals(imported.airline, ignoreCase = true))
+                (
+                    imported.airlineCode.isNotBlank() &&
+                        firstLeg.airlineCode == imported.airlineCode ||
+                        firstLeg.airline.equals(imported.airline, ignoreCase = true)
+                )
         }
     }
 
@@ -2649,7 +2837,10 @@ class FlightImportCommand : Callable<Int> {
      * Add a new flight from import data.
      * Creates minimal segment JSON from available data.
      */
-    private fun addNewFlight(inv: InvestigationDto, imported: ImportFlight): Boolean {
+    private fun addNewFlight(
+        inv: InvestigationDto,
+        imported: ImportFlight,
+    ): Boolean {
         // Validate link if provided
         if (imported.link != null) {
             val (isValid, errorMsg) = FlightValidator.validateShareLink(imported.link)
@@ -2661,7 +2852,8 @@ class FlightImportCommand : Callable<Int> {
         }
 
         // Generate a unique ID - use link if available, otherwise construct from data
-        val idSource = imported.link ?: "${imported.origin}-${imported.destination}-${imported.departDate}-${imported.airline}-${imported.price}"
+        val idSource =
+            imported.link ?: "${imported.origin}-${imported.destination}-${imported.departDate}-${imported.airline}-${imported.price}"
         val id = FlightValidator.generateId(idSource)
 
         // Check if this link already exists
@@ -2670,55 +2862,62 @@ class FlightImportCommand : Callable<Int> {
             return false
         }
 
-        val now = java.time.Instant.now().toString()
+        val now =
+            java.time.Instant
+                .now()
+                .toString()
 
         // Build minimal outbound segment
         val departTime = "${imported.departDate}T${imported.departTime ?: "00:00"}:00"
-        val outboundSegment = FlightSegment(
-            departAirport = imported.origin,
-            arriveAirport = imported.destination,
-            departTime = departTime,
-            arriveTime = departTime, // Unknown
-            durationMinutes = 0, // Unknown
-            stops = 0,
-            legs = listOf(
-                FlightLeg(
-                    airline = imported.airline,
-                    airlineCode = imported.airlineCode.ifBlank { "" },
-                    flightNumber = "",
-                    departAirport = imported.origin,
-                    arriveAirport = imported.destination,
-                    departTime = departTime,
-                    arriveTime = departTime,
-                    durationMinutes = 0,
-                )
+        val outboundSegment =
+            FlightSegment(
+                departAirport = imported.origin,
+                arriveAirport = imported.destination,
+                departTime = departTime,
+                arriveTime = departTime, // Unknown
+                durationMinutes = 0, // Unknown
+                stops = 0,
+                legs =
+                    listOf(
+                        FlightLeg(
+                            airline = imported.airline,
+                            airlineCode = imported.airlineCode.ifBlank { "" },
+                            flightNumber = "",
+                            departAirport = imported.origin,
+                            arriveAirport = imported.destination,
+                            departTime = departTime,
+                            arriveTime = departTime,
+                            durationMinutes = 0,
+                        ),
+                    ),
             )
-        )
 
         // Build return segment if return date provided
-        val returnSegment = imported.returnDate?.let { returnDate ->
-            val returnTime = "${returnDate}T00:00:00"
-            FlightSegment(
-                departAirport = imported.destination,
-                arriveAirport = imported.origin,
-                departTime = returnTime,
-                arriveTime = returnTime,
-                durationMinutes = 0,
-                stops = 0,
-                legs = listOf(
-                    FlightLeg(
-                        airline = imported.airline,
-                        airlineCode = imported.airlineCode.ifBlank { "" },
-                        flightNumber = "",
-                        departAirport = imported.destination,
-                        arriveAirport = imported.origin,
-                        departTime = returnTime,
-                        arriveTime = returnTime,
-                        durationMinutes = 0,
-                    )
+        val returnSegment =
+            imported.returnDate?.let { returnDate ->
+                val returnTime = "${returnDate}T00:00:00"
+                FlightSegment(
+                    departAirport = imported.destination,
+                    arriveAirport = imported.origin,
+                    departTime = returnTime,
+                    arriveTime = returnTime,
+                    durationMinutes = 0,
+                    stops = 0,
+                    legs =
+                        listOf(
+                            FlightLeg(
+                                airline = imported.airline,
+                                airlineCode = imported.airlineCode.ifBlank { "" },
+                                flightNumber = "",
+                                departAirport = imported.destination,
+                                arriveAirport = imported.origin,
+                                departTime = returnTime,
+                                arriveTime = returnTime,
+                                durationMinutes = 0,
+                            ),
+                        ),
                 )
-            )
-        }
+            }
 
         // Check constraints before adding
         val violations = FlightValidator.checkConstraints(outboundSegment, returnSegment, inv)
@@ -2728,26 +2927,27 @@ class FlightImportCommand : Callable<Int> {
             return false
         }
 
-        val dto = FlightDto(
-            id = id,
-            investigationSlug = inv.slug,
-            // Deprecated: keeping for backward compat
-            shareLink = imported.link ?: idSource,
-            source = "import",
-            tripType = if (imported.returnDate != null) "round_trip" else "one_way",
-            ticketStructure = "single",
-            origin = imported.origin,
-            destination = imported.destination,
-            outboundJson = Json.encodeToString(FlightSegment.serializer(), outboundSegment),
-            returnJson = returnSegment?.let { Json.encodeToString(FlightSegment.serializer(), it) },
-            bookingClass = null,
-            aircraftType = null,
-            fareBrand = null,
-            disqualified = null,
-            notes = "Imported via CLI",
-            tags = null,
-            capturedAt = now,
-        )
+        val dto =
+            FlightDto(
+                id = id,
+                investigationSlug = inv.slug,
+                // Deprecated: keeping for backward compat
+                shareLink = imported.link ?: idSource,
+                source = "import",
+                tripType = if (imported.returnDate != null) "round_trip" else "one_way",
+                ticketStructure = "single",
+                origin = imported.origin,
+                destination = imported.destination,
+                outboundJson = Json.encodeToString(FlightSegment.serializer(), outboundSegment),
+                returnJson = returnSegment?.let { Json.encodeToString(FlightSegment.serializer(), it) },
+                bookingClass = null,
+                aircraftType = null,
+                fareBrand = null,
+                disqualified = null,
+                notes = "Imported via CLI",
+                tags = null,
+                capturedAt = now,
+            )
 
         try {
             FlightQueries.create(dto)
@@ -2761,10 +2961,15 @@ class FlightImportCommand : Callable<Int> {
                     sourceUrl = imported.link ?: "",
                     checkedAt = now,
                     priceMarket = "UK",
-                )
+                ),
             )
 
-            println("  Added: ${imported.airline} ${imported.origin}→${imported.destination} ${Output.formatPrice(imported.price, imported.currency)}")
+            println(
+                "  Added: ${imported.airline} ${imported.origin}→${imported.destination} ${Output.formatPrice(
+                    imported.price,
+                    imported.currency,
+                )}",
+            )
             return true
         } catch (e: Exception) {
             println("  Failed to add ${imported.airline}: ${e.message}")
@@ -2892,7 +3097,7 @@ class FlightDedupeCommand : Callable<Int> {
 
         // Group by signature
         val grouped = flightsWithPrices.groupBy { computeSignature(it) }
-        
+
         var toDelete = mutableListOf<FlightWithPrice>()
         var toKeep = mutableListOf<FlightWithPrice>()
 
@@ -2966,14 +3171,18 @@ class FlightDedupeCommand : Callable<Int> {
         return if (retSig != null) "$outSig|$retSig" else outSig
     }
 
-    private fun segmentSignature(segment: FlightSegment?, fallbackOrigin: String, fallbackDest: String): String {
+    private fun segmentSignature(
+        segment: FlightSegment?,
+        fallbackOrigin: String,
+        fallbackDest: String,
+    ): String {
         if (segment == null || segment.legs.isEmpty()) {
             return "?|?|$fallbackOrigin-$fallbackDest"
         }
 
         val date = segment.departTime.substring(0, 10)
         val airline = segment.legs.firstOrNull()?.airlineCode ?: "?"
-        
+
         // Build routing
         val airports = mutableListOf(segment.legs.first().departAirport)
         segment.legs.forEach { airports.add(it.arriveAirport) }
@@ -2985,7 +3194,10 @@ class FlightDedupeCommand : Callable<Int> {
     /**
      * Pick the best flight from a group of duplicates.
      */
-    private fun pickBest(group: List<FlightWithPrice>, preferValid: Boolean): FlightWithPrice {
+    private fun pickBest(
+        group: List<FlightWithPrice>,
+        preferValid: Boolean,
+    ): FlightWithPrice {
         if (preferValid) {
             // Prefer valid flights (non-zero duration)
             val valid = group.filter { !isInvalid(it) }
@@ -3003,14 +3215,14 @@ class FlightDedupeCommand : Callable<Int> {
      */
     private fun isInvalid(flight: FlightWithPrice): Boolean {
         val outbound = Output.parseSegment(flight.outboundJson) ?: return true
-        
+
         // Check for zero duration (placeholder data)
         if (outbound.durationMinutes == 0) return true
-        
+
         // Check for all-zero leg times
         val firstLeg = outbound.legs.firstOrNull() ?: return true
         if (firstLeg.durationMinutes == 0) return true
-        
+
         return false
     }
 }
@@ -3101,57 +3313,72 @@ class FlightExportTasksCommand : Callable<Int> {
 
         // Filter to flights that need checking
         val cutoff = if (all) null else Instant.now().minusSeconds(staleHours.toLong() * 3600)
-        val toCheck = flightsWithPrices.filter { f ->
-            if (f.shareLink.isBlank()) return@filter false
-            if (cutoff == null) return@filter true
-            
-            val lastChecked = try { Instant.parse(f.priceCheckedAt) } catch (e: Exception) { null }
-            lastChecked == null || lastChecked.isBefore(cutoff)
-        }.let { list ->
-            limit?.let { list.take(it) } ?: list
-        }
+        val toCheck =
+            flightsWithPrices
+                .filter { f ->
+                    if (f.shareLink.isBlank()) return@filter false
+                    if (cutoff == null) return@filter true
+
+                    val lastChecked =
+                        try {
+                            Instant.parse(f.priceCheckedAt)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    lastChecked == null || lastChecked.isBefore(cutoff)
+                }.let { list ->
+                    limit?.let { list.take(it) } ?: list
+                }
 
         if (toCheck.isEmpty()) {
             println("No flights need price checking (all checked within ${staleHours}h)")
             return 0
         }
 
-        val taskId = "price-check-${slug}-${Instant.now().toString().take(10)}"
-        
-        val taskFlights = toCheck.map { f ->
-            val outbound = Output.parseSegment(f.outboundJson)
-            val firstLeg = outbound?.legs?.firstOrNull()
-            
-            PriceCheckFlight(
-                id = f.id,
-                shareLink = f.shareLink,
-                origin = f.origin,
-                destination = f.destination,
-                departDate = firstLeg?.departTime?.take(10) ?: "",
-                returnDate = f.returnJson?.let { Output.parseSegment(it) }?.legs?.firstOrNull()?.departTime?.take(10),
-                airline = firstLeg?.airline ?: "",
-                lastPrice = f.priceAmount,
-                currency = f.priceCurrency,
-                lastChecked = f.priceCheckedAt,
-            )
-        }
+        val taskId = "price-check-$slug-${Instant.now().toString().take(10)}"
 
-        val task = PriceCheckTask(
-            taskId = taskId,
-            createdAt = Instant.now().toString(),
-            investigation = slug,
-            flights = taskFlights,
-        )
+        val taskFlights =
+            toCheck.map { f ->
+                val outbound = Output.parseSegment(f.outboundJson)
+                val firstLeg = outbound?.legs?.firstOrNull()
+
+                PriceCheckFlight(
+                    id = f.id,
+                    shareLink = f.shareLink,
+                    origin = f.origin,
+                    destination = f.destination,
+                    departDate = firstLeg?.departTime?.take(10) ?: "",
+                    returnDate =
+                        f.returnJson
+                            ?.let { Output.parseSegment(it) }
+                            ?.legs
+                            ?.firstOrNull()
+                            ?.departTime
+                            ?.take(10),
+                    airline = firstLeg?.airline ?: "",
+                    lastPrice = f.priceAmount,
+                    currency = f.priceCurrency,
+                    lastChecked = f.priceCheckedAt,
+                )
+            }
+
+        val task =
+            PriceCheckTask(
+                taskId = taskId,
+                createdAt = Instant.now().toString(),
+                investigation = slug,
+                flights = taskFlights,
+            )
 
         val json = Json { prettyPrint = true }
         val content = json.encodeToString(PriceCheckTask.serializer(), task)
 
         val outFile = output ?: "price-check-$slug.json"
         java.io.File(outFile).writeText(content)
-        
+
         Output.success("Exported ${toCheck.size} flights to $outFile")
         println("Task ID: $taskId")
-        
+
         return 0
     }
 }
@@ -3183,12 +3410,13 @@ class FlightImportResultsCommand : Callable<Int> {
         }
 
         val json = Json { ignoreUnknownKeys = true }
-        val results = try {
-            json.decodeFromString(PriceCheckResults.serializer(), file.readText())
-        } catch (e: Exception) {
-            Output.error("Failed to parse results: ${e.message}")
-            return 1
-        }
+        val results =
+            try {
+                json.decodeFromString(PriceCheckResults.serializer(), file.readText())
+            } catch (e: Exception) {
+                Output.error("Failed to parse results: ${e.message}")
+                return 1
+            }
 
         println("Processing ${results.results.size} results from task ${results.taskId}")
         println()
@@ -3215,8 +3443,15 @@ class FlightImportResultsCommand : Callable<Int> {
                     if (priceChanged) {
                         val diff = newPrice - flightWithPrice.priceAmount
                         val diffStr = if (diff > 0) "+${Output.formatPrice(diff, currency)}" else Output.formatPrice(diff, currency)
-                        println("  ${if (diff > 0) "📈" else "📉"} ${flightWithPrice.id.take(8)}: ${Output.formatPrice(flightWithPrice.priceAmount, currency)} → ${Output.formatPrice(newPrice, currency)} ($diffStr)")
-                        
+                        println(
+                            "  ${if (diff > 0) "📈" else "📉"} ${flightWithPrice.id.take(
+                                8,
+                            )}: ${Output.formatPrice(
+                                flightWithPrice.priceAmount,
+                                currency,
+                            )} → ${Output.formatPrice(newPrice, currency)} ($diffStr)",
+                        )
+
                         if (!dryRun) {
                             // Record price history (canonical way to update prices)
                             PriceHistoryQueries.create(
@@ -3226,7 +3461,7 @@ class FlightImportResultsCommand : Callable<Int> {
                                     currency = currency,
                                     checkedAt = result.checkedAt ?: Instant.now().toString(),
                                     priceMarket = flightWithPrice.priceMarket,
-                                )
+                                ),
                             )
                         }
                         updated++
@@ -3240,7 +3475,7 @@ class FlightImportResultsCommand : Callable<Int> {
                                     currency = currency,
                                     checkedAt = result.checkedAt ?: Instant.now().toString(),
                                     priceMarket = flightWithPrice.priceMarket,
-                                )
+                                ),
                             )
                         }
                         unchanged++
@@ -3327,13 +3562,14 @@ class FlightImportDbCommand : Callable<Int> {
             var pricesImported = 0
 
             // 1. Import investigations
-            val invStmt = sourceConn.prepareStatement(
-                if (investigation != null) {
-                    "SELECT * FROM investigations WHERE slug = ?"
-                } else {
-                    "SELECT * FROM investigations"
-                }
-            )
+            val invStmt =
+                sourceConn.prepareStatement(
+                    if (investigation != null) {
+                        "SELECT * FROM investigations WHERE slug = ?"
+                    } else {
+                        "SELECT * FROM investigations"
+                    },
+                )
             if (investigation != null) {
                 invStmt.setString(1, investigation)
             }
@@ -3374,7 +3610,7 @@ class FlightImportDbCommand : Callable<Int> {
                                 maxLayoverMinutes = invRs.getInt("max_layover_minutes").takeIf { !invRs.wasNull() },
                                 createdAt = invRs.getString("created_at") ?: Instant.now().toString(),
                                 updatedAt = invRs.getString("updated_at") ?: Instant.now().toString(),
-                            )
+                            ),
                         )
                         println("  Investigation '$slug': created")
                     }
@@ -3392,9 +3628,10 @@ class FlightImportDbCommand : Callable<Int> {
             println()
 
             // 2. Import flights
-            val flightStmt = sourceConn.prepareStatement(
-                "SELECT * FROM flights WHERE investigation_slug = ?"
-            )
+            val flightStmt =
+                sourceConn.prepareStatement(
+                    "SELECT * FROM flights WHERE investigation_slug = ?",
+                )
 
             importedSlugs.forEach { slug ->
                 flightStmt.setString(1, slug)
@@ -3419,10 +3656,11 @@ class FlightImportDbCommand : Callable<Int> {
                             println("  Flight ${flightId.take(8)}: would create")
                         } else {
                             // Handle different schema versions (flight_source vs source)
-                            val flightSource = getColumnSafe(flightRs, "flight_source")
-                                ?: getColumnSafe(flightRs, "source")
-                                ?: "imported"
-                            
+                            val flightSource =
+                                getColumnSafe(flightRs, "flight_source")
+                                    ?: getColumnSafe(flightRs, "source")
+                                    ?: "imported"
+
                             FlightQueries.create(
                                 FlightDto(
                                     id = flightId,
@@ -3448,7 +3686,7 @@ class FlightImportDbCommand : Callable<Int> {
                                     notes = getColumnSafe(flightRs, "notes"),
                                     tags = getColumnSafe(flightRs, "tags"),
                                     capturedAt = getColumnSafe(flightRs, "captured_at") ?: Instant.now().toString(),
-                                )
+                                ),
                             )
                             println("  Flight ${flightId.take(8)}: created")
                         }
@@ -3458,10 +3696,15 @@ class FlightImportDbCommand : Callable<Int> {
                         if (!skipPrices) {
                             val imported = importPriceHistory(sourceConn, flightId, flightId, dryRun, shareLink)
                             pricesImported += imported
-                            
+
                             // If no price history was imported, create one from flight's price fields
                             if (imported == 0 && !dryRun) {
-                                val priceAmount = try { flightRs.getDouble("price_amount") } catch (_: Exception) { 0.0 }
+                                val priceAmount =
+                                    try {
+                                        flightRs.getDouble("price_amount")
+                                    } catch (_: Exception) {
+                                        0.0
+                                    }
                                 val priceCurrency = getColumnSafe(flightRs, "price_currency") ?: "GBP"
                                 if (priceAmount > 0) {
                                     PriceHistoryQueries.create(
@@ -3472,7 +3715,7 @@ class FlightImportDbCommand : Callable<Int> {
                                             sourceUrl = shareLink ?: "",
                                             checkedAt = getColumnSafe(flightRs, "price_checked_at") ?: Instant.now().toString(),
                                             priceMarket = getColumnSafe(flightRs, "price_market") ?: "UK",
-                                        )
+                                        ),
                                     )
                                     pricesImported++
                                 }
@@ -3509,9 +3752,10 @@ class FlightImportDbCommand : Callable<Int> {
         dryRun: Boolean,
         fallbackUrl: String? = null,
     ): Int {
-        val priceStmt = sourceConn.prepareStatement(
-            "SELECT * FROM price_history WHERE flight_id = ? ORDER BY checked_at"
-        )
+        val priceStmt =
+            sourceConn.prepareStatement(
+                "SELECT * FROM price_history WHERE flight_id = ? ORDER BY checked_at",
+            )
         priceStmt.setString(1, sourceFlightId)
         val priceRs = priceStmt.executeQuery()
 
@@ -3522,7 +3766,7 @@ class FlightImportDbCommand : Callable<Int> {
         var count = 0
         while (priceRs.next()) {
             val checkedAt = priceRs.getString("checked_at")
-            
+
             // Skip if we already have a price at this exact timestamp
             if (checkedAt in existingTimestamps) {
                 continue
@@ -3538,7 +3782,7 @@ class FlightImportDbCommand : Callable<Int> {
                         checkedAt = checkedAt,
                         source = getColumnSafe(priceRs, "price_source") ?: getColumnSafe(priceRs, "source") ?: "imported",
                         priceMarket = getColumnSafe(priceRs, "price_market") ?: "UK",
-                    )
+                    ),
                 )
             }
             count++
@@ -3552,24 +3796,28 @@ class FlightImportDbCommand : Callable<Int> {
     /**
      * Safely get a string column, returning null if it doesn't exist.
      */
-    private fun getColumnSafe(rs: java.sql.ResultSet, column: String): String? {
-        return try {
+    private fun getColumnSafe(
+        rs: java.sql.ResultSet,
+        column: String,
+    ): String? =
+        try {
             rs.getString(column)
         } catch (e: java.sql.SQLException) {
             null
         }
-    }
 
     /**
      * Safely get an int column, returning 0 if it doesn't exist.
      */
-    private fun getIntSafe(rs: java.sql.ResultSet, column: String): Int {
-        return try {
+    private fun getIntSafe(
+        rs: java.sql.ResultSet,
+        column: String,
+    ): Int =
+        try {
             rs.getInt(column)
         } catch (e: java.sql.SQLException) {
             0
         }
-    }
 }
 
 // ============================================================================
@@ -3608,6 +3856,9 @@ data class ImportFlight(
     subcommands = [
         InvCommand::class,
         FlightCommand::class,
+        FareCommand::class,
+        ServeCommand::class,
+        ReportCommand::class,
     ],
 )
 class ClawfareCommand : Callable<Int> {

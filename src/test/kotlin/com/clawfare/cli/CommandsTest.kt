@@ -274,7 +274,7 @@ class CommandsTest {
         // Verify in database
         val flights = FlightQueries.listByInvestigation("tokyo-may-2026")
         assertEquals(1, flights.size)
-        
+
         // Price is canonical in price_history, not on flight
         val history = PriceHistoryQueries.getByFlightId(flights[0].id)
         assertEquals(1, history.size)
@@ -674,9 +674,13 @@ class FlightImportTest {
     }
 
     private fun stdout(): String = outStream.toString()
+
     private fun stderr(): String = errStream.toString()
 
-    private fun executeWithStdin(input: String, vararg args: String): Int {
+    private fun executeWithStdin(
+        input: String,
+        vararg args: String,
+    ): Int {
         System.setIn(java.io.ByteArrayInputStream(input.toByteArray()))
         val clawfareCmd = ClawfareCommand()
         val cmd = CommandLine(clawfareCmd)
@@ -726,7 +730,7 @@ class FlightImportTest {
         // Verify price history was recorded
         val flights = FlightQueries.listByInvestigation("tokyo-may-2026")
         assertEquals(1, flights.size)
-        
+
         val history = PriceHistoryQueries.getByFlightId(flights[0].id)
         assertEquals(2, history.size) // Initial + update
         assertEquals(2200.0, history.last().amount)
@@ -795,7 +799,7 @@ class FlightImportTest {
     @Test
     fun `flight import with add-new skips existing links`() {
         createTestInvestigation("tokyo-may-2026")
-        
+
         // First import
         val importJson = """[{
             "origin": "LHR",
@@ -807,17 +811,17 @@ class FlightImportTest {
             "link": "https://www.kayak.co.uk/book/flight/test-booking-123"
         }]"""
         executeWithStdin(importJson, "flight", "import", "--add-new", "tokyo-may-2026")
-        
+
         // Reset streams
         outStream.reset()
-        
+
         // Second import with same link - will match existing flight and report unchanged
         val exitCode = executeWithStdin(importJson, "flight", "import", "--add-new", "tokyo-may-2026")
 
         assertEquals(0, exitCode)
         // Second import matches by origin/dest/date/airline, so it reports unchanged (same price)
         assertTrue(stdout().contains("1 unchanged"), "Expected 1 unchanged in output: ${stdout()}")
-        
+
         // Should still be only 1 flight
         val flights = FlightQueries.listByInvestigation("tokyo-may-2026")
         assertEquals(1, flights.size)
@@ -840,7 +844,7 @@ class FlightImportTest {
 
         assertEquals(0, exitCode)
         assertTrue(stdout().contains("1 not matched"))
-        
+
         // No flights should be created
         val flights = FlightQueries.listByInvestigation("tokyo-may-2026")
         assertEquals(0, flights.size)
@@ -864,7 +868,7 @@ class FlightImportTest {
 
         assertEquals(0, exitCode)
         assertTrue(stdout().contains("[DRY RUN]"))
-        
+
         // Price should NOT be updated
         val flights = FlightQueries.listByInvestigation("tokyo-may-2026")
         val history = PriceHistoryQueries.getByFlightId(flights[0].id)
@@ -890,7 +894,7 @@ class FlightImportTest {
         assertEquals(0, exitCode)
         assertTrue(stdout().contains("[DRY RUN] Would add"))
         assertTrue(stdout().contains("Korean Air"))
-        
+
         // No flights should be created
         val flights = FlightQueries.listByInvestigation("tokyo-may-2026")
         assertEquals(0, flights.size)
@@ -911,7 +915,7 @@ class FlightImportTest {
         assertEquals(0, exitCode, "Expected success but got stderr: ${stderr()}")
         assertTrue(stdout().contains("1 updated"))
         assertTrue(stdout().contains("1 added"))
-        
+
         val flights = FlightQueries.listByInvestigation("tokyo-may-2026")
         assertEquals(2, flights.size)
     }
@@ -952,19 +956,20 @@ class FlightImportTest {
 
     private fun createTestInvestigation(slug: String): InvestigationDto {
         val now = Instant.now().toString()
-        val dto = InvestigationDto(
-            slug = slug,
-            origin = "LHR",
-            destination = "NRT",
-            departStart = "2026-05-01",
-            departEnd = "2026-05-15",
-            returnStart = "2026-05-15",
-            returnEnd = "2026-05-30",
-            cabinClass = "economy",
-            maxStops = 1,
-            createdAt = now,
-            updatedAt = now,
-        )
+        val dto =
+            InvestigationDto(
+                slug = slug,
+                origin = "LHR",
+                destination = "NRT",
+                departStart = "2026-05-01",
+                departEnd = "2026-05-15",
+                returnStart = "2026-05-15",
+                returnEnd = "2026-05-30",
+                cabinClass = "economy",
+                maxStops = 1,
+                createdAt = now,
+                updatedAt = now,
+            )
         return InvestigationQueries.create(dto)
     }
 
@@ -979,7 +984,8 @@ class FlightImportTest {
         val id = FlightValidator.generateId(shareLink)
         val now = Instant.now().toString()
 
-        val outboundJson = """
+        val outboundJson =
+            """
             {
                 "depart_airport": "LHR",
                 "arrive_airport": "NRT",
@@ -998,25 +1004,26 @@ class FlightImportTest {
                     "duration_minutes": 720
                 }]
             }
-        """.trimIndent()
+            """.trimIndent()
 
-        val dto = FlightDto(
-            id = id,
-            investigationSlug = investigationSlug,
-            shareLink = shareLink,
-            source = "google_flights",
-            tripType = "round_trip",
-            ticketStructure = "single",
-            priceAmount = price,
-            priceCurrency = "GBP",
-            priceMarket = "UK",
-            origin = "LHR",
-            destination = "NRT",
-            outboundJson = outboundJson,
-            returnJson = outboundJson,
-            capturedAt = now,
-            priceCheckedAt = now,
-        )
+        val dto =
+            FlightDto(
+                id = id,
+                investigationSlug = investigationSlug,
+                shareLink = shareLink,
+                source = "google_flights",
+                tripType = "round_trip",
+                ticketStructure = "single",
+                priceAmount = price,
+                priceCurrency = "GBP",
+                priceMarket = "UK",
+                origin = "LHR",
+                destination = "NRT",
+                outboundJson = outboundJson,
+                returnJson = outboundJson,
+                capturedAt = now,
+                priceCheckedAt = now,
+            )
         FlightQueries.create(dto)
 
         PriceHistoryQueries.create(
@@ -1099,13 +1106,56 @@ class PriceTrackingTest {
         assertEquals("UK", history.last().priceMarket)
     }
 
-    private fun createInv(slug: String) = InvestigationQueries.create(InvestigationDto(slug = slug, origin = "LHR", destination = "NRT", departStart = "2026-05-01", departEnd = "2026-05-15", returnStart = "2026-05-15", returnEnd = "2026-05-30", cabinClass = "business", maxStops = 1, createdAt = Instant.now().toString(), updatedAt = Instant.now().toString()))
+    private fun createInv(slug: String) =
+        InvestigationQueries.create(
+            InvestigationDto(
+                slug = slug,
+                origin = "LHR",
+                destination = "NRT",
+                departStart = "2026-05-01",
+                departEnd = "2026-05-15",
+                returnStart = "2026-05-15",
+                returnEnd = "2026-05-30",
+                cabinClass = "business",
+                maxStops = 1,
+                createdAt = Instant.now().toString(),
+                updatedAt = Instant.now().toString(),
+            ),
+        )
 
-    private fun createFlight(investigationSlug: String, shareLink: String, price: Double): String {
+    private fun createFlight(
+        investigationSlug: String,
+        shareLink: String,
+        price: Double,
+    ): String {
         val id = FlightValidator.generateId(shareLink)
         val now = Instant.now().toString()
-        val json = """{"depart_airport":"LHR","arrive_airport":"NRT","depart_time":"2026-05-01T10:00:00Z","arrive_time":"2026-05-02T06:00:00Z","duration_minutes":720,"stops":0,"legs":[{"flight_number":"123","airline":"BA","airline_code":"BA","depart_airport":"LHR","arrive_airport":"NRT","depart_time":"2026-05-01T10:00:00Z","arrive_time":"2026-05-02T06:00:00Z","duration_minutes":720}]}"""
-        FlightQueries.create(FlightDto(id = id, investigationSlug = investigationSlug, shareLink = shareLink, source = "google_flights", tripType = "round_trip", ticketStructure = "single", priceAmount = price, priceCurrency = "GBP", priceMarket = "UK", origin = "LHR", destination = "NRT", outboundJson = json, returnJson = json, capturedAt = now, priceCheckedAt = now))
+        val json =
+            "{\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\"," +
+                "\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\"," +
+                "\"duration_minutes\":720,\"stops\":0,\"legs\":[{\"flight_number\":\"123\"," +
+                "\"airline\":\"BA\",\"airline_code\":\"BA\",\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\"," +
+                "\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\"," +
+                "\"duration_minutes\":720}]}"
+        FlightQueries.create(
+            FlightDto(
+                id = id,
+                investigationSlug = investigationSlug,
+                shareLink = shareLink,
+                source = "google_flights",
+                tripType = "round_trip",
+                ticketStructure = "single",
+                priceAmount = price,
+                priceCurrency = "GBP",
+                priceMarket = "UK",
+                origin = "LHR",
+                destination = "NRT",
+                outboundJson = json,
+                returnJson = json,
+                capturedAt = now,
+                priceCheckedAt = now,
+            ),
+        )
         PriceHistoryQueries.create(PriceHistoryDto(flightId = id, amount = price, currency = "GBP", checkedAt = now))
         return id
     }
@@ -1136,7 +1186,10 @@ class FlightMatchingTest {
 
     private fun stdout(): String = outStream.toString()
 
-    private fun execStdin(input: String, vararg args: String): Int {
+    private fun execStdin(
+        input: String,
+        vararg args: String,
+    ): Int {
         System.setIn(java.io.ByteArrayInputStream(input.toByteArray()))
         return CommandLine(ClawfareCommand()).execute(*args)
     }
@@ -1146,7 +1199,12 @@ class FlightMatchingTest {
         createInv("tokyo")
         createFlight("tokyo", "https://example.com/f1", 2500.0, "British Airways", "BA", "2026-05-01")
 
-        execStdin("""[{"origin":"LHR","destination":"NRT","departDate":"2026-05-01","airline":"BRITISH AIRWAYS","price":2200.0,"currency":"GBP"}]""", "flight", "import", "tokyo")
+        execStdin(
+            """[{"origin":"LHR","destination":"NRT","departDate":"2026-05-01","airline":"BRITISH AIRWAYS","price":2200.0,"currency":"GBP"}]""",
+            "flight",
+            "import",
+            "tokyo",
+        )
 
         assertTrue(stdout().contains("1 updated"))
     }
@@ -1156,7 +1214,12 @@ class FlightMatchingTest {
         createInv("tokyo")
         createFlight("tokyo", "https://example.com/f1", 2500.0, "British Airways", "BA", "2026-05-01")
 
-        execStdin("""[{"origin":"LHR","destination":"NRT","departDate":"2026-05-01","airline":"Other","airlineCode":"BA","price":2200.0,"currency":"GBP"}]""", "flight", "import", "tokyo")
+        execStdin(
+            """[{"origin":"LHR","destination":"NRT","departDate":"2026-05-01","airline":"Other","airlineCode":"BA","price":2200.0,"currency":"GBP"}]""",
+            "flight",
+            "import",
+            "tokyo",
+        )
 
         assertTrue(stdout().contains("1 updated"))
     }
@@ -1166,7 +1229,12 @@ class FlightMatchingTest {
         createInv("tokyo")
         createFlight("tokyo", "https://example.com/f1", 2500.0, "British Airways", "BA", "2026-05-01")
 
-        execStdin("""[{"origin":"LHR","destination":"NRT","departDate":"2026-05-15","airline":"British Airways","price":2200.0,"currency":"GBP"}]""", "flight", "import", "tokyo")
+        execStdin(
+            """[{"origin":"LHR","destination":"NRT","departDate":"2026-05-15","airline":"British Airways","price":2200.0,"currency":"GBP"}]""",
+            "flight",
+            "import",
+            "tokyo",
+        )
 
         assertTrue(stdout().contains("1 not matched"))
     }
@@ -1176,7 +1244,12 @@ class FlightMatchingTest {
         createInv("tokyo")
         createFlight("tokyo", "https://example.com/f1", 2500.0, "British Airways", "BA", "2026-05-01")
 
-        execStdin("""[{"origin":"LHR","destination":"NRT","departDate":"2026-05-01","airline":"Lufthansa","price":2200.0,"currency":"GBP"}]""", "flight", "import", "tokyo")
+        execStdin(
+            """[{"origin":"LHR","destination":"NRT","departDate":"2026-05-01","airline":"Lufthansa","price":2200.0,"currency":"GBP"}]""",
+            "flight",
+            "import",
+            "tokyo",
+        )
 
         assertTrue(stdout().contains("1 not matched"))
     }
@@ -1186,7 +1259,12 @@ class FlightMatchingTest {
         createInv("tokyo")
         createFlight("tokyo", "https://example.com/f1", 2500.0, "British Airways", "BA", "2026-05-01")
 
-        execStdin("""[{"origin":"LGW","destination":"NRT","departDate":"2026-05-01","airline":"British Airways","price":2200.0,"currency":"GBP"}]""", "flight", "import", "tokyo")
+        execStdin(
+            """[{"origin":"LGW","destination":"NRT","departDate":"2026-05-01","airline":"British Airways","price":2200.0,"currency":"GBP"}]""",
+            "flight",
+            "import",
+            "tokyo",
+        )
 
         assertTrue(stdout().contains("1 not matched"))
     }
@@ -1195,7 +1273,13 @@ class FlightMatchingTest {
     fun `import add-new creates round trip with return date`() {
         createInv("tokyo")
 
-        execStdin("""[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","returnDate":"2026-05-30","airline":"Korean Air","price":4347,"currency":"GBP"}]""", "flight", "import", "--add-new", "tokyo")
+        execStdin(
+            """[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","returnDate":"2026-05-30","airline":"Korean Air","price":4347,"currency":"GBP"}]""",
+            "flight",
+            "import",
+            "--add-new",
+            "tokyo",
+        )
 
         val flights = FlightQueries.listByInvestigation("tokyo")
         assertEquals(1, flights.size)
@@ -1212,7 +1296,13 @@ class FlightMatchingTest {
     fun `import add-new creates one-way without return date`() {
         createInv("tokyo")
 
-        execStdin("""[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","airline":"Korean Air","price":2000,"currency":"GBP"}]""", "flight", "import", "--add-new", "tokyo")
+        execStdin(
+            """[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","airline":"Korean Air","price":2000,"currency":"GBP"}]""",
+            "flight",
+            "import",
+            "--add-new",
+            "tokyo",
+        )
 
         val flights = FlightQueries.listByInvestigation("tokyo")
         assertEquals(1, flights.size)
@@ -1224,19 +1314,72 @@ class FlightMatchingTest {
     fun `import add-new sets source to import`() {
         createInv("tokyo")
 
-        execStdin("""[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","airline":"Korean Air","price":2000,"currency":"GBP"}]""", "flight", "import", "--add-new", "tokyo")
+        execStdin(
+            """[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","airline":"Korean Air","price":2000,"currency":"GBP"}]""",
+            "flight",
+            "import",
+            "--add-new",
+            "tokyo",
+        )
 
         val flights = FlightQueries.listByInvestigation("tokyo")
         assertEquals("import", flights[0].source)
     }
 
-    private fun createInv(slug: String) = InvestigationQueries.create(InvestigationDto(slug = slug, origin = "LHR", destination = "NRT", departStart = "2026-05-01", departEnd = "2026-05-15", returnStart = "2026-05-15", returnEnd = "2026-05-30", cabinClass = "business", maxStops = 1, createdAt = Instant.now().toString(), updatedAt = Instant.now().toString()))
+    private fun createInv(slug: String) =
+        InvestigationQueries.create(
+            InvestigationDto(
+                slug = slug,
+                origin = "LHR",
+                destination = "NRT",
+                departStart = "2026-05-01",
+                departEnd = "2026-05-15",
+                returnStart = "2026-05-15",
+                returnEnd = "2026-05-30",
+                cabinClass = "business",
+                maxStops = 1,
+                createdAt = Instant.now().toString(),
+                updatedAt = Instant.now().toString(),
+            ),
+        )
 
-    private fun createFlight(investigationSlug: String, shareLink: String, price: Double, airline: String, airlineCode: String, departDate: String): String {
+    private fun createFlight(
+        investigationSlug: String,
+        shareLink: String,
+        price: Double,
+        airline: String,
+        airlineCode: String,
+        departDate: String,
+    ): String {
         val id = FlightValidator.generateId(shareLink)
         val now = Instant.now().toString()
-        val json = """{"depart_airport":"LHR","arrive_airport":"NRT","depart_time":"${departDate}T10:00:00Z","arrive_time":"${departDate}T06:00:00Z","duration_minutes":720,"stops":0,"legs":[{"flight_number":"123","airline":"$airline","airline_code":"$airlineCode","depart_airport":"LHR","arrive_airport":"NRT","depart_time":"${departDate}T10:00:00Z","arrive_time":"${departDate}T06:00:00Z","duration_minutes":720}]}"""
-        FlightQueries.create(FlightDto(id = id, investigationSlug = investigationSlug, shareLink = shareLink, source = "google_flights", tripType = "round_trip", ticketStructure = "single", priceAmount = price, priceCurrency = "GBP", priceMarket = "UK", origin = "LHR", destination = "NRT", outboundJson = json, returnJson = json, capturedAt = now, priceCheckedAt = now))
+        val json =
+            "{\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\"," +
+                "\"depart_time\":\"${departDate}T10:00:00Z\",\"arrive_time\":\"${departDate}T06:00:00Z\"," +
+                "\"duration_minutes\":720,\"stops\":0,\"legs\":[{\"flight_number\":\"123\"," +
+                "\"airline\":\"$airline\",\"airline_code\":\"$airlineCode\"," +
+                "\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\"," +
+                "\"depart_time\":\"${departDate}T10:00:00Z\",\"arrive_time\":\"${departDate}T06:00:00Z\"," +
+                "\"duration_minutes\":720}]}"
+        FlightQueries.create(
+            FlightDto(
+                id = id,
+                investigationSlug = investigationSlug,
+                shareLink = shareLink,
+                source = "google_flights",
+                tripType = "round_trip",
+                ticketStructure = "single",
+                priceAmount = price,
+                priceCurrency = "GBP",
+                priceMarket = "UK",
+                origin = "LHR",
+                destination = "NRT",
+                outboundJson = json,
+                returnJson = json,
+                capturedAt = now,
+                priceCheckedAt = now,
+            ),
+        )
         PriceHistoryQueries.create(PriceHistoryDto(flightId = id, amount = price, currency = "GBP", checkedAt = now))
         return id
     }
@@ -1267,7 +1410,10 @@ class UrlValidationTest {
 
     private fun stdout(): String = outStream.toString()
 
-    private fun execStdin(input: String, vararg args: String): Int {
+    private fun execStdin(
+        input: String,
+        vararg args: String,
+    ): Int {
         System.setIn(java.io.ByteArrayInputStream(input.toByteArray()))
         return CommandLine(ClawfareCommand()).execute(*args)
     }
@@ -1276,7 +1422,13 @@ class UrlValidationTest {
     fun `rejects kayak search page url`() {
         createInv("tokyo")
 
-        execStdin("""[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","airline":"KE","price":2000,"currency":"GBP","link":"https://www.kayak.co.uk/flights/LHR-NRT/2026-05-14/2026-05-30?sort=price"}]""", "flight", "import", "--add-new", "tokyo")
+        execStdin(
+            """[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","airline":"KE","price":2000,"currency":"GBP","link":"https://www.kayak.co.uk/flights/LHR-NRT/2026-05-14/2026-05-30?sort=price"}]""",
+            "flight",
+            "import",
+            "--add-new",
+            "tokyo",
+        )
 
         assertTrue(stdout().contains("Rejected") || stdout().contains("search page"))
     }
@@ -1285,7 +1437,13 @@ class UrlValidationTest {
     fun `rejects amex travel search page url`() {
         createInv("tokyo")
 
-        execStdin("""[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","airline":"KE","price":2000,"currency":"GBP","link":"https://www.americanexpress.com/en-gb/travel/flights/"}]""", "flight", "import", "--add-new", "tokyo")
+        execStdin(
+            """[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","airline":"KE","price":2000,"currency":"GBP","link":"https://www.americanexpress.com/en-gb/travel/flights/"}]""",
+            "flight",
+            "import",
+            "--add-new",
+            "tokyo",
+        )
 
         assertTrue(stdout().contains("Rejected") || stdout().contains("search page"))
     }
@@ -1294,7 +1452,13 @@ class UrlValidationTest {
     fun `accepts booking url`() {
         createInv("tokyo")
 
-        execStdin("""[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","airline":"KE","price":2000,"currency":"GBP","link":"https://www.google.com/travel/flights/booking?flight=KE123"}]""", "flight", "import", "--add-new", "tokyo")
+        execStdin(
+            """[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","airline":"KE","price":2000,"currency":"GBP","link":"https://www.google.com/travel/flights/booking?flight=KE123"}]""",
+            "flight",
+            "import",
+            "--add-new",
+            "tokyo",
+        )
 
         assertTrue(stdout().contains("1 added"))
     }
@@ -1303,12 +1467,33 @@ class UrlValidationTest {
     fun `accepts url without link field`() {
         createInv("tokyo")
 
-        execStdin("""[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","airline":"Korean Air","price":2000,"currency":"GBP"}]""", "flight", "import", "--add-new", "tokyo")
+        execStdin(
+            """[{"origin":"LHR","destination":"NRT","departDate":"2026-05-14","airline":"Korean Air","price":2000,"currency":"GBP"}]""",
+            "flight",
+            "import",
+            "--add-new",
+            "tokyo",
+        )
 
         assertTrue(stdout().contains("1 added"))
     }
 
-    private fun createInv(slug: String) = InvestigationQueries.create(InvestigationDto(slug = slug, origin = "LHR", destination = "NRT", departStart = "2026-05-01", departEnd = "2026-05-15", returnStart = "2026-05-15", returnEnd = "2026-05-30", cabinClass = "business", maxStops = 1, createdAt = Instant.now().toString(), updatedAt = Instant.now().toString()))
+    private fun createInv(slug: String) =
+        InvestigationQueries.create(
+            InvestigationDto(
+                slug = slug,
+                origin = "LHR",
+                destination = "NRT",
+                departStart = "2026-05-01",
+                departEnd = "2026-05-15",
+                returnStart = "2026-05-15",
+                returnEnd = "2026-05-30",
+                cabinClass = "business",
+                maxStops = 1,
+                createdAt = Instant.now().toString(),
+                updatedAt = Instant.now().toString(),
+            ),
+        )
 }
 
 /**
@@ -1325,7 +1510,8 @@ class MigrationTest {
 
         // Create old-schema DB manually
         val conn = java.sql.DriverManager.getConnection("jdbc:sqlite:$dbPath")
-        conn.createStatement().executeUpdate("""
+        conn.createStatement().executeUpdate(
+            """
             CREATE TABLE investigations (
                 slug TEXT PRIMARY KEY, origin TEXT, destination TEXT,
                 depart_start TEXT, depart_end TEXT, return_start TEXT, return_end TEXT,
@@ -1334,8 +1520,10 @@ class MigrationTest {
                 must_include_date TEXT, max_layover_minutes INTEGER,
                 created_at TEXT, updated_at TEXT
             )
-        """.trimIndent())
-        conn.createStatement().executeUpdate("""
+            """.trimIndent(),
+        )
+        conn.createStatement().executeUpdate(
+            """
             CREATE TABLE flights (
                 id TEXT PRIMARY KEY, investigation_slug TEXT, share_link TEXT UNIQUE,
                 source TEXT, trip_type TEXT, ticket_structure TEXT,
@@ -1345,25 +1533,34 @@ class MigrationTest {
                 aircraft_type TEXT, fare_brand TEXT, disqualified TEXT, notes TEXT, tags TEXT,
                 captured_at TEXT
             )
-        """.trimIndent())
+            """.trimIndent(),
+        )
         // Old schema: no source_url column
-        conn.createStatement().executeUpdate("""
+        conn.createStatement().executeUpdate(
+            """
             CREATE TABLE price_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, flight_id TEXT,
                 amount REAL, currency TEXT, checked_at TEXT,
                 source TEXT DEFAULT 'manual', price_market TEXT DEFAULT 'UK'
             )
-        """.trimIndent())
+            """.trimIndent(),
+        )
         // Insert test data
-        conn.createStatement().executeUpdate("""
+        conn.createStatement().executeUpdate(
+            """
             INSERT INTO investigations VALUES ('test-inv', 'LHR', 'NRT', '2026-05-01', '2026-05-15', '2026-05-15', '2026-05-30', 'business', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-01-01', '2026-01-01')
-        """.trimIndent())
-        conn.createStatement().executeUpdate("""
+            """.trimIndent(),
+        )
+        conn.createStatement().executeUpdate(
+            """
             INSERT INTO flights VALUES ('flight1', 'test-inv', 'https://example.com/flight1', 'google', 'round_trip', 'single', 2500.0, 'GBP', 'UK', '2026-01-01', 'LHR', 'NRT', '{}', '{}', 'business', 0, 0, NULL, NULL, NULL, NULL, NULL, '2026-01-01')
-        """.trimIndent())
-        conn.createStatement().executeUpdate("""
+            """.trimIndent(),
+        )
+        conn.createStatement().executeUpdate(
+            """
             INSERT INTO price_history (flight_id, amount, currency, checked_at) VALUES ('flight1', 2500.0, 'GBP', '2026-01-01')
-        """.trimIndent())
+            """.trimIndent(),
+        )
         conn.close()
 
         // Connect with migration
@@ -1382,7 +1579,8 @@ class MigrationTest {
         val dbPath = tempDir.resolve("old-no-stale.db").toString()
 
         val conn = java.sql.DriverManager.getConnection("jdbc:sqlite:$dbPath")
-        conn.createStatement().executeUpdate("""
+        conn.createStatement().executeUpdate(
+            """
             CREATE TABLE investigations (
                 slug TEXT PRIMARY KEY, origin TEXT, destination TEXT,
                 depart_start TEXT, depart_end TEXT, return_start TEXT, return_end TEXT,
@@ -1391,9 +1589,11 @@ class MigrationTest {
                 must_include_date TEXT, max_layover_minutes INTEGER,
                 created_at TEXT, updated_at TEXT
             )
-        """.trimIndent())
+            """.trimIndent(),
+        )
         // No stale column
-        conn.createStatement().executeUpdate("""
+        conn.createStatement().executeUpdate(
+            """
             CREATE TABLE flights (
                 id TEXT PRIMARY KEY, investigation_slug TEXT, share_link TEXT,
                 source TEXT, trip_type TEXT, ticket_structure TEXT,
@@ -1403,20 +1603,27 @@ class MigrationTest {
                 aircraft_type TEXT, fare_brand TEXT, disqualified TEXT, notes TEXT, tags TEXT,
                 captured_at TEXT
             )
-        """.trimIndent())
-        conn.createStatement().executeUpdate("""
+            """.trimIndent(),
+        )
+        conn.createStatement().executeUpdate(
+            """
             CREATE TABLE price_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, flight_id TEXT,
                 amount REAL, currency TEXT, source_url TEXT, checked_at TEXT,
                 source TEXT DEFAULT 'manual', price_market TEXT DEFAULT 'UK'
             )
-        """.trimIndent())
-        conn.createStatement().executeUpdate("""
+            """.trimIndent(),
+        )
+        conn.createStatement().executeUpdate(
+            """
             INSERT INTO investigations VALUES ('test-inv', 'LHR', 'NRT', '2026-05-01', '2026-05-15', '2026-05-15', '2026-05-30', 'business', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-01-01', '2026-01-01')
-        """.trimIndent())
-        conn.createStatement().executeUpdate("""
+            """.trimIndent(),
+        )
+        conn.createStatement().executeUpdate(
+            """
             INSERT INTO flights (id, investigation_slug, share_link, source, trip_type, ticket_structure, price_amount, price_currency, price_market, price_checked_at, origin, destination, outbound_json, captured_at) VALUES ('flight1', 'test-inv', 'https://example.com/f1', 'google', 'round_trip', 'single', 2500.0, 'GBP', 'UK', '2026-01-01', 'LHR', 'NRT', '{}', '2026-01-01')
-        """.trimIndent())
+            """.trimIndent(),
+        )
         conn.close()
 
         // Connect with migration — should add stale column
@@ -1456,6 +1663,7 @@ class MarkStaleTest {
     }
 
     private fun stdout(): String = outStream.toString()
+
     private fun execute(vararg args: String): Int = CommandLine(ClawfareCommand()).execute(*args)
 
     @Test
@@ -1503,13 +1711,52 @@ class MarkStaleTest {
         assertFalse(FlightQueries.getById(id2)!!.stale)
     }
 
-    private fun createInv(slug: String) = InvestigationQueries.create(InvestigationDto(slug = slug, origin = "LHR", destination = "NRT", departStart = "2026-05-01", departEnd = "2026-05-15", returnStart = "2026-05-15", returnEnd = "2026-05-30", cabinClass = "business", maxStops = 1, createdAt = Instant.now().toString(), updatedAt = Instant.now().toString()))
+    private fun createInv(slug: String) =
+        InvestigationQueries.create(
+            InvestigationDto(
+                slug = slug,
+                origin = "LHR",
+                destination = "NRT",
+                departStart = "2026-05-01",
+                departEnd = "2026-05-15",
+                returnStart = "2026-05-15",
+                returnEnd = "2026-05-30",
+                cabinClass = "business",
+                maxStops = 1,
+                createdAt = Instant.now().toString(),
+                updatedAt = Instant.now().toString(),
+            ),
+        )
 
-    private fun createFlight(investigationSlug: String, shareLink: String, price: Double): String {
+    private fun createFlight(
+        investigationSlug: String,
+        shareLink: String,
+        price: Double,
+    ): String {
         val id = FlightValidator.generateId(shareLink)
         val now = Instant.now().toString()
-        val json = """{"depart_airport":"LHR","arrive_airport":"NRT","depart_time":"2026-05-01T10:00:00Z","arrive_time":"2026-05-02T06:00:00Z","duration_minutes":720,"stops":0,"legs":[{"flight_number":"123","airline":"BA","airline_code":"BA","depart_airport":"LHR","arrive_airport":"NRT","depart_time":"2026-05-01T10:00:00Z","arrive_time":"2026-05-02T06:00:00Z","duration_minutes":720}]}"""
-        FlightQueries.create(FlightDto(id = id, investigationSlug = investigationSlug, shareLink = shareLink, source = "google_flights", tripType = "round_trip", ticketStructure = "single", origin = "LHR", destination = "NRT", outboundJson = json, returnJson = json, capturedAt = now))
+        val json =
+            "{\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\"," +
+                "\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\"," +
+                "\"duration_minutes\":720,\"stops\":0,\"legs\":[{\"flight_number\":\"123\"," +
+                "\"airline\":\"BA\",\"airline_code\":\"BA\",\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\"," +
+                "\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\"," +
+                "\"duration_minutes\":720}]}"
+        FlightQueries.create(
+            FlightDto(
+                id = id,
+                investigationSlug = investigationSlug,
+                shareLink = shareLink,
+                source = "google_flights",
+                tripType = "round_trip",
+                ticketStructure = "single",
+                origin = "LHR",
+                destination = "NRT",
+                outboundJson = json,
+                returnJson = json,
+                capturedAt = now,
+            ),
+        )
         PriceHistoryQueries.create(PriceHistoryDto(flightId = id, amount = price, currency = "GBP", sourceUrl = shareLink, checkedAt = now))
         return id
     }
@@ -1573,22 +1820,94 @@ class FlightPriceLinkTest {
         assertEquals("https://example.com/original", history.last().sourceUrl)
     }
 
-    private fun createInv(slug: String) = InvestigationQueries.create(InvestigationDto(slug = slug, origin = "LHR", destination = "NRT", departStart = "2026-05-01", departEnd = "2026-05-15", returnStart = "2026-05-15", returnEnd = "2026-05-30", cabinClass = "business", maxStops = 1, createdAt = Instant.now().toString(), updatedAt = Instant.now().toString()))
+    private fun createInv(slug: String) =
+        InvestigationQueries.create(
+            InvestigationDto(
+                slug = slug,
+                origin = "LHR",
+                destination = "NRT",
+                departStart = "2026-05-01",
+                departEnd = "2026-05-15",
+                returnStart = "2026-05-15",
+                returnEnd = "2026-05-30",
+                cabinClass = "business",
+                maxStops = 1,
+                createdAt = Instant.now().toString(),
+                updatedAt = Instant.now().toString(),
+            ),
+        )
 
-    private fun createFlight(investigationSlug: String, shareLink: String, price: Double): String {
+    private fun createFlight(
+        investigationSlug: String,
+        shareLink: String,
+        price: Double,
+    ): String {
         val id = FlightValidator.generateId(shareLink)
         val now = Instant.now().toString()
-        val json = """{"depart_airport":"LHR","arrive_airport":"NRT","depart_time":"2026-05-01T10:00:00Z","arrive_time":"2026-05-02T06:00:00Z","duration_minutes":720,"stops":0,"legs":[{"flight_number":"123","airline":"BA","airline_code":"BA","depart_airport":"LHR","arrive_airport":"NRT","depart_time":"2026-05-01T10:00:00Z","arrive_time":"2026-05-02T06:00:00Z","duration_minutes":720}]}"""
-        FlightQueries.create(FlightDto(id = id, investigationSlug = investigationSlug, shareLink = shareLink, source = "google_flights", tripType = "round_trip", ticketStructure = "single", origin = "LHR", destination = "NRT", outboundJson = json, returnJson = json, capturedAt = now))
+        val json =
+            "{\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\"," +
+                "\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\"," +
+                "\"duration_minutes\":720,\"stops\":0,\"legs\":[{\"flight_number\":\"123\"," +
+                "\"airline\":\"BA\",\"airline_code\":\"BA\",\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\"," +
+                "\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\"," +
+                "\"duration_minutes\":720}]}"
+        FlightQueries.create(
+            FlightDto(
+                id = id,
+                investigationSlug = investigationSlug,
+                shareLink = shareLink,
+                source = "google_flights",
+                tripType = "round_trip",
+                ticketStructure = "single",
+                origin = "LHR",
+                destination = "NRT",
+                outboundJson = json,
+                returnJson = json,
+                capturedAt = now,
+            ),
+        )
         PriceHistoryQueries.create(PriceHistoryDto(flightId = id, amount = price, currency = "GBP", sourceUrl = shareLink, checkedAt = now))
         return id
     }
 
-    private fun createBusinessFlight(investigationSlug: String, shareLink: String, price: Double, tripType: String = "round_trip"): String {
+    private fun createBusinessFlight(
+        investigationSlug: String,
+        shareLink: String,
+        price: Double,
+        tripType: String = "round_trip",
+    ): String {
         val id = FlightValidator.generateId(shareLink)
         val now = Instant.now().toString()
-        val json = """{"depart_airport":"LHR","arrive_airport":"NRT","depart_time":"2026-05-01T10:00:00Z","arrive_time":"2026-05-02T06:00:00Z","duration_minutes":720,"stops":0,"legs":[{"flight_number":"123","airline":"BA","airline_code":"BA","depart_airport":"LHR","arrive_airport":"NRT","depart_time":"2026-05-01T10:00:00Z","arrive_time":"2026-05-02T06:00:00Z","duration_minutes":720}]}"""
-        FlightQueries.create(FlightDto(id = id, investigationSlug = investigationSlug, shareLink = shareLink, source = "google_flights", tripType = tripType, ticketStructure = "single", origin = "LHR", destination = "NRT", outboundJson = json, returnJson = if (tripType == "round_trip") json else null, bookingClass = "business", capturedAt = now))
+        val json =
+            "{\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\"," +
+                "\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\"," +
+                "\"duration_minutes\":720,\"stops\":0,\"legs\":[{\"flight_number\":\"123\"," +
+                "\"airline\":\"BA\",\"airline_code\":\"BA\",\"depart_airport\":\"LHR\",\"arrive_airport\":\"NRT\"," +
+                "\"depart_time\":\"2026-05-01T10:00:00Z\",\"arrive_time\":\"2026-05-02T06:00:00Z\"," +
+                "\"duration_minutes\":720}]}"
+        FlightQueries.create(
+            FlightDto(
+                id = id,
+                investigationSlug = investigationSlug,
+                shareLink = shareLink,
+                source = "google_flights",
+                tripType = tripType,
+                ticketStructure = "single",
+                origin = "LHR",
+                destination = "NRT",
+                outboundJson = json,
+                returnJson =
+                    if (tripType ==
+                        "round_trip"
+                    ) {
+                        json
+                    } else {
+                        null
+                    },
+                bookingClass = "business",
+                capturedAt = now,
+            ),
+        )
         PriceHistoryQueries.create(PriceHistoryDto(flightId = id, amount = price, currency = "GBP", sourceUrl = shareLink, checkedAt = now))
         return id
     }
@@ -1615,7 +1934,8 @@ class FlightPriceLinkTest {
     fun `flight price rejects google flights search URL`() {
         createInv("tokyo")
         val id = createFlight("tokyo", "https://example.com/f1", 2500.0)
-        val exitCode = execute("flight", "price", id, "--amount", "2200", "--link", "https://www.google.com/travel/flights?q=Flights+to+TYO")
+        val exitCode =
+            execute("flight", "price", id, "--amount", "2200", "--link", "https://www.google.com/travel/flights?q=Flights+to+TYO")
         assertEquals(1, exitCode)
     }
 
@@ -1631,7 +1951,8 @@ class FlightPriceLinkTest {
     fun `flight price accepts google flights booking link`() {
         createInv("tokyo")
         val id = createFlight("tokyo", "https://example.com/f1", 2500.0)
-        val exitCode = execute("flight", "price", id, "--amount", "2200", "--link", "https://www.google.com/travel/flights/booking?tfs=CAIQAh")
+        val exitCode =
+            execute("flight", "price", id, "--amount", "2200", "--link", "https://www.google.com/travel/flights/booking?tfs=CAIQAh")
         assertEquals(0, exitCode)
     }
 

@@ -110,3 +110,37 @@ Before migration:
 ```bash
 cp ~/.clawfare/data.db ~/.clawfare/data.db.backup-$(date +%Y%m%d-%H%M%S)
 ```
+
+## Fare search columns (additive)
+
+`ClawfareDatabase.runMigrations()` adds these with `ALTER TABLE ... ADD COLUMN` when `PRAGMA table_info` does not already list them. Existing investigations and flights keep working. The `source_url` backfill from `flights.share_link` runs only when that column exists.
+
+### investigations
+| Column | Purpose |
+| --- | --- |
+| origins, destinations | Extra airports. `origin` / `destination` stay the primary 3-letter codes. |
+| checked_bags, passengers, currency | Search defaults. Currency display is GBP. |
+| nights, scenario | Trip length, and `florida` for the sample feasibility grid. |
+| query_json | The search that was run, so `fare reingest` can parse the cache again. |
+| presentation_json | Title, notes, suggested filters, and warnings for the web UI. |
+
+### flights
+| Column | Purpose |
+| --- | --- |
+| checked_bags, passengers, cabin_class | Copied onto the itinerary. Per-leg cabin stays on each leg. |
+| source_label, live_price | `sample`, `live`, `cached`, or `mock`. Duffel is always mock. |
+| display_id | Stable id shown in the grid (`11`, `H`, provider id). The primary key is still the share-link hash. |
+| planned_return_date | Return date when the return legs were not fetched. Those rows are stored as one-way and tagged `return-missing`. |
+| links_json | Google Flights exact-itinerary link plus airline and seller links. `share_link` stays a `/booking?tfs=` URL so validation still rejects a search page. |
+
+Legs may include `operating_carrier` and `operating_carrier_code`. A segment may include `layovers` when the provider's connection time cannot be derived from the clock times.
+
+### seller_offers
+One row per seller quote on an itinerary: fare, bag fee, round trip, the two one-ways, all-in GBP, and a trust/notes field. Replaced as a set when a comparison is saved.
+
+### provider_cache
+Raw provider responses, keyed by provider and a hash of the request with credentials removed. This is a cache for re-ingest, not the fare record. Bodies are redacted before insert.
+
+### flight_provider_tokens
+`departure_token` and `booking_token` for a later return or booking-options call, without spending the search again.
+

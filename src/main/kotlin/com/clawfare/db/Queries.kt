@@ -2,7 +2,6 @@ package com.clawfare.db
 
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
@@ -37,10 +36,21 @@ data class InvestigationDto(
     val mustIncludeDate: String? = null,
     val maxLayoverMinutes: Int? = null,
     // Airline overrides (comma-separated IATA codes)
-    val excludedAirlines: String? = null,  // e.g. "LO,CX" — block these even if globally allowed
-    val includedAirlines: String? = null,  // e.g. "TK" — allow these even if not globally allowed
+    val excludedAirlines: String? = null, // e.g. "LO,CX" — block these even if globally allowed
+    val includedAirlines: String? = null, // e.g. "TK" — allow these even if not globally allowed
     val createdAt: String = Instant.now().toString(),
     val updatedAt: String = Instant.now().toString(),
+    /** Comma-separated origin airports. Null means [origin] only. */
+    val origins: String? = null,
+    /** Comma-separated destination airports. Null means [destination] only. */
+    val destinations: String? = null,
+    val checkedBags: Int = 0,
+    val passengers: Int = 1,
+    val currency: String = "GBP",
+    val nights: Int? = null,
+    val scenario: String? = null,
+    val queryJson: String? = null,
+    val presentationJson: String? = null,
 )
 
 /**
@@ -49,7 +59,7 @@ data class InvestigationDto(
 data class FlightDto(
     val id: String,
     val investigationSlug: String,
-    val shareLink: String? = null,  // Deprecated: canonical link now in price_history.source_url
+    val shareLink: String? = null, // Deprecated: canonical link now in price_history.source_url
     val source: String,
     val tripType: String,
     val ticketStructure: String,
@@ -72,6 +82,14 @@ data class FlightDto(
     val notes: String? = null,
     val tags: String? = null,
     val capturedAt: String = Instant.now().toString(),
+    val checkedBags: Int = 0,
+    val passengers: Int = 1,
+    val sourceLabel: String? = null,
+    val livePrice: Boolean = false,
+    val displayId: String? = null,
+    val plannedReturnDate: String? = null,
+    val linksJson: String? = null,
+    val cabinClass: String? = null,
 )
 
 /**
@@ -88,7 +106,7 @@ data class FlightWithPrice(
 ) {
     val id: String get() = flight.id
     val investigationSlug: String get() = flight.investigationSlug
-    val shareLink: String get() = sourceUrl  // Use sourceUrl from price_history
+    val shareLink: String get() = sourceUrl // Use sourceUrl from price_history
     val source: String get() = flight.source
     val tripType: String get() = flight.tripType
     val ticketStructure: String get() = flight.ticketStructure
@@ -115,7 +133,7 @@ data class PriceHistoryDto(
     val flightId: String,
     val amount: Double,
     val currency: String,
-    val sourceUrl: String = "",  // Required for new entries; empty = legacy migrated data
+    val sourceUrl: String = "", // Required for new entries; empty = legacy migrated data
     val checkedAt: String = Instant.now().toString(),
     val source: String = "manual",
     val priceMarket: String = "UK",
@@ -158,6 +176,15 @@ object InvestigationQueries {
                 it[includedAirlines] = dto.includedAirlines
                 it[createdAt] = dto.createdAt
                 it[updatedAt] = dto.updatedAt
+                it[origins] = dto.origins
+                it[destinations] = dto.destinations
+                it[checkedBags] = dto.checkedBags
+                it[passengers] = dto.passengers
+                it[currency] = dto.currency
+                it[nights] = dto.nights
+                it[scenario] = dto.scenario
+                it[queryJson] = dto.queryJson
+                it[presentationJson] = dto.presentationJson
             }
             dto
         }
@@ -281,6 +308,15 @@ object InvestigationQueries {
             includedAirlines = this[Investigations.includedAirlines],
             createdAt = this[Investigations.createdAt],
             updatedAt = this[Investigations.updatedAt],
+            origins = this[Investigations.origins],
+            destinations = this[Investigations.destinations],
+            checkedBags = this[Investigations.checkedBags] ?: 0,
+            passengers = this[Investigations.passengers] ?: 1,
+            currency = this[Investigations.currency] ?: "GBP",
+            nights = this[Investigations.nights],
+            scenario = this[Investigations.scenario],
+            queryJson = this[Investigations.queryJson],
+            presentationJson = this[Investigations.presentationJson],
         )
 }
 
@@ -324,6 +360,14 @@ object FlightQueries {
                 it[notes] = dto.notes
                 it[tags] = dto.tags
                 it[capturedAt] = dto.capturedAt
+                it[checkedBags] = dto.checkedBags
+                it[passengers] = dto.passengers
+                it[sourceLabel] = dto.sourceLabel
+                it[livePrice] = if (dto.livePrice) 1 else 0
+                it[displayId] = dto.displayId
+                it[plannedReturnDate] = dto.plannedReturnDate
+                it[linksJson] = dto.linksJson
+                it[cabinClass] = dto.cabinClass
             }
             dto
         }
@@ -366,12 +410,13 @@ object FlightQueries {
      */
     fun getBySourceUrl(sourceUrl: String): FlightDto? =
         transaction {
-            val priceEntry = PriceHistory
-                .selectAll()
-                .where { PriceHistory.sourceUrl eq sourceUrl }
-                .limit(1)
-                .firstOrNull()
-            
+            val priceEntry =
+                PriceHistory
+                    .selectAll()
+                    .where { PriceHistory.sourceUrl eq sourceUrl }
+                    .limit(1)
+                    .firstOrNull()
+
             priceEntry?.let { getById(it[PriceHistory.flightId]) }
         }
 
@@ -384,16 +429,17 @@ object FlightQueries {
     fun getByShareLink(shareLink: String): FlightDto? =
         transaction {
             // First try price_history (new canonical location)
-            val priceEntry = PriceHistory
-                .selectAll()
-                .where { PriceHistory.sourceUrl eq shareLink }
-                .limit(1)
-                .firstOrNull()
-            
+            val priceEntry =
+                PriceHistory
+                    .selectAll()
+                    .where { PriceHistory.sourceUrl eq shareLink }
+                    .limit(1)
+                    .firstOrNull()
+
             if (priceEntry != null) {
                 return@transaction getById(priceEntry[PriceHistory.flightId])
             }
-            
+
             // Fall back to legacy flights.share_link
             Flights
                 .selectAll()
@@ -454,6 +500,14 @@ object FlightQueries {
                     it[disqualified] = dto.disqualified
                     it[notes] = dto.notes
                     it[tags] = dto.tags
+                    it[checkedBags] = dto.checkedBags
+                    it[passengers] = dto.passengers
+                    it[sourceLabel] = dto.sourceLabel
+                    it[livePrice] = if (dto.livePrice) 1 else 0
+                    it[displayId] = dto.displayId
+                    it[plannedReturnDate] = dto.plannedReturnDate
+                    it[linksJson] = dto.linksJson
+                    it[cabinClass] = dto.cabinClass
                 }
             if (updated > 0) getById(dto.id) else null
         }
@@ -466,9 +520,9 @@ object FlightQueries {
      */
     fun delete(id: String): Boolean =
         transaction {
-            // Delete price history first
             PriceHistory.deleteWhere { flightId eq id }
-            // Then delete flight
+            SellerOffers.deleteWhere { flightId eq id }
+            FlightProviderTokens.deleteWhere { flightId eq id }
             Flights.deleteWhere { Flights.id eq id } > 0
         }
 
@@ -489,6 +543,8 @@ object FlightQueries {
             // Delete price history for each flight
             flightIds.forEach { flightId ->
                 PriceHistory.deleteWhere { PriceHistory.flightId eq flightId }
+                SellerOffers.deleteWhere { SellerOffers.flightId eq flightId }
+                FlightProviderTokens.deleteWhere { FlightProviderTokens.flightId eq flightId }
             }
 
             // Delete flights
@@ -521,6 +577,14 @@ object FlightQueries {
             notes = this[Flights.notes],
             tags = this[Flights.tags],
             capturedAt = this[Flights.capturedAt],
+            checkedBags = this[Flights.checkedBags] ?: 0,
+            passengers = this[Flights.passengers] ?: 1,
+            sourceLabel = this[Flights.sourceLabel],
+            livePrice = this[Flights.livePrice] == 1,
+            displayId = this[Flights.displayId],
+            plannedReturnDate = this[Flights.plannedReturnDate],
+            linksJson = this[Flights.linksJson],
+            cabinClass = this[Flights.cabinClass],
         )
 
     /**
@@ -574,7 +638,9 @@ object FlightQueries {
                     priceSource = latestPrice.source,
                     sourceUrl = latestPrice.sourceUrl,
                 )
-            } else null
+            } else {
+                null
+            }
         }
     }
 }

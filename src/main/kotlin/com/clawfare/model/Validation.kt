@@ -73,6 +73,7 @@ object FlightValidator {
             "AA", // American Airlines
             "UA", // United Airlines
             "DL", // Delta
+            "B6", // JetBlue
             "AC", // Air Canada
             "LA", // LATAM
             "AV", // Avianca
@@ -492,23 +493,24 @@ object FlightValidator {
      * Known search URL patterns that should NOT be used as flight links.
      * These are search results pages, not specific flight booking links.
      */
-    private val searchUrlPatterns = listOf(
-        // Kayak search pages (no specific flight selected)
-        Regex("""kayak\.[^/]+/flights/[A-Z]{3}-[A-Z]{3}/\d{4}-\d{2}-\d{2}(/\d{4}-\d{2}-\d{2})?\?"""),
-        // Google Flights search (not /booking/ or /s/ share links)
-        Regex("""google\.com/travel/flights(?!/(booking|s/))"""),
-        // google.com/flights is not a real path — likely fabricated
-        Regex("""google\.com/flights\b"""),
-        // Skyscanner search pages
-        Regex("""skyscanner\.[^/]+/transport/flights/[^/]+/[^/]+/\d{6}/\d{6}/\?"""),
-        // Amex travel search
-        Regex("""americanexpress\.com/[^/]+/travel/flights/?$"""),
-        Regex("""americanexpress\.com/[^/]+/travel/flights/\?"""),
-        // Expedia search
-        Regex("""expedia\.[^/]+/Flights-Search\?"""),
-        // Momondo search
-        Regex("""momondo\.[^/]+/flights/[A-Z]{3}-[A-Z]{3}/\d{4}-\d{2}-\d{2}"""),
-    )
+    private val searchUrlPatterns =
+        listOf(
+            // Kayak search pages (no specific flight selected)
+            Regex("""kayak\.[^/]+/flights/[A-Z]{3}-[A-Z]{3}/\d{4}-\d{2}-\d{2}(/\d{4}-\d{2}-\d{2})?\?"""),
+            // Google Flights search (not /booking/ or /s/ share links)
+            Regex("""google\.com/travel/flights(?!/(booking|s/))"""),
+            // google.com/flights is not a real path — likely fabricated
+            Regex("""google\.com/flights\b"""),
+            // Skyscanner search pages
+            Regex("""skyscanner\.[^/]+/transport/flights/[^/]+/[^/]+/\d{6}/\d{6}/\?"""),
+            // Amex travel search
+            Regex("""americanexpress\.com/[^/]+/travel/flights/?$"""),
+            Regex("""americanexpress\.com/[^/]+/travel/flights/\?"""),
+            // Expedia search
+            Regex("""expedia\.[^/]+/Flights-Search\?"""),
+            // Momondo search
+            Regex("""momondo\.[^/]+/flights/[A-Z]{3}-[A-Z]{3}/\d{4}-\d{2}-\d{2}"""),
+        )
 
     /**
      * Check if a URL looks like a search page rather than a specific flight.
@@ -516,7 +518,7 @@ object FlightValidator {
      */
     fun checkSearchUrl(url: String): String? {
         val lowerUrl = url.lowercase()
-        
+
         for (pattern in searchUrlPatterns) {
             if (pattern.containsMatchIn(url) || pattern.containsMatchIn(lowerUrl)) {
                 return "This URL looks like a search page, not a specific flight. " +
@@ -632,7 +634,10 @@ object FlightValidator {
      * Violations found when checking a flight against investigation constraints.
      * Each violation has a short code and human-readable message.
      */
-    data class ConstraintViolation(val code: String, val message: String)
+    data class ConstraintViolation(
+        val code: String,
+        val message: String,
+    )
 
     /**
      * Check flight segments against investigation constraints.
@@ -648,8 +653,18 @@ object FlightValidator {
 
         // 1. Airline allowlist check (all legs in both segments)
         // Per-investigation overrides
-        val excluded = investigation.excludedAirlines?.split(",")?.map { it.trim().uppercase() }?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
-        val included = investigation.includedAirlines?.split(",")?.map { it.trim().uppercase() }?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+        val excluded =
+            investigation.excludedAirlines
+                ?.split(",")
+                ?.map { it.trim().uppercase() }
+                ?.filter { it.isNotBlank() }
+                ?.toSet() ?: emptySet()
+        val included =
+            investigation.includedAirlines
+                ?.split(",")
+                ?.map { it.trim().uppercase() }
+                ?.filter { it.isNotBlank() }
+                ?.toSet() ?: emptySet()
 
         val allLegs = outbound.legs + (returnSegment?.legs ?: emptyList())
         for (leg in allLegs) {
@@ -661,7 +676,7 @@ object FlightValidator {
                 violations.add(
                     ConstraintViolation(
                         "EXCLUDED_AIRLINE",
-                        "${leg.airline} (${code}) is excluded for this investigation",
+                        "${leg.airline} ($code) is excluded for this investigation",
                     ),
                 )
             } else if (code in blockedAirlines && code !in included) {
@@ -755,7 +770,6 @@ object FlightValidator {
     }
 }
 
-
 /**
  * Investigation validator.
  */
@@ -782,6 +796,17 @@ object InvestigationValidator {
             errors.add("destination is required")
         } else if (!investigation.destination.matches(Regex("^[A-Z]{3}$"))) {
             errors.add("destination must be a 3-letter airport code")
+        }
+
+        investigation.origins.forEach { code ->
+            if (!code.matches(Regex("^[A-Z]{3}$"))) {
+                errors.add("origins must be 3-letter airport codes")
+            }
+        }
+        investigation.destinations.forEach { code ->
+            if (!code.matches(Regex("^[A-Z]{3}$"))) {
+                errors.add("destinations must be 3-letter airport codes")
+            }
         }
 
         // Validate dates
