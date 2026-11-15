@@ -501,6 +501,8 @@ object FlightQueries {
                     it[stale] = if (dto.stale) 1 else 0
                     it[aircraftType] = dto.aircraftType
                     it[fareBrand] = dto.fareBrand
+                    it[farePolicyKey] = dto.farePolicyKey
+                    it[offerIdentity] = dto.offerIdentity
                     it[disqualified] = dto.disqualified
                     it[notes] = dto.notes
                     it[tags] = dto.tags
