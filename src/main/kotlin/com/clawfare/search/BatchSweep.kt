@@ -194,17 +194,23 @@ object BatchSweep {
                         status = if (response.ok) "ok" else "error",
                         maxNetworkCalls = upper,
                         offerCount = response.result?.itineraries?.size ?: 0,
-                        warnings = response.result?.warnings.orEmpty().take(8),
+                        warnings =
+                            response.result
+                                ?.warnings
+                                .orEmpty()
+                                .take(8),
                     )
                 target.appendText(AppJson.encodeToString(BatchAttemptRecord.serializer(), record) + "\n")
             }
             reserved += upper
             val warnings = response.result?.warnings.orEmpty()
-            if (warnings.any { warning ->
+            val quotaHit =
+                warnings.any { warning ->
                     warning.contains("out of credits", true) ||
                         warning.contains("rate limit", true) ||
                         warning.contains("429", true)
-                }) {
+                }
+            if (quotaHit) {
                 failures += "${entry.signature}: provider quota/rate limit; stopping batch early."
                 break
             }
