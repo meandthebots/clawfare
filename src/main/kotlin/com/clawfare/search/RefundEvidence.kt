@@ -58,6 +58,26 @@ data class RefundEvidence(
             (availablePassengers == null || availablePassengers >= adults)
 }
 
+@Serializable
+data class DuffelOfferSnapshot(
+    val offerId: String,
+    val totalAmount: Double,
+    val totalCurrency: String,
+    val refund: RefundEvidence,
+)
+
+/** Monetary offer totals are for the entire passenger group, not per adult. */
+fun parseDuffelOfferSnapshot(
+    offer: JsonObject,
+    observedAt: String,
+): DuffelOfferSnapshot {
+    val id = offer["id"]?.jsonPrimitive?.contentOrNull ?: error("Duffel offer missing ID")
+    val amount = offer["total_amount"]?.jsonPrimitive?.contentOrNull?.toDoubleOrNull()
+        ?: error("Duffel offer missing total amount")
+    val currency = offer["total_currency"]?.jsonPrimitive?.contentOrNull ?: error("Duffel offer missing currency")
+    return DuffelOfferSnapshot(id, amount, currency, parseDuffelRefundEvidence(offer, observedAt))
+}
+
 fun parseDuffelRefundEvidence(
     offer: JsonObject,
     observedAt: String,
