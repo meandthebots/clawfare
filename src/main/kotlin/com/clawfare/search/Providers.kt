@@ -156,7 +156,11 @@ fun normalizeQuery(q: SearchQuery): SearchQuery {
         currency = q.currency.uppercase().ifBlank { "GBP" },
         market = q.market.trim().lowercase().ifBlank { "uk" },
         excludedTransitAirports = airportsOf(q.excludedTransitAirports),
-        excludedTransitCountries = q.excludedTransitCountries.map { it.trim().uppercase() }.filter { it.isNotBlank() }.distinct(),
+        excludedTransitCountries =
+            q.excludedTransitCountries
+                .map { it.trim().uppercase() }
+                .filter { it.isNotBlank() }
+                .distinct(),
         maxLiveCalls = q.maxLiveCalls?.coerceAtLeast(0),
         providers =
             q.providers
