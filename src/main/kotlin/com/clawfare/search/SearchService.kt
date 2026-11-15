@@ -82,6 +82,14 @@ class SearchService(
         val problem = validateQuery(q)
         if (problem != null) return SearchResponse(ok = false, error = problem)
         val est = estimate(q)
+        val maxCalls = q.maxLiveCalls
+        if (!q.cacheOnly && maxCalls != null && est.liveCalls + est.returnLookupsUpperBound > maxCalls) {
+            return SearchResponse(
+                ok = false,
+                estimate = est,
+                error = "Call budget exceeded: up to ${est.liveCalls + est.returnLookupsUpperBound} requested, cap $maxCalls.",
+            )
+        }
         val needsLive = !q.cacheOnly && (est.liveCalls > 0 || est.returnLookupsUpperBound > 0)
         if (needsLive && !q.confirmed) {
             return SearchResponse(ok = false, needsConfirmation = true, estimate = est)
@@ -103,7 +111,10 @@ class SearchService(
             // Enforce exclusions before storing, ranking or exporting provider results.
             // These preferences are independent of the browser's display-only filters.
             val restricted = FilterSpec(airlineBlock = q.excludedAirlines)
-            val eligible = outcome.itineraries.filter { Filters.matches(it, restricted) }
+            val eligible =
+                outcome.itineraries.filter {
+                    Filters.matches(it, restricted) && TransitRules.allows(it, q.excludedTransitAirports, q.excludedTransitCountries)
+                }
             if (eligible.size != outcome.itineraries.size) {
                 warnings += "${outcome.itineraries.size - eligible.size} fares excluded by airline preference."
             }
