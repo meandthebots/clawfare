@@ -50,7 +50,9 @@ object FareWatch {
             lock.use {
                 val previous = BatchSweep.compare(config, sink)
                 val previousPrices =
-                    previous.filter { it.allInGbp != null }.groupBy { it.signature + "/" + it.source + "/" + it.date }
+                    previous
+                        .filter { it.allInGbp != null }
+                        .groupBy { it.signature + "/" + it.source + "/" + it.date }
                         .mapValues { (_, items) -> items.minOf { it.allInGbp!! } }
                 val summary = BatchSweep.run(config, service, confirmed = true, auditFile = auditFile)
                 val current = BatchSweep.compare(config, sink)
