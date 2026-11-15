@@ -89,6 +89,13 @@ class BatchSweepTest {
         val expanded = BatchSweep.expand(config)
         assertEquals(36, expanded.size)
         assertEquals(36, expanded.map { it.signature }.toSet().size)
+        assertTrue(
+            expanded.all { entry ->
+                val normalized = com.clawfare.search.normalizeQuery(entry.query)
+                val storedId = normalized.investigation
+                entry.signature == storedId
+            },
+        )
         assertTrue(expanded.all { it.query.origins.size == 1 && it.query.destinations.size == 1 })
         val estimated = BatchSweep.estimate(config, service())
         assertEquals(36, estimated.liveCalls)
