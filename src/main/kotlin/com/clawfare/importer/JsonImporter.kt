@@ -234,6 +234,7 @@ object JsonImporter {
             cabinMixed = entry.cabinMixed ?: false,
             fareBrand = entry.fareBrand,
             farePolicyKey = entry.farePolicyKey,
+            refundEvidenceJson = entry.refundEvidenceJson,
             offerIdentity = entry.offerIdentity,
             notes = entry.notes,
             tags = tagsJson,
