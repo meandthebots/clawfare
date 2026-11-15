@@ -167,34 +167,34 @@ object BatchSweep {
         val entries = expand(config)
         val rows =
             entries.flatMap { entry ->
-            val result = sink.load(entry.signature)?.result ?: return@flatMap emptyList()
-            result.itineraries.map { itinerary ->
-                val fare = itinerary.pricePerPerson?.let { it * itinerary.passengers }
-                val scenario = entry.scenario
-                val knownCosts =
-                    listOf(scenario.positioningGbp, scenario.hotelsGbp, scenario.groundTransfersGbp, scenario.baggageGbp)
-                val complete = knownCosts.all { it != null }
-                val finalPrice =
-                    if (fare != null && complete && itinerary.sourceLabel == "live") {
-                        fare + knownCosts.filterNotNull().sum()
-                    } else {
-                        null
-                    }
-                BatchRow(
-                    signature = entry.signature,
-                    origin = itinerary.origin,
-                    destination = itinerary.destination,
-                    date = itinerary.outboundDate,
-                    source = itinerary.source,
-                    sourceLabel = itinerary.sourceLabel,
-                    pricePerPersonGbp = itinerary.pricePerPerson,
-                    partyFareGbp = fare,
-                    allInGbp = finalPrice,
-                    expenseEvidence = if (complete) "User-supplied whole-party costs" else "Incomplete positioning or bag costs",
-                    retrievedAt = itinerary.fetchedAt,
-                    journeyType = if (itinerary.returning == null) "one_way" else "round_trip",
-                )
-            }
+                val result = sink.load(entry.signature)?.result ?: return@flatMap emptyList()
+                result.itineraries.map { itinerary ->
+                    val fare = itinerary.pricePerPerson?.let { it * itinerary.passengers }
+                    val scenario = entry.scenario
+                    val knownCosts =
+                        listOf(scenario.positioningGbp, scenario.hotelsGbp, scenario.groundTransfersGbp, scenario.baggageGbp)
+                    val complete = knownCosts.all { it != null }
+                    val finalPrice =
+                        if (fare != null && complete && itinerary.sourceLabel == "live") {
+                            fare + knownCosts.filterNotNull().sum()
+                        } else {
+                            null
+                        }
+                    BatchRow(
+                        signature = entry.signature,
+                        origin = itinerary.origin,
+                        destination = itinerary.destination,
+                        date = itinerary.outboundDate,
+                        source = itinerary.source,
+                        sourceLabel = itinerary.sourceLabel,
+                        pricePerPersonGbp = itinerary.pricePerPerson,
+                        partyFareGbp = fare,
+                        allInGbp = finalPrice,
+                        expenseEvidence = if (complete) "User-supplied whole-party costs" else "Incomplete positioning or bag costs",
+                        retrievedAt = itinerary.fetchedAt,
+                        journeyType = if (itinerary.returning == null) "one_way" else "round_trip",
+                    )
+                }
             }
         return rows.sortedWith(compareBy({ it.allInGbp == null }, { it.allInGbp ?: Double.MAX_VALUE }, { it.date }))
     }
