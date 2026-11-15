@@ -78,7 +78,11 @@ class FareEstimateCommand : Callable<Int> {
     @Option(names = ["--providers"], defaultValue = "serpapi,searchapi,travelpayouts,duffel")
     var providers: String = "serpapi,searchapi,travelpayouts,duffel"
 
-    @Option(names = ["--exclude-airlines"], defaultValue = "LO", description = ["Blocked airline codes (comma-separated; empty to allow LOT)"])
+    @Option(
+        names = ["--exclude-airlines"],
+        defaultValue = "LO",
+        description = ["Blocked airline codes (comma-separated; empty to allow LOT)"],
+    )
     var excludedAirlines: String = "LO"
 
     @Option(names = ["--nonstop"], description = ["Nonstop only"])
@@ -141,7 +145,11 @@ class FareFetchCommand : Callable<Int> {
     @Option(names = ["--providers"], defaultValue = "serpapi,searchapi,travelpayouts,duffel")
     var providers: String = "serpapi,searchapi,travelpayouts,duffel"
 
-    @Option(names = ["--exclude-airlines"], defaultValue = "LO", description = ["Blocked airline codes (comma-separated; empty to allow LOT)"])
+    @Option(
+        names = ["--exclude-airlines"],
+        defaultValue = "LO",
+        description = ["Blocked airline codes (comma-separated; empty to allow LOT)"],
+    )
     var excludedAirlines: String = "LO"
 
     @Option(names = ["--nonstop"])
