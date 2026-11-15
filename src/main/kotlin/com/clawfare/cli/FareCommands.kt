@@ -141,6 +141,7 @@ class FareBatchReportCommand : Callable<Int> {
         parent.parent.parent.ensureDb()
         val config = AppJson.decodeFromString(BatchConfig.serializer(), File(file).readText())
         val rows = BatchSweep.compare(config, FareStore)
+
         fun cell(value: Any?): String = "\"" + value.toString().replace("\"", "\"\"") + "\""
         val fields =
             listOf(
