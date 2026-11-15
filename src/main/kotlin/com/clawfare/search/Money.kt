@@ -107,7 +107,7 @@ object VendorMath {
             }
             if (q.outbound.isNotEmpty() && q.inbound.isNotEmpty()) {
                 val outBest = q.outbound.minBy { it.value.price + bagFee(market, it.value.bags, 1, checkedBags, passengers) }
-                val backBest = q.inbound.minBy { it.value.price + bagFee(market, it.value.bags, 1, checkedBags) }
+                val backBest = q.inbound.minBy { it.value.price + bagFee(market, it.value.bags, 1, checkedBags, passengers) }
                 val mixName = "Mix (any vendor): ${outBest.key} out + ${backBest.key} back"
                 val worst = worseTrust(trustOf(outBest.key).second, trustOf(backBest.key).second)
                 out +=
