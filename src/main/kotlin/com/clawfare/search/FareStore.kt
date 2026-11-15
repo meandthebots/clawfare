@@ -338,11 +338,15 @@ object FareStore : FareSink {
             }
         // Existing provider records from before this migration keep their history.
         val old = FlightQueries.getById(FlightValidator.generateId(share))
+        val oldDisplayId = old?.displayId
+        val sameLegacyProduct =
+            oldDisplayId != null &&
+                (oldDisplayId == itinerary.id ||
+                    itinerary.id.startsWith(itinerary.source + "-" + oldDisplayId + "-"))
         val offerIdentity =
             if (old != null &&
                 old.source == itinerary.source &&
-                (old.displayId == itinerary.id ||
-                    (old.displayId != null && itinerary.id.startsWith("${itinerary.source}-${old.displayId}-"))) &&
+                sameLegacyProduct &&
                 old.fareBrand.orEmpty() == itinerary.fareBrand.orEmpty()
             ) {
                 null
