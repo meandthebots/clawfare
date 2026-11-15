@@ -116,7 +116,8 @@ fun Application.clawfareModule() {
         }
         post("/api/estimate") {
             val query = call.receive<SearchQuery>()
-            call.respond(service.estimate(query))
+            val estimate = withContext(Dispatchers.IO) { service.estimate(query, includeQuota = true) }
+            call.respond(estimate)
         }
         post("/api/search") {
             val query = call.receive<SearchQuery>()
