@@ -23,6 +23,14 @@ data class SearchQuery(
     /** Default traveller preference. Set to an empty list to include LOT. */
     val excludedAirlines: List<String> = listOf("LO"),
     val currency: String = "GBP",
+    /** Google Flights country market, e.g. uk, fr, de, nl, dk. */
+    val market: String = "uk",
+    /** Connection airports to exclude even when their country is unknown. */
+    val excludedTransitAirports: List<String> = emptyList(),
+    /** ISO country/region codes; unknown connection airports fail closed. */
+    val excludedTransitCountries: List<String> = emptyList(),
+    /** Hard cap including return-lookup upper bound; null is unrestricted. */
+    val maxLiveCalls: Int? = null,
     val providers: List<String> = listOf("serpapi", "searchapi", "travelpayouts", "duffel"),
     val nonstopOnly: Boolean = false,
     /** How many cheapest outbounds per date-pair to expand with a return lookup. */
