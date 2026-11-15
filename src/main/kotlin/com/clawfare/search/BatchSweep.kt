@@ -22,6 +22,8 @@ data class BatchConfig(
     val scenarios: List<BatchScenario>,
     /** Maximum possible provider network calls, including return lookup upper bounds. */
     val maxLiveCalls: Int = 0,
+    /** Watch-only UTC-day cap. Defaults to maxLiveCalls (one full allocation per day). */
+    val maxDailyLiveCalls: Int? = null,
     /** Reserve this much remaining quota at each reporting provider. */
     val minQuotaReserve: Int = 0,
     /** Reject execution if a configured provider cannot report numeric quota. */
