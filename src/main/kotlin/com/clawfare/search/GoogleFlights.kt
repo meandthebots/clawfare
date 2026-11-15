@@ -441,7 +441,9 @@ class GoogleFlightsProvider(
         val built =
             assembleItinerary(
                 id = productId,
-                pricePerPerson = price,
+                // Google Flights fare totals are for the requested party; the grid
+                // and the persisted flight price are explicitly per adult.
+                pricePerPerson = price?.div(query.adults.coerceAtLeast(1)),
                 priceCurrency = query.currency,
                 passengers = query.adults,
                 cabinRaw = query.cabin,
