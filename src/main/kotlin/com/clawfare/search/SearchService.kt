@@ -57,8 +57,15 @@ class SearchService(
         if ("duffel" in q.providers) warnings += "Duffel prices are mocks and are not quoted as real fares."
         if ("travelpayouts" in q.providers) warnings += "Travelpayouts fares are cached calendar prices, not a live search."
         if (selected(q).isEmpty()) warnings += "Pick at least one provider, or open the Florida sample."
+        if (q.excludedAirlines.isNotEmpty()) {
+            warnings += "Excluded marketing/operating airlines: ${q.excludedAirlines.joinToString(", ")}."
+        }
         val shown = if (lines.size > 40) lines.take(40) + "… and ${lines.size - 40} more" else lines
-        return Estimate(live, cached, skipped, returns, shown, warnings)
+        val quota =
+            selected(q).map { provider ->
+                QuotaView(provider.id, provider.configured, note = "Remaining quota not queried; use fare quota.")
+            }
+        return Estimate(live, cached, skipped, returns, shown, warnings, quota)
     }
 
     fun search(query: SearchQuery): SearchResponse {
@@ -83,7 +90,14 @@ class SearchService(
                 }
             warnings += outcome.warnings
             for ((id, token) in outcome.tokens) tokens[id] = token
-            found += outcome.itineraries
+            // Enforce exclusions before storing, ranking or exporting provider results.
+            // These preferences are independent of the browser's display-only filters.
+            val restricted = FilterSpec(airlineBlock = q.excludedAirlines)
+            val eligible = outcome.itineraries.filter { Filters.matches(it, restricted) }
+            if (eligible.size != outcome.itineraries.size) {
+                warnings += "${outcome.itineraries.size - eligible.size} fares excluded by airline preference."
+            }
+            found += eligible
         }
         val (itineraries, keptTokens) = dedupe(found, tokens)
         val id =
