@@ -215,7 +215,7 @@ class SearchService(
                     listOf(
                         NoteCard(
                             "Sellers",
-                            "Seller prices and all-in GBP are totals for ${itinerary.passengers} adult(s), unlike the itinerary grid, which displays per-person fares. The baggage estimate includes ${stored.result.checkedBags} checked bag(s) per adult. Where Google listed a first-bag fee, that fee is used; otherwise an illustrative US\$30 per bag per direction fallback is applied (verify actual airline baggage terms).",
+                            "Seller prices and all-in GBP are totals for ${itinerary.passengers} adult(s), unlike the itinerary grid, which displays per-person fares. The baggage estimate includes ${stored.result.checkedBags} checked bag(s) per adult. Where Google lists bag fees for every requested checked bag, they are estimated per person and direction. Unknown bag charges remain unverified and are excluded from all-in ranking.",
                         ),
                         NoteCard(
                             "Reputation",
