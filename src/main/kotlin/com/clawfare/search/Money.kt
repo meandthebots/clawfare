@@ -67,6 +67,7 @@ data class SellerQuote(
     val price: Double,
     val bags: String,
     val title: String? = null,
+    val optionId: String? = null,
 )
 
 object VendorMath {
@@ -149,7 +150,7 @@ object VendorMath {
                     .filterValues { knownBagFee(it.bags, 1, checkedBags, passengers) != null }
                     .minByOrNull { it.value.price + knownBagFee(it.value.bags, 1, checkedBags, passengers)!! }
             if (outBest != null && backBest != null) {
-                val mixName = "Mix (any vendor): ${outBest.key} out + ${backBest.key} back"
+                val mixName = "Mix (any vendor): ${outBest.value.vendor} out + ${backBest.value.vendor} back"
                 val worst = worseTrust(trustOf(outBest.key).second, trustOf(backBest.key).second)
                 out +=
                     row(
@@ -183,11 +184,12 @@ object VendorMath {
         fetchedAt: String?,
         passengers: Int,
     ): VendorRow {
+        val displayVendor = (rt ?: ow ?: back)?.vendor ?: vendor
         val base =
-            vendor.substringBefore(" — ").substringBefore(" out +").let {
+            displayVendor.substringBefore(" — ").substringBefore(" out +").let {
                 if (vendor.startsWith("Mix")) vendor.substringAfter(": ").substringBefore(" out +") else it
             }
-        val (type, trust) = if (trustOverride != null) "OTA" to trustOverride else trustOf(if (mix) base else vendor.substringBefore(" — "))
+        val (type, trust) = if (trustOverride != null) "OTA" to trustOverride else trustOf(base)
         val rtb = rt?.let { quote -> knownBagFee(quote.bags, 2, checkedBags, passengers)?.let { quote.price + it } }
         val sb =
             if (ow != null && back != null) {
@@ -201,7 +203,7 @@ object VendorMath {
         val bags = (rt ?: ow ?: back)?.bags.orEmpty()
         val brand = (rt ?: ow ?: back)?.title
         return VendorRow(
-            vendor = vendor,
+            vendor = displayVendor,
             market = market,
             marketLabel = MARKET_LABELS[market] ?: market.uppercase(),
             currency = Fx.currencyOf(market),
