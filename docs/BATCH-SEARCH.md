@@ -126,3 +126,23 @@ or malformed audit journals are not silently treated as complete. This is
 budget remains conservative; see #19 for durable per-provider billing.
 Older journals without provider observations show `legacy_unknown` rather
 than falsely displaying zero fares. Only synthetic tests belong in CI.
+
+
+### Offer-aware price alerts (issue #20)
+
+The one-shot watcher now computes a stable, non-reversible product identity
+from the provider, route, dated segments, party, cabin, fare brand and policy
+key. Changing fare brand or flight does not generate a false price drop on the
+old fare. Component-cost assumptions are independently fingerprinted, and
+changes to those assumptions are suppressed as airfare alerts. A conversion
+change without a change in the fare's source-currency price is counted as
+`suppressedFxOnlyChanges`, not described as a new airline discount. An
+expired offer is not eligible for a fresh price alert.
+
+A private NDJSON journal stores deterministic alert IDs, checked before
+appending each new event. Corrupt journals fail closed rather than replaying
+duplicate alerts. This is an **observation** system: it does not assert fare
+availability or a refund to the original payment method, and it does not send
+notifications. Some provider data still lacks a stable seller identifier,
+so exact airline/OTA product reconciliation and verified refund alerts remain
+separate work under issues #12, #13 and #20.

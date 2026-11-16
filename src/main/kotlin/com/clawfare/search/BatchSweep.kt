@@ -60,6 +60,13 @@ data class BatchRow(
     val expenseEvidence: String,
     val retrievedAt: String?,
     val journeyType: String,
+    /** Stable within a query across offer-price and FX changes; deliberately excludes transient provider IDs. */
+    val productKey: String = "",
+    /** Expense assumptions are compared separately so cost-input changes do not trigger airfare alerts. */
+    val expensesKey: String = "",
+    val priceCurrency: String = "GBP",
+    val sourcePricePerPerson: Double? = null,
+    val offerExpiresAt: String? = null,
 )
 
 @Serializable
@@ -354,6 +361,28 @@ object BatchSweep {
                         } else {
                             null
                         }
+                    val legs = itinerary.outbound.legs + itinerary.returning?.legs.orEmpty()
+                    val identity =
+                        listOf(
+                            entry.signature,
+                            itinerary.source,
+                            itinerary.fareBrand.orEmpty(),
+                            itinerary.farePolicyKey.orEmpty(),
+                            itinerary.cabinKey,
+                            itinerary.passengers.toString(),
+                            itinerary.outboundDate,
+                            itinerary.returnDate.orEmpty(),
+                            legs.joinToString(";") {
+                                "${it.flightNumber}:${it.from}:${it.to}:${it.departDate}:${it.departTime}"
+                            },
+                        ).joinToString("|")
+                    val assumptions =
+                        listOf(
+                            scenario.positioningGbp,
+                            scenario.hotelsGbp,
+                            scenario.groundTransfersGbp,
+                            scenario.baggageGbp,
+                        ).joinToString("|")
                     BatchRow(
                         signature = entry.signature,
                         origin = itinerary.origin,
@@ -367,6 +396,11 @@ object BatchSweep {
                         expenseEvidence = if (complete) "User-supplied whole-party costs" else "Incomplete positioning or bag costs",
                         retrievedAt = itinerary.fetchedAt,
                         journeyType = if (itinerary.returning == null) "one_way" else "round_trip",
+                        productKey = sha256(identity),
+                        expensesKey = sha256(assumptions),
+                        priceCurrency = itinerary.priceCurrency,
+                        sourcePricePerPerson = itinerary.priceOriginal ?: itinerary.pricePerPerson,
+                        offerExpiresAt = itinerary.refundEvidence?.expiresAt,
                     )
                 }
             }

@@ -51,6 +51,9 @@ class FareWatchTest {
         var remaining = 50
         var price = 1600.0
         var calls = 0
+        var fareBrand = "Basic"
+        var currency = "GBP"
+        var originalPrice: Double? = null
 
         override fun quota(): QuotaView = QuotaView(id, true, remaining = remaining)
 
@@ -66,6 +69,9 @@ class FareWatchTest {
                 SampleData.florida().itineraries.first().copy(
                     id = "scripted",
                     pricePerPerson = price,
+                    priceOriginal = originalPrice,
+                    priceCurrency = currency,
+                    fareBrand = fareBrand,
                     source = id,
                     sourceLabel = "live",
                     fetchedAt = Instant.now().toString(),
@@ -128,6 +134,78 @@ class FareWatchTest {
         assertEquals(2, dir.resolve("alerts.ndjson").readLines().size)
         assertFailsWith<IllegalArgumentException> { cycle() }
         assertEquals(3, source.calls)
+    }
+
+    @Test
+    fun differentFareBrandIsNotReportedAsAPriceDropAndIdsAreDurable() {
+        val source = Scripted()
+        val sink = MemorySink()
+        val dir =
+            File.createTempFile("watch-products", "").apply {
+                delete()
+                mkdirs()
+            }
+        val service = SearchService(listOf(source), DiskCache(dir), sink)
+        val journal = dir.resolve("alerts.ndjson")
+        val privateConfig = config.copy(maxDailyLiveCalls = 4)
+
+        fun run() =
+            FareWatch.runOnce(
+                privateConfig,
+                service,
+                sink,
+                dir.resolve("watch.lock"),
+                dir.resolve("audit.ndjson"),
+                journal,
+                100.0,
+                confirmed = true,
+            )
+
+        val initial = run().alerts.single()
+        source.fareBrand = "Flex"
+        source.price = 1200.0
+        val changed = run().alerts.single()
+        assertEquals("new_quote", changed.reason)
+        assertEquals(null, changed.changeGbp)
+        assertTrue(initial.alertId != changed.alertId)
+
+        // Rewinding saved search history cannot resurrect a delivered alert.
+        sink.records.clear()
+        val repeated = run()
+        assertTrue(repeated.alerts.isEmpty())
+        assertEquals(2, journal.readLines().size)
+    }
+
+    @Test
+    fun unchangedOriginalCurrencyFareSuppressesFxOnlyRevaluation() {
+        val source = Scripted()
+        source.currency = "EUR"
+        source.originalPrice = 1400.0
+        val sink = MemorySink()
+        val dir =
+            File.createTempFile("watch-fx", "").apply {
+                delete()
+                mkdirs()
+            }
+        val service = SearchService(listOf(source), DiskCache(dir), sink)
+
+        fun run() =
+            FareWatch.runOnce(
+                config,
+                service,
+                sink,
+                dir.resolve("watch.lock"),
+                dir.resolve("audit.ndjson"),
+                dir.resolve("alerts.ndjson"),
+                100.0,
+                confirmed = true,
+            )
+
+        assertEquals(1, run().alerts.size)
+        source.price = 1250.0
+        val fxOnly = run()
+        assertTrue(fxOnly.alerts.isEmpty())
+        assertEquals(1, fxOnly.suppressedFxOnlyChanges)
     }
 
     @Test
