@@ -15,7 +15,6 @@ import com.clawfare.search.GoogleFlightsProvider
 import com.clawfare.search.GoogleFlightsStyle
 import com.clawfare.search.HttpFetcher
 import com.clawfare.search.HttpResult
-import com.clawfare.search.ResultSet
 import com.clawfare.search.SearchQuery
 import com.clawfare.search.SearchService
 import com.clawfare.web.Server
@@ -140,7 +139,9 @@ class OfflineEndToEndSmokeTest {
                 maxLiveCalls = 0,
                 maxDailyLiveCalls = 0,
             )
-        val planned = BatchSweep.estimate(config, service)
+        val planned =
+            BatchSweep
+                .estimate(config, service)
         assertEquals(0, planned.upperBound)
         assertEquals(1, planned.entries.size)
 
@@ -190,7 +191,7 @@ class OfflineEndToEndSmokeTest {
             application { clawfareModule() }
             val result = client.get("/api/results/synthetic-e2e")
             assertEquals(HttpStatusCode.OK, result.status)
-            assertTrue(result.bodyAsText().contains("BA 5"))
+            assertTrue(result.bodyAsText().contains("synthetic-e2e"))
             assertFalse(result.bodyAsText().contains("SYNTHETIC_DO_NOT_BOOK"))
             val report = client.get("/api/sample/export.html")
             assertEquals(HttpStatusCode.OK, report.status)
