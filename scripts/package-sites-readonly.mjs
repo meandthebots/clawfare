@@ -69,7 +69,9 @@ write("server/kotlin/fare-core.cjs", readFileSync(join(webpackDir, webpackFiles[
 const workerSource = [
   'import { createClawfareWorkerFactory } from "./src/worker-factory.mjs";',
   'import compiledKotlin from "./kotlin/fare-core.cjs";',
-  "const templateHtml = " + JSON.stringify(html) + ";",
+  // The Fetch handler injects hosted mode itself. Use unmodified Kotlin
+  // HTML here to prevent rendering twice; public/index.html is pre-injected.
+  "const templateHtml = " + JSON.stringify(readFileSync(htmlSource, "utf8")) + ";",
   "const bundledPublicSample = " + JSON.stringify(sample) + ";",
   "export const clawfareSitesWorker = createClawfareWorkerFactory({ templateHtml, bundledPublicSample, kotlinBundle: compiledKotlin });",
   "export const createTrustedWorker = options => clawfareSitesWorker.createTrustedWorker(options);",
