@@ -1,0 +1,21 @@
+name: Hosted D1 quota safety
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'sites-runtime/**'
+      - '.github/workflows/sites-d1-budget.yml'
+
+jobs:
+  quota-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exercise hosted adapter and URL classification
+        run: node --test sites-runtime/tests/provider-http-budget.test.mjs
+      - name: Test D1 SQL against SQLite, including concurrent writers
+        run: python3 -m unittest discover -s sites-runtime/tests -p 'test_*.py' -v
