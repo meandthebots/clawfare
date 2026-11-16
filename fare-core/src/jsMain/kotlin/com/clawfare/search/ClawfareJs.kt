@@ -18,6 +18,15 @@ object ClawfareJs {
     }
 
     /**
+     * Returns normalized search settings, validated local date pairs and an
+     * optional error. No provider request or cost reservation occurs here.
+     */
+    fun planSearchJson(queryJson: String): String {
+        val query = AppJson.decodeFromString(SearchQuery.serializer(), queryJson)
+        return AppJson.encodeToString(FlightSearchPlan.serializer(), planFlightSearch(query))
+    }
+
+    /**
      * Derive a purely informational provider-call upper bound. The HTTP
      * adapter must still enforce authenticated consent and durable reservation.
      */
