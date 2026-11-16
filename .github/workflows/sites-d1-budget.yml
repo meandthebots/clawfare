@@ -1,4 +1,4 @@
-name: Hosted D1 quota safety
+name: Hosted D1 storage safety
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Exercise hosted adapter and URL classification
-        run: node --test sites-runtime/tests/provider-http-budget.test.mjs
-      - name: Test D1 SQL against SQLite, including concurrent writers
+      - name: Exercise hosted adapters and URL classification
+        run: node --test sites-runtime/tests/*.test.mjs
+      - name: Test D1 SQL against SQLite, including concurrent writers and tenant isolation
         run: python3 -m unittest discover -s sites-runtime/tests -p 'test_*.py' -v
