@@ -229,6 +229,7 @@ class FareBatchReportCommand : Callable<Int> {
                 "partyFareGbp",
                 "allInGbp",
                 "expenseEvidence",
+                "costScope",
                 "retrievedAt",
                 "journeyType",
                 "ticketUseMode",
@@ -253,6 +254,7 @@ class FareBatchReportCommand : Callable<Int> {
                             row.partyFareGbp,
                             row.allInGbp,
                             row.expenseEvidence,
+                            row.costScope,
                             row.retrievedAt,
                             row.journeyType,
                             row.ticketUseMode,
@@ -266,7 +268,7 @@ class FareBatchReportCommand : Callable<Int> {
                 }
             }
         File(out).writeText(csv)
-        println("Exported ${rows.size} observations to $out. Unknown all-in costs stay blank.")
+        println("Exported ${rows.size} scoped fare comparisons to $out. Unknown required costs stay blank.")
         return 0
     }
 }
