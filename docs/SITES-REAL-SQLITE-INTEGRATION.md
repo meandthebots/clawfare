@@ -22,7 +22,10 @@ as a **test adapter** exposing D1's prepared-statement methods. It applies the
 exact production migration SQL to an in-memory SQLite database with foreign
 keys on; there are no stubbed rows and no live provider requests. It:
 
-- Imports Kotlin-generated sample JSON and validates read-time integrity.
+- Begins with the D1 public fixture table **empty**, then imports the fixed
+  Kotlin-generated sample only during the first authenticated GET, with
+  atomic conflict-safe SQL and verified readback. Concurrent first requests
+  cannot overwrite existing records; signed-out requests do not write.
 - Loads compiled Kotlin/JS and calls shared query normalization, leap-day
   flight date planning, paid-call budgeting, and GBP conversion.
 - Serves the real existing Kotlin HTML in explicit Sites read-only mode.
@@ -48,10 +51,12 @@ identity and verify that caller-controlled headers are stripped, overwritten,
 or cannot bypass sign-in. Never copy the test callback into a public worker.
 
 ChatGPT Sites must provision the Site's project and D1 binding and apply
-migrations 0001–0003. A trusted server-only bootstrap should call
-`bootstrapPublicSample` with the public Kotlin ResultSet (no public import
-route). Configure the stable `OWNER_KEY_SECRET` through Site Settings,
-not repository code. The Site's hosted runtime must load the HTML and
+migrations 0001–0003 during a reviewed deployment. If a separate trusted
+pre-deployment D1 seed operation is unavailable, bind the fixed Kotlin
+`server/fixtures/clawfare-sample.json` as the `bundledPublicSample`
+option on the server's Fetch handler. Its first authenticated sample GET
+initializes exactly that record with no public import route. Configure the
+stable `OWNER_KEY_SECRET` through Site Settings, not repository code. The Site's hosted runtime must load the HTML and
 implement the platform's authenticated route ingress, then use
 `createReadOnlySitesHandler`. Save a version for review; **do not deploy
 or allow paid provider calls until the live identity and D1 integration

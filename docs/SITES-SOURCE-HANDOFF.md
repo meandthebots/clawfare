@@ -45,18 +45,31 @@ Sites project ID.
    `oai-authenticated-user-email` header on a publicly reachable Worker.
    Before enabling site access, verify that Sites sign-in controls the header
    and that visitors cannot spoof the identity or bypass the gate.
-5. In a trusted setup/migration step only, import
-   `server/fixtures/clawfare-sample.json` using `bootstrapPublicSample`
-   after running the migrations. Do not expose an HTTP import endpoint.
+5. Sites may apply D1 migrations **only when a version is deployed**.
+   If there is no trusted pre-deployment D1 seed action, supply the canonical
+   Kotlin `server/fixtures/clawfare-sample.json` to
+   `createReadOnlySitesHandler` as the **server-only**
+   `bundledPublicSample` option. On the first *authenticated*
+   `GET /api/sample` after migration, the handler validates the fixed
+   fixture and inserts it with `INSERT ... ON CONFLICT DO NOTHING`.
+   It checks integrity on readback and never overwrites a previous version
+   or repairs a corrupt record. It is never sourced from HTTP input.
+   A trusted admin bootstrap using `bootstrapPublicSample` remains available
+   if Sites exposes such an action, but is no longer required for the sample.
+   Neither path exposes a public import route.
 6. Serve the packaged `public/index.html` and route all `/api/*` requests
    through the authenticated Fetch handler. Route native
    `/signin-with-chatgpt` and `/signout-with-chatgpt` to Sites.
    Deny all unsupported requests by default.
-7. **Save a version for review without deploying**. Check its build logs,
-   code compatibility, D1 schema, sample data integrity, signed-in sample
-   display, grid/filter interactions, and user-private saved searches.
-8. Only after tests pass, deploy privately and confirm sharing is restricted
-   to the owner (and any workspace admins). Do not enable paid search.
+7. **Save a version for review without deploying**. Verify its build
+   logs, bundled fixture, Kotlin UI, code compatibility, and disabled paid
+   routes locally. Do not claim real hosted D1/auth/browser validation for an
+   undeployed version; the hosting platform cannot yet serve the site.
+8. After explicit owner approval, deploy **owner-only**, then verify the
+   real Sites sign-in gate, native D1 schema/first-request sample seed, UI
+   behavior and cross-tenant data access before expanding access. Publishing
+   can mutate D1, and restoring old code does not restore the database.
+   Do not enable paid search.
 
 ## Mandatory checks before accepting the site
 
@@ -71,11 +84,28 @@ Sites project ID.
 - No provider HTTP requests, credentials or order/payment requests are
   reachable in this build; provider caps remain zero/unconfigured.
 - Kotlin sample prices are explicitly labelled **sample/saved**, not live.
-- Migration/seed retries are safe and do not duplicate the fixture.
+- Migration/seed retries are safe and do not duplicate the fixture. The
+  first authenticated sample GET is permitted to perform only the fixed,
+  idempotent public-fixture initialization; corrupt or mismatched existing
+  records must fail closed and require explicit operator migration.
 - On Android and desktop, open the sample, apply filters, switch grid/table
   views and inspect details. Saved searches persist across reloads.
 - Verify a generated saved version against its Git commit and inspect D1
   data before promoting it. Site version rollback does **not** roll back D1.
+
+## Known status of owner-only version 1 (16 November 2026)
+
+The Work session saved version 1 without deploying. The source/hashes and
+offline SQLite simulation passed, but Sites did **not** expose pre-deploy D1
+provisioning/seed actions. The actual sign-in forwarding, spoof resistance,
+hosted D1 persistence, cross-user isolation and browser flows remain
+unverified. Do not mark version 1 deployment-ready merely because tests
+passed locally.
+
+Use a newer Git commit/source artifact that includes the automatic
+server-side sample bootstrap, save version 2 for review, and keep it
+undeployed until the owner explicitly approves a restricted deployment.
+Only the hosted version can validate the real platform gateway and D1.
 
 ## Local proof available before Sites provisioning
 
