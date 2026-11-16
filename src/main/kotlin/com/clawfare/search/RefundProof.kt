@@ -49,12 +49,14 @@ data class SellerRefundProof(
             return false
         }
         val source = runCatching { URI(termsSourceUrl) }.getOrNull() ?: return false
-        if (source.scheme != "https" || source.host.isNullOrBlank() || source.userInfo != null ||
-            source.rawQuery != null || source.rawFragment != null
-        ) {
-            // Exact source links with auth/booking tokens must not be stored.
-            return false
-        }
+        val publicTermsSource =
+            source.scheme == "https" &&
+                !source.host.isNullOrBlank() &&
+                source.userInfo == null &&
+                source.rawQuery == null &&
+                source.rawFragment == null
+        // Exact source links with auth/booking tokens must not be stored.
+        if (!publicTermsSource) return false
         val reviewed = reviewedAt.asInstant() ?: return false
         val expiry = expiresAt.asInstant() ?: return false
         val cancellationDeadline = cancellationDeadlineAt.asInstant() ?: return false
