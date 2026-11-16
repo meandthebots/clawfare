@@ -69,7 +69,10 @@ class ServerTest {
             assertTrue(quota.bodyAsText().contains("serpapi"))
             assertFalse(quota.bodyAsText().contains("api_key"))
 
-            val session = client.get("/api/session")
+            val session =
+                client.get("/api/session") {
+                    header("Host", "127.0.0.1:8080")
+                }
             assertEquals(HttpStatusCode.OK, session.status)
             val sessionToken =
                 Regex(""""token":"([^"]+)"""").find(session.bodyAsText())?.groupValues?.get(1)
@@ -77,6 +80,7 @@ class ServerTest {
 
             val noToken =
                 client.post("/api/search") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
                     setBody("""{"cacheOnly":true}""")
                 }
@@ -84,6 +88,7 @@ class ServerTest {
 
             val wrongOrigin =
                 client.post("/api/results/florida-dec-2026/track") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
                     header("X-Clawfare-Session", sessionToken)
                     header("Origin", "https://outside.example")
@@ -93,6 +98,7 @@ class ServerTest {
 
             val estimate =
                 client.post("/api/estimate") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
                     header("X-Clawfare-Session", sessionToken)
                     setBody(
@@ -104,6 +110,7 @@ class ServerTest {
 
             val search =
                 client.post("/api/search") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
                     header("X-Clawfare-Session", sessionToken)
                     setBody(
@@ -115,6 +122,7 @@ class ServerTest {
 
             val sellers =
                 client.post("/api/results/florida-dec-2026/vendors") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
                     header("X-Clawfare-Session", sessionToken)
                     setBody("""{"itineraryId":"H","markets":["uk"],"cacheOnly":true}""")
@@ -124,6 +132,7 @@ class ServerTest {
 
             val tracked =
                 client.post("/api/results/florida-dec-2026/track") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
                     header("X-Clawfare-Session", sessionToken)
                     setBody("""{"itineraryId":"11","tripSlug":"tracked-ba"}""")
@@ -133,6 +142,7 @@ class ServerTest {
 
             val badTrack =
                 client.post("/api/results/florida-dec-2026/track") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
                     header("X-Clawfare-Session", sessionToken)
                     setBody("""{"itineraryId":"missing","tripSlug":"nope"}""")
@@ -141,6 +151,7 @@ class ServerTest {
 
             val csv =
                 client.post("/api/export/csv") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
                     header("X-Clawfare-Session", sessionToken)
                     setBody("""{"result":{"id":"florida-dec-2026","title":"Florida"},"kind":"itineraries"}""")
