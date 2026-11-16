@@ -14,6 +14,8 @@ data class BatchScenario(
     val hotelsGbp: Double? = null,
     val groundTransfersGbp: Double? = null,
     val baggageGbp: Double? = null,
+    /** Optional hypothetical coupon-use strategy; never an instruction to cancel or no-show. */
+    val ticketUsePlan: TicketUsePlan? = null,
 )
 
 @Serializable
@@ -67,6 +69,12 @@ data class BatchRow(
     val priceCurrency: String = "GBP",
     val sourcePricePerPerson: Double? = null,
     val offerExpiresAt: String? = null,
+    val ticketUseMode: String? = null,
+    val ticketUseState: String? = null,
+    /** Null when post-departure refund, repricing or no-show consequence is unknown. */
+    val netPartyTicketGbp: Double? = null,
+    val travellerCashRefundGbp: Double? = null,
+    val ticketUseNote: String? = null,
 )
 
 @Serializable
@@ -352,12 +360,14 @@ object BatchSweep {
                 result.itineraries.map { itinerary ->
                     val fare = itinerary.pricePerPerson?.let { it * itinerary.passengers }
                     val scenario = entry.scenario
+                    val useOutcome = scenario.ticketUsePlan?.let { TicketUse.evaluate(itinerary, it) }
+                    val effectiveFare = useOutcome?.netTicketGbp ?: if (scenario.ticketUsePlan == null) fare else null
                     val knownCosts =
                         listOf(scenario.positioningGbp, scenario.hotelsGbp, scenario.groundTransfersGbp, scenario.baggageGbp)
                     val complete = knownCosts.all { it != null }
                     val finalPrice =
-                        if (fare != null && complete && itinerary.sourceLabel == "live") {
-                            fare + knownCosts.filterNotNull().sum()
+                        if (effectiveFare != null && complete && itinerary.sourceLabel == "live") {
+                            effectiveFare + knownCosts.filterNotNull().sum()
                         } else {
                             null
                         }
@@ -382,6 +392,7 @@ object BatchSweep {
                             scenario.hotelsGbp,
                             scenario.groundTransfersGbp,
                             scenario.baggageGbp,
+                            scenario.ticketUsePlan?.let { AppJson.encodeToString(TicketUsePlan.serializer(), it) },
                         ).joinToString("|")
                     BatchRow(
                         signature = entry.signature,
@@ -393,7 +404,9 @@ object BatchSweep {
                         pricePerPersonGbp = itinerary.pricePerPerson,
                         partyFareGbp = fare,
                         allInGbp = finalPrice,
-                        expenseEvidence = if (complete) "User-supplied whole-party costs" else "Incomplete positioning or bag costs",
+                        expenseEvidence =
+                            (if (complete) "User-supplied whole-party costs" else "Incomplete positioning or bag costs") +
+                                (useOutcome?.let { "; ${it.note}" } ?: ""),
                         retrievedAt = itinerary.fetchedAt,
                         journeyType = if (itinerary.returning == null) "one_way" else "round_trip",
                         productKey = sha256(identity),
@@ -401,6 +414,11 @@ object BatchSweep {
                         priceCurrency = itinerary.priceCurrency,
                         sourcePricePerPerson = itinerary.priceOriginal ?: itinerary.pricePerPerson,
                         offerExpiresAt = itinerary.refundEvidence?.expiresAt,
+                        ticketUseMode = scenario.ticketUsePlan?.mode,
+                        ticketUseState = useOutcome?.state,
+                        netPartyTicketGbp = useOutcome?.netTicketGbp,
+                        travellerCashRefundGbp = useOutcome?.travellerCashRefundGbp,
+                        ticketUseNote = useOutcome?.note,
                     )
                 }
             }
