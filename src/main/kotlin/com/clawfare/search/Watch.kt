@@ -124,50 +124,50 @@ object FareWatch {
                                     }.getOrDefault(false)
                                 } == true
                         }.mapNotNull { row ->
-                        val before = previousByProduct[row.productKey]
-                        if (before != null && before.expensesKey != row.expensesKey) {
-                            expenseOnlyChanges++
-                            return@mapNotNull null
-                        }
-                        if (before != null &&
-                            before.priceCurrency == row.priceCurrency &&
-                            row.priceCurrency != "GBP" &&
-                            before.sourcePricePerPerson != null &&
-                            before.sourcePricePerPerson == row.sourcePricePerPerson
-                        ) {
-                            if (before.allInGbp != row.allInGbp) fxOnlyChanges++
-                            return@mapNotNull null
-                        }
-                        if (before != null && before.priceCurrency != row.priceCurrency) return@mapNotNull null
-                        val beforeTotal = before?.allInGbp
-                        val newTotal = row.allInGbp!!
-                        val drop = beforeTotal?.minus(newTotal)
-                        if (beforeTotal != null && (drop == null || drop < thresholdGbp)) return@mapNotNull null
-                        val reason = if (beforeTotal == null) "new_quote" else "price_drop"
-                        val alertId =
-                            sha256(
-                                listOf(
-                                    row.productKey,
-                                    row.expensesKey,
-                                    row.priceCurrency,
-                                    row.sourcePricePerPerson.toString(),
-                                    newTotal.toString(),
-                                    reason,
-                                ).joinToString("|"),
+                            val before = previousByProduct[row.productKey]
+                            if (before != null && before.expensesKey != row.expensesKey) {
+                                expenseOnlyChanges++
+                                return@mapNotNull null
+                            }
+                            if (before != null &&
+                                before.priceCurrency == row.priceCurrency &&
+                                row.priceCurrency != "GBP" &&
+                                before.sourcePricePerPerson != null &&
+                                before.sourcePricePerPerson == row.sourcePricePerPerson
+                            ) {
+                                if (before.allInGbp != row.allInGbp) fxOnlyChanges++
+                                return@mapNotNull null
+                            }
+                            if (before != null && before.priceCurrency != row.priceCurrency) return@mapNotNull null
+                            val beforeTotal = before?.allInGbp
+                            val newTotal = row.allInGbp!!
+                            val drop = beforeTotal?.minus(newTotal)
+                            if (beforeTotal != null && (drop == null || drop < thresholdGbp)) return@mapNotNull null
+                            val reason = if (beforeTotal == null) "new_quote" else "price_drop"
+                            val alertId =
+                                sha256(
+                                    listOf(
+                                        row.productKey,
+                                        row.expensesKey,
+                                        row.priceCurrency,
+                                        row.sourcePricePerPerson.toString(),
+                                        newTotal.toString(),
+                                        reason,
+                                    ).joinToString("|"),
+                                )
+                            WatchAlert(
+                                observedAt = observed.toString(),
+                                investigation = row.signature,
+                                origin = row.origin,
+                                destination = row.destination,
+                                outboundDate = row.date,
+                                oldAllInGbp = beforeTotal,
+                                newAllInGbp = newTotal,
+                                changeGbp = drop,
+                                reason = reason,
+                                alertId = alertId,
                             )
-                        WatchAlert(
-                            observedAt = observed.toString(),
-                            investigation = row.signature,
-                            origin = row.origin,
-                            destination = row.destination,
-                            outboundDate = row.date,
-                            oldAllInGbp = beforeTotal,
-                            newAllInGbp = newTotal,
-                            changeGbp = drop,
-                            reason = reason,
-                            alertId = alertId,
-                        )
-                    }
+                        }
                 // Read the entire durable journal before appending anything; a
                 // partially written/corrupt journal must not cause repeat alerts.
                 val existing =
