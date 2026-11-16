@@ -38,6 +38,20 @@ console.log("Kotlin/JS bundle inspection:", JSON.stringify({
   namespaceKeys: Object.keys(exports?.["fare-core"] ?? {}).slice(0, 20),
   exportType: typeof exports,
 }));
+function describeNamespace(root, path = "", depth = 0, out = []) {
+  if (!root || depth > 6 || out.length >= 20) return out;
+  if (typeof root !== "object" && typeof root !== "function") return out;
+  const keys = Object.getOwnPropertyNames(root).filter(key => !["prototype", "length", "name", "caller", "arguments"].includes(key));
+  out.push({ path: path || "<root>", type: typeof root, keys: keys.slice(0, 12) });
+  for (const key of keys.slice(0, 8)) {
+    if (out.length >= 20) break;
+    let value;
+    try { value = root[key]; } catch { continue; }
+    describeNamespace(value, (path ? path + "." : "") + key, depth + 1, out);
+  }
+  return out;
+}
+console.log("Kotlin/JS namespace tree:", JSON.stringify(describeNamespace(exports)));
 const bridge = locateBridge(exports);
 assert.ok(bridge, "Kotlin/JS ClawfareJs public exports missing from bundled module");
 const raw = JSON.stringify({
