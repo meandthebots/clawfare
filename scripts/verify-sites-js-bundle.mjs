@@ -30,6 +30,13 @@ function locateBridge(obj, depth = 0) {
   }
   return null;
 }
+console.log("Kotlin/JS bundle inspection:", JSON.stringify({
+  byteSize: source.length,
+  hasExportName: source.includes("ClawfareJs"),
+  exportKeys: Object.keys(exports).slice(0, 20),
+  defaultExportKeys: Object.keys(exports?.default ?? {}).slice(0, 20),
+  exportType: typeof exports,
+}));
 const bridge = locateBridge(exports);
 assert.ok(bridge, "Kotlin/JS ClawfareJs public exports missing from bundled module");
 const raw = JSON.stringify({
