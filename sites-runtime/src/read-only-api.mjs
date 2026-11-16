@@ -85,8 +85,11 @@ export async function handleReadOnlyApi(
     return respond({ error: "Sign in with ChatGPT required." }, 401);
   }
 
-  // Misconfigured owner key is a server configuration error, not a reason to
-  // serve cross-tenant data under a fallback/public owner.
+  // Invalid identity is unauthenticated; a misconfigured owner-key secret
+  // remains a server error and must never fall back to a shared tenant.
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 320) {
+    return respond({ error: "Sign in with ChatGPT required." }, 401);
+  }
   const ownerId = await ownerKeyFromVerifiedEmail(email, ownerKeySecret, cryptoApi);
   const store = new D1Investigations(db, { cryptoApi });
 
