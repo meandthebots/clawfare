@@ -26,6 +26,6 @@ fun redact(
     return s
 }
 
-private val API_KEY = Regex("(?i)(api[_-]?key|access[_-]?token|token|apikey)=([^&\\s\"']+)")
+private val API_KEY = Regex("(api[_-]?key|access[_-]?token|token|apikey)=([^&\\s\"']+)", RegexOption.IGNORE_CASE)
 private val BEARER = Regex("bearer\\s+[A-Za-z0-9._\\-]+", RegexOption.IGNORE_CASE)
 private val DUFFEL = Regex("duffel_(test|live)_[A-Za-z0-9]+")
