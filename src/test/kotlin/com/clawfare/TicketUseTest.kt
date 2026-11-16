@@ -30,14 +30,30 @@ class TicketUseTest {
     private fun itinerary(): Itinerary {
         val out =
             Leg(
-                "SA 1", "Synthetic Airline", "SA", "Synthetic Airline",
-                "LHR", "HND", "11:00", "08:00", "2028-06-01", "2028-06-02",
+                "SA 1",
+                "Synthetic Airline",
+                "SA",
+                "Synthetic Airline",
+                "LHR",
+                "HND",
+                "11:00",
+                "08:00",
+                "2028-06-01",
+                "2028-06-02",
                 cabin = "Business",
             )
         val back =
             Leg(
-                "SA 2", "Synthetic Airline", "SA", "Synthetic Airline",
-                "HND", "LHR", "10:00", "18:00", "2028-06-20", "2028-06-20",
+                "SA 2",
+                "Synthetic Airline",
+                "SA",
+                "Synthetic Airline",
+                "HND",
+                "LHR",
+                "10:00",
+                "18:00",
+                "2028-06-20",
+                "2028-06-20",
                 cabin = "Business",
             )
         return Itinerary(
@@ -101,8 +117,7 @@ class TicketUseTest {
         assertEquals(500.0, outcome.travellerCashRefundGbp)
         assertEquals(4000.0, outcome.netTicketGbp)
         assertEquals("computable", outcome.state)
-        assertEquals(
-            4300.0,
+        val repriced =
             TicketUse.evaluate(
                 it,
                 plan.copy(
@@ -115,8 +130,8 @@ class TicketUseTest {
                         ),
                 ),
                 now,
-            ).netTicketGbp,
-        )
+            )
+        assertEquals(4300.0, repriced.netTicketGbp)
     }
 
     @Test
@@ -137,8 +152,12 @@ class TicketUseTest {
     fun proofBindsExactFarePartySellerOfferTermsAndTime() {
         val ticket = itinerary()
         val baseline = proof()
-        fun net(p: PartialUseRefundProof, offer: Itinerary = ticket) =
-            TicketUse.evaluate(offer, TicketUsePlan("cancel_inbound", "airline-direct", p), now).netTicketGbp
+
+        fun net(
+            p: PartialUseRefundProof,
+            offer: Itinerary = ticket,
+        ): Double? = TicketUse.evaluate(offer, TicketUsePlan("cancel_inbound", "airline-direct", p), now).netTicketGbp
+
         assertNull(net(baseline.copy(travellerCashRefundGbp = 600.0)))
         assertNull(net(baseline.copy(refundToOriginalPayment = false)))
         assertNull(net(baseline.copy(airlineCancellationFeeGbp = null)))
@@ -156,22 +175,23 @@ class TicketUseTest {
     @Test
     fun sourcedMaximumStayAndCouponSequenceAreChecked() {
         val ticket = itinerary()
-        val invalid = TicketUsePlan(
-            "genuine_return",
-            minStayDays = 30,
-            maxStayDays = 90,
-            stayRuleSourceUrl = "https://example.test/minimum-stay",
-        )
+        val invalid =
+            TicketUsePlan(
+                "genuine_return",
+                minStayDays = 30,
+                maxStayDays = 90,
+                stayRuleSourceUrl = "https://example.test/minimum-stay",
+            )
         assertNull(TicketUse.evaluate(ticket, invalid, now).netTicketGbp)
         val valid = invalid.copy(minStayDays = 10, maxStayDays = 30)
         assertEquals(4500.0, TicketUse.evaluate(ticket, valid, now).netTicketGbp)
-        assertNull(
+        val brokenSequence =
             TicketUse.evaluate(
                 ticket.copy(returning = null, returnMissing = true),
                 valid,
                 now,
-            ).netTicketGbp,
-        )
+            )
+        assertNull(brokenSequence.netTicketGbp)
     }
 
     @Test
