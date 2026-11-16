@@ -12,6 +12,7 @@ import com.clawfare.search.PartialUseRefundProof
 import com.clawfare.search.RefundEvidence
 import com.clawfare.search.ResultSet
 import com.clawfare.search.SearchQuery
+import com.clawfare.search.SellerRefundProof
 import com.clawfare.search.StoredResult
 import com.clawfare.search.TicketUse
 import com.clawfare.search.TicketUsePlan
@@ -236,4 +237,79 @@ class TicketUseTest {
         assertNull(row.netPartyTicketGbp)
         assertTrue(row.ticketUseNote!!.contains("repriced"))
     }
+
+    @Test
+    fun completePretravelRefundIsNeverRankedAsAFreeFlight() {
+        val raw = itinerary()
+        val clock = Instant.now()
+        val proof =
+            SellerRefundProof(
+                sellerId = "airline-direct",
+                offerId = "off_synthetic",
+                itinerarySha256 = exactRefundItineraryKey(raw),
+                partySize = 2,
+                fareBrand = "Business Flex",
+                termsSourceUrl = "https://example.test/refund-terms",
+                termsSha256 = sha256("synthetic whole-ticket conditions"),
+                reviewedAt = clock.minusSeconds(60).toString(),
+                expiresAt = clock.plusSeconds(7200).toString(),
+                cancellationDeadlineAt = clock.plusSeconds(3600).toString(),
+                coversFullTicketBeforeOutbound = true,
+                refundToTravellerOriginalPayment = true,
+                issuerPenaltyAmount = 0.0,
+                sellerServicingFeeAmount = 0.0,
+            )
+        val ticket =
+            raw.copy(
+                refundEvidence =
+                    RefundEvidence(
+                        provider = "serpapi",
+                        offerId = "off_synthetic",
+                        sellerId = "airline-direct",
+                        allowed = true,
+                        penaltyAmount = 0.0,
+                        method = "original_payment",
+                        servicingFeeAmount = 0.0,
+                        expiresAt = clock.plusSeconds(7200).toString(),
+                        sellerProof = proof,
+                    ),
+            )
+        val q =
+            SearchQuery(
+                origins = listOf("LHR"),
+                destinations = listOf("HND"),
+                outboundFrom = "2028-06-01",
+                tripType = "round_trip",
+                returnFrom = "2028-06-20",
+                providers = listOf("serpapi"),
+                adults = 2,
+            )
+        val scenario =
+            BatchScenario(
+                id = "cancellation",
+                query = q,
+                positioningGbp = 0.0,
+                hotelsGbp = 0.0,
+                groundTransfersGbp = 0.0,
+                baggageGbp = 0.0,
+                ticketUsePlan = TicketUsePlan("cancel_whole_before_outbound"),
+            )
+        val config = BatchConfig("nontravel", listOf(scenario))
+        val signature = BatchSweep.expand(config).single().signature
+        val sink =
+            object : FareSink {
+                override fun save(stored: StoredResult): ResultSet = stored.result
+
+                override fun load(id: String): StoredResult? =
+                    if (id == signature) StoredResult(ResultSet(id, "cancelled", itineraries = listOf(ticket))) else null
+
+                override fun list(): List<ResultSet> = emptyList()
+            }
+        val result = BatchSweep.compare(config, sink).single()
+        assertEquals(0.0, result.netPartyTicketGbp)
+        assertEquals("computable_nontravel", result.ticketUseState)
+        assertNull(result.allInGbp)
+        assertTrue(result.ticketUseNote!!.contains("no journey remains"))
+    }
+
 }
