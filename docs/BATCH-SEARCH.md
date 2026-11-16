@@ -226,29 +226,3 @@ budget changes. Altering which components are selected changes the stored
 expense fingerprint, preventing a scope change from masquerading as an airfare
 price drop. The underlying air ticket may still include separately charged
 baggage, positioning, or issuance fees that were not captured.
-
-## Provenance for airport-country transit restrictions
-
-`TransitRules` uses a small protected built-in country map, and optionally a
-**local** OurAirports `airports.csv`. No airport reference is downloaded during a
-flight search. For offline auditability, operators may configure:
-
-- `CLAWFARE_AIRPORTS_CSV` — full path to the local CSV (unpublished/private)
-- `CLAWFARE_AIRPORTS_SHA256` — optional expected 64-character SHA-256 pin
-- `CLAWFARE_AIRPORTS_AS_OF` — optional manually verified source snapshot date
-  in `YYYY-MM-DD` format
-
-A configured but missing/unreadable, empty, malformed, hash-mismatched or
-country-conflicting CSV fails closed. A local CSV is **not allowed to override**
-a protected built-in mapping such as HKG/HK, MFM/MO, or PVG/CN. Codes without
-a valid IATA and two-letter country are ignored; repeated IATA assignments
-to different countries are rejected. Duplicates with the same country are
-safe to consolidate. Updating the source requires restarting the process to
-load the new snapshot. The `referenceMetadata()` and `countryCoverage()`
-APIs expose safe count/hash/date provenance and unmapped codes, but no local
-filesystem paths or traveller names. An operator-supplied source date or hash
-is **not** third-party authentication or proof of airport accuracy.
-
-Unknown intermediate airports continue to fail closed whenever country
-exclusions are configured. Existing default airport mapping behavior is
-unchanged when no local CSV has been configured.
