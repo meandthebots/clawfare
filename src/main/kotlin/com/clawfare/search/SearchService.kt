@@ -118,13 +118,10 @@ class SearchService(
             for ((id, token) in outcome.tokens) tokens[id] = token
             // Enforce exclusions before storing, ranking or exporting provider results.
             // These preferences are independent of the browser's display-only filters.
-            val restricted = FilterSpec(airlineBlock = q.excludedAirlines)
-            val eligible =
-                outcome.itineraries.filter {
-                    Filters.matches(it, restricted) && TransitRules.allows(it, q.excludedTransitAirports, q.excludedTransitCountries)
-                }
-            if (eligible.size != outcome.itineraries.size) {
-                warnings += "${outcome.itineraries.size - eligible.size} fares excluded by airline preference."
+            val classifications = outcome.itineraries.groupBy { OfferEligibility.rejectionReason(it, q) }
+            val eligible = classifications[null].orEmpty()
+            classifications.filterKeys { it != null }.forEach { (reason, excluded) ->
+                warnings += "${excluded.size} fares filtered: $reason"
             }
             found += eligible
         }
