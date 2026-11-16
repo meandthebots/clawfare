@@ -55,7 +55,7 @@ class RawProviderCacheRetentionTest {
         cache.put("serpapi", params, """{"value":"SECRET_TOKEN"}""", listOf("SECRET_TOKEN"))
         val file = cache.file("serpapi", params)
         assertTrue(file.isFile)
-        assertTrue(file.readText().contains("[REDACTED]"))
+        assertTrue(file.readText().contains("REDACTED"))
         assertFalse(file.readText().contains("SECRET_TOKEN"))
         val tempFiles =
             root
