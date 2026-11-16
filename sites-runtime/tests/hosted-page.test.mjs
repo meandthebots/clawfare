@@ -1,0 +1,30 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { readFileSync } from "node:fs";
+import { renderHostedReadOnlyPage } from "../src/hosted-page.mjs";
+
+const template = readFileSync("src/main/resources/web/index.html", "utf8");
+
+test("original UI uses JVM loopback session unless explicit hosted read-only flag", () => {
+  assert.ok(template.includes('window.__CLAWFARE_HOSTED_READ_ONLY__ === true'));
+  assert.ok(template.includes('fetch("/api/session"'));
+  assert.ok(template.includes('if (session) opts.headers["X-Clawfare-Session"] = session'));
+  assert.ok(template.includes("Hosted preview is read-only."));
+});
+
+test("hosted build reuses actual Kotlin HTML UI and explicitly disables mutations", () => {
+  const result = renderHostedReadOnlyPage(template);
+  assert.equal(result.length > 70000, true);
+  assert.ok(result.includes("window.__CLAWFARE_HOSTED_READ_ONLY__ = true"));
+  assert.ok(result.includes("function loadSample()"));
+  assert.ok(result.includes('api("/api/searches")'));
+  assert.ok(result.includes('"btnEstimate", "btnRun", "btnHtml", "btnCsv"'));
+  assert.ok(!template.includes("window.__CLAWFARE_HOSTED_READ_ONLY__ = true"));
+});
+
+test("unknown templates cannot silently remove the host mode injection", () => {
+  assert.throws(() => renderHostedReadOnlyPage("<html></html>"), /snapshot marker/);
+  assert.throws(() => renderHostedReadOnlyPage(null), /HTML template/);
+  const duplicate = '<script>window.__SNAPSHOT__ = null;</script>'.repeat(2);
+  assert.throws(() => renderHostedReadOnlyPage(duplicate), /exactly one/);
+});
