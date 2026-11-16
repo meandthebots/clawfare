@@ -4,6 +4,7 @@ import com.clawfare.db.ClawfareDatabase
 import com.clawfare.db.InvestigationQueries
 import com.clawfare.web.clawfareModule
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
@@ -68,9 +69,38 @@ class ServerTest {
             assertTrue(quota.bodyAsText().contains("serpapi"))
             assertFalse(quota.bodyAsText().contains("api_key"))
 
+            val session =
+                client.get("/api/session") {
+                    header("Host", "127.0.0.1:8080")
+                }
+            assertEquals(HttpStatusCode.OK, session.status)
+            val sessionToken =
+                Regex(""""token":"([^"]+)"""").find(session.bodyAsText())?.groupValues?.get(1)
+                    ?: error("No local session token")
+
+            val noToken =
+                client.post("/api/search") {
+                    header("Host", "127.0.0.1:8080")
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"cacheOnly":true}""")
+                }
+            assertEquals(HttpStatusCode.Forbidden, noToken.status)
+
+            val wrongOrigin =
+                client.post("/api/results/florida-dec-2026/track") {
+                    header("Host", "127.0.0.1:8080")
+                    contentType(ContentType.Application.Json)
+                    header("X-Clawfare-Session", sessionToken)
+                    header("Origin", "https://outside.example")
+                    setBody("""{"itineraryId":"11","tripSlug":"should-not-write"}""")
+                }
+            assertEquals(HttpStatusCode.Forbidden, wrongOrigin.status)
+
             val estimate =
                 client.post("/api/estimate") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
+                    header("X-Clawfare-Session", sessionToken)
                     setBody(
                         """{"origins":["LHR"],"destinations":["TPA"],"outboundFrom":"2026-12-19","outboundTo":"2026-12-19","nights":8,"providers":["serpapi"],"cacheOnly":true}""",
                     )
@@ -80,7 +110,9 @@ class ServerTest {
 
             val search =
                 client.post("/api/search") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
+                    header("X-Clawfare-Session", sessionToken)
                     setBody(
                         """{"origins":["LHR"],"destinations":["TPA"],"outboundFrom":"2026-12-19","outboundTo":"2026-12-19","nights":8,"providers":["serpapi"],"cacheOnly":true,"confirmed":true,"investigation":"cache-only"}""",
                     )
@@ -90,7 +122,9 @@ class ServerTest {
 
             val sellers =
                 client.post("/api/results/florida-dec-2026/vendors") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
+                    header("X-Clawfare-Session", sessionToken)
                     setBody("""{"itineraryId":"H","markets":["uk"],"cacheOnly":true}""")
                 }
             assertEquals(HttpStatusCode.OK, sellers.status)
@@ -98,7 +132,9 @@ class ServerTest {
 
             val tracked =
                 client.post("/api/results/florida-dec-2026/track") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
+                    header("X-Clawfare-Session", sessionToken)
                     setBody("""{"itineraryId":"11","tripSlug":"tracked-ba"}""")
                 }
             assertEquals(HttpStatusCode.OK, tracked.status)
@@ -106,14 +142,18 @@ class ServerTest {
 
             val badTrack =
                 client.post("/api/results/florida-dec-2026/track") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
+                    header("X-Clawfare-Session", sessionToken)
                     setBody("""{"itineraryId":"missing","tripSlug":"nope"}""")
                 }
             assertEquals(HttpStatusCode.BadRequest, badTrack.status)
 
             val csv =
                 client.post("/api/export/csv") {
+                    header("Host", "127.0.0.1:8080")
                     contentType(ContentType.Application.Json)
+                    header("X-Clawfare-Session", sessionToken)
                     setBody("""{"result":{"id":"florida-dec-2026","title":"Florida"},"kind":"itineraries"}""")
                 }
             assertEquals(HttpStatusCode.OK, csv.status)

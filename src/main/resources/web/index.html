@@ -1031,18 +1031,28 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     $("btnRun").disabled = !canRun;
     pendingQuery = canRun ? queryFromForm() : null;
   }
-  function api(path, body) {
-    var opts = { headers: { "Accept": "application/json" } };
-    if (body !== undefined) {
-      opts.method = "POST";
-      opts.headers["Content-Type"] = "application/json";
-      opts.body = JSON.stringify(body);
-    }
-    return fetch(path, opts).then(function (r) {
-      return r.text().then(function (text) {
-        var parsed = {};
-        try { parsed = text ? JSON.parse(text) : {}; } catch (e) { parsed = { error: text }; }
-        return { status: r.status, body: parsed, text: text };
+  // The token is never put into a URL, cookie, export or private trip config.
+  // Cross-origin pages cannot read this JSON response (no CORS enabled).
+  var localSession = fetch("/api/session", { cache: "no-store" }).then(function (r) {
+    if (!r.ok) throw new Error("Local session unavailable");
+    return r.json();
+  }).then(function (data) { return data.token; });
+  var searchConsent = null;
+  function api(path, body, consent) {
+    return localSession.then(function (session) {
+      var opts = { headers: { "Accept": "application/json", "X-Clawfare-Session": session } };
+      if (body !== undefined) {
+        opts.method = "POST";
+        opts.headers["Content-Type"] = "application/json";
+        opts.body = JSON.stringify(body);
+      }
+      if (consent) opts.headers["X-Clawfare-Consent"] = consent;
+      return fetch(path, opts).then(function (r) {
+        return r.text().then(function (text) {
+          var parsed = {};
+          try { parsed = text ? JSON.parse(text) : {}; } catch (e) { parsed = { error: text }; }
+          return { status: r.status, body: parsed, text: text, consent: r.headers.get("X-Clawfare-Consent") };
+        });
       });
     });
   }
@@ -1076,7 +1086,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
         if (!go) return;
         return api("/api/results/" + encodeURIComponent(result.id) + "/vendors", {
           itineraryId: it.id, markets: vendorMarkets, cacheOnly: $("cacheOnly").checked, confirmed: true
-        });
+        }, res.consent);
       }
       return res;
     }).then(function (res) {
@@ -1104,7 +1114,14 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     return result;
   }
   function download(path, body, fallback) {
-    fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(function (r) {
+    localSession.then(function (session) {
+      return fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Clawfare-Session": session },
+        body: JSON.stringify(body)
+      });
+    }).then(function (r) {
+      if (!r.ok) throw new Error("Export rejected by local access controls");
       var disp = r.headers.get("Content-Disposition") || "";
       var match = /filename="([^"]+)"/.exec(disp);
       return r.blob().then(function (blob) {
@@ -1122,7 +1139,9 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
 
   $("btnEstimate").addEventListener("click", function () {
     var q = queryFromForm();
+    searchConsent = null;
     api("/api/estimate", q).then(function (res) {
+      searchConsent = res.consent;
       var est = res.body;
       var runnable = est && !((est.warnings || []).some(function (w) { return /Enter at least|Check the dates|Set a return|No outbound|Narrow/.test(w); })) && (q.cacheOnly || est.liveCalls > 0 || est.cachedCalls > 0 || est.returnLookupsUpperBound > 0);
       showEstimate(est, !!runnable);
@@ -1132,7 +1151,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     var q = pendingQuery || queryFromForm();
     q.confirmed = true;
     $("btnRun").disabled = true;
-    api("/api/search", q).then(function (res) {
+    api("/api/search", q, searchConsent).then(function (res) {
       if (res.body && res.body.result) {
         setResult(res.body.result);
         $("estimate").textContent = "Search saved as " + res.body.result.id + ".";
