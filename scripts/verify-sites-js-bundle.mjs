@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { kotlinEngineFromBundle } from "../sites-runtime/src/kotlin-engine.mjs";
 
 const require = createRequire(import.meta.url);
 const directory = process.argv[2] || "fare-core/build/kotlin-webpack/js/productionExecutable";
@@ -18,60 +19,7 @@ for (const name of ["SERPAPI_API_KEY", "SEARCHAPI_API_KEY", "DUFFEL_ACCESS_TOKEN
   assert.ok(!source.includes(name), `Provider credential variable in browser bundle: ${name}`);
 }
 const exports = require(bundle);
-// Kotlin's namespace layout may change between compiler versions, but the
-// public exported object and functions must remain callable without a JVM.
-function locateBridge(obj, depth = 0) {
-  if (!obj || depth > 8 || (typeof obj !== "object" && typeof obj !== "function")) return null;
-  if (typeof obj.normalizeSearchForHost === "function" && typeof obj.planSearchForHost === "function" &&
-      typeof obj.projectBudgetForHost === "function" && typeof obj.toGbpForHost === "function") {
-    return {
-      normalizeSearchJson: obj.normalizeSearchForHost,
-      planSearchJson: obj.planSearchForHost,
-      projectBudgetJson: obj.projectBudgetForHost,
-      toGbpOrNull: obj.toGbpForHost,
-    };
-  }
-  if (typeof obj.normalizeSearchJson === "function" && typeof obj.planSearchJson === "function" &&
-      typeof obj.projectBudgetJson === "function") return obj;
-  for (const key of Object.keys(obj)) {
-    const result = locateBridge(obj[key], depth + 1);
-    if (result) return result;
-  }
-  return null;
-}
-console.log("Kotlin/JS bundle inspection:", JSON.stringify({
-  byteSize: source.length,
-  hasExportName: source.includes("ClawfareJs"),
-  exportKeys: Object.keys(exports).slice(0, 20),
-  defaultExportKeys: Object.keys(exports?.default ?? {}).slice(0, 20),
-  namespaceKeys: Object.keys(exports?.["fare-core"] ?? {}).slice(0, 20),
-  exportType: typeof exports,
-}));
-function describeNamespace(root, path = "", depth = 0, out = []) {
-  if (!root || depth > 6 || out.length >= 20) return out;
-  if (typeof root !== "object" && typeof root !== "function") return out;
-  const keys = Object.getOwnPropertyNames(root).filter(key => !["prototype", "length", "name", "caller", "arguments"].includes(key));
-  out.push({ path: path || "<root>", type: typeof root, keys: keys.slice(0, 12) });
-  for (const key of keys.slice(0, 8)) {
-    if (out.length >= 20) break;
-    let value;
-    try { value = root[key]; } catch { continue; }
-    describeNamespace(value, (path ? path + "." : "") + key, depth + 1, out);
-  }
-  return out;
-}
-console.log("Kotlin/JS namespace tree:", JSON.stringify(describeNamespace(exports)));
-const exportedObject = exports?.["fare-core"]?.com?.clawfare?.search?.ClawfareJs;
-console.log("Kotlin/JS object shape:", JSON.stringify({
-  ownKeys: exportedObject ? Object.getOwnPropertyNames(exportedObject) : [],
-  protoKeys: exportedObject ? Object.getOwnPropertyNames(Object.getPrototypeOf(exportedObject) ?? {}) : [],
-  hasNormalizeInBundle: source.includes("normalizeSearchJson"),
-  hasPlanInBundle: source.includes("planSearchJson"),
-  hasBudgetInBundle: source.includes("projectBudgetJson"),
-  typeofNormalized: typeof exportedObject?.normalizeSearchJson,
-}));
-const bridge = locateBridge(exports);
-assert.ok(bridge, "Kotlin/JS ClawfareJs public exports missing from bundled module");
+const bridge = kotlinEngineFromBundle(exports);
 const raw = JSON.stringify({
   origins: [" lhr, LGW ", "LHR"],
   destinations: ["tpa"],
