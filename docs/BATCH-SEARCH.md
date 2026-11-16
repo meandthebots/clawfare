@@ -146,3 +146,83 @@ availability or a refund to the original payment method, and it does not send
 notifications. Some provider data still lacks a stable seller identifier,
 so exact airline/OTA product reconciliation and verified refund alerts remain
 separate work under issues #12, #13 and #20.
+
+## Airfare-first comparison scope (16 November 2026)
+
+Hotel nights and local ground transfers are **not required** for the relocation
+fare comparison. A new scenario without extra costs compares the ticket's
+**whole-party airfare only**. The historical field `allInGbp` remains for CSV/API
+compatibility; read it together with `costScope` and `expenseEvidence`, which
+explicitly state which components are included. An airfare-only total is **not**
+a claim that a complete door-to-door trip costs that much.
+
+```json
+{
+  "name": "example",
+  "scenarios": [
+    {
+      "id": "london",
+      "query": {
+        "origins": ["LHR"],
+        "destinations": ["HND"],
+        "outboundFrom": "2028-06-01",
+        "outboundTo": "2028-06-01",
+        "tripType": "one_way",
+        "adults": 2,
+        "cabin": "business",
+        "providers": ["serpapi"]
+      },
+      "costScope": "airfare_only"
+    },
+    {
+      "id": "hub",
+      "query": {
+        "origins": ["CDG"],
+        "destinations": ["HND"],
+        "outboundFrom": "2028-06-01",
+        "outboundTo": "2028-06-01",
+        "tripType": "one_way",
+        "adults": 2,
+        "cabin": "business",
+        "providers": ["serpapi"]
+      },
+      "costScope": "airfare_positioning",
+      "positioningGbp": null
+    }
+  ],
+  "maxLiveCalls": 0
+}
+```
+
+The example deliberately has a zero live-call cap and an **unknown** positioning
+cost. The CDG comparison cannot produce a complete scoped total until the
+whole-party positioning ticket amount is actually supplied. No positioning
+availability, connection protection, baggage fees or actual airline fares are
+implied by the example.
+
+Available `costScope` values: `airfare_only`, `airfare_positioning`,
+`airfare_baggage`, `airfare_positioning_baggage`, and `legacy_full_trip`.
+An explicit scope decides what *must* be priced. Missing, invalid, negative or
+nonfinite costs prevent a scoped total; they are never assumed to be zero.
+Do not use `airfare_only` as a checked-baggage-inclusive quote unless provider
+evidence independently establishes the inclusion.
+
+For **old private JSON configurations** with no `costScope`, the software
+autodetects the explicitly populated components. If either legacy hotel or
+ground-transfer value exists, it preserves the old four-component
+`legacy_full_trip` requirement; otherwise, it prices whichever of positioning
+or baggage is supplied, or airfare alone. New configurations should set
+`costScope` explicitly to avoid ambiguity. A hotel or transfer value in an
+explicit airfare-only scenario is intentionally excluded, not treated as free.
+The CSV now includes `costScope` to prevent airfare-only rows being mistaken
+for fully itemized travel costs.
+
+### Reporting and alerts
+
+The existing `allInGbp` field and alert thresholds apply **only to the
+chosen cost scope**, and the CSV's `costScope` column must be displayed with
+it. Airfare-only change alerts are ticket-price changes, not full door-to-door
+budget changes. Altering which components are selected changes the stored
+expense fingerprint, preventing a scope change from masquerading as an airfare
+price drop. The underlying air ticket may still include separately charged
+baggage, positioning, or issuance fees that were not captured.
