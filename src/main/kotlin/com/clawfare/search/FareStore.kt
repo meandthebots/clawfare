@@ -506,7 +506,8 @@ object FareStore : FareSink {
                 sourceLabel = label,
                 livePrice = currentLive,
             )
-        return if (storedLinks.isEmpty()) restored else restored.copy(links = storedLinks)
+        val validated = restored.copy(cashRefundProofVerified = refund?.isVerifiedFor(restored) == true)
+        return if (storedLinks.isEmpty()) validated else validated.copy(links = storedLinks)
     }
 
     private fun toSegment(direction: Direction): FlightSegment {
