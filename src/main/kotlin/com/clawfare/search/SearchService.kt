@@ -14,43 +14,29 @@ class SearchService(
         val q = normalizeQuery(query)
         val problem = validateQuery(q)
         if (problem != null) return Estimate(0, 0, 0, 0, warnings = listOf(problem))
-        val lines = mutableListOf<String>()
-        var live = 0
-        var cached = 0
-        var skipped = 0
-        var returns = 0
         val effectiveCache = if (q.cacheOnly) cache else FreshResponseCache(cache)
-        for (provider in selected(q)) {
-            val calls = provider.baseCalls(q)
-            if ((provider.id == "serpapi" || provider.id == "searchapi") && q.fetchReturns && q.tripType != "one_way") {
-                returns += calls.size * q.returnChoices
+        val inputs =
+            selected(q).map { provider ->
+                PlannedProvider(
+                    id = provider.id,
+                    configured = provider.configured,
+                    calls =
+                        provider.baseCalls(q).map { call ->
+                            PlannedCall(
+                                description = call.description,
+                                cached = effectiveCache.get(provider.id, call.params) != null,
+                            )
+                        },
+                )
             }
-            for (call in calls) {
-                val hit = effectiveCache.get(provider.id, call.params) != null
-                when {
-                    hit -> {
-                        cached++
-                        lines += "${call.description} — cached"
-                    }
-                    !provider.configured -> {
-                        skipped++
-                        lines += "${call.description} — skipped, no API key"
-                    }
-                    q.cacheOnly -> {
-                        skipped++
-                        lines += "${call.description} — not in cache"
-                    }
-                    else -> {
-                        live++
-                        lines += "${call.description} — will call"
-                    }
-                }
-            }
-        }
+        val budget = projectCallBudget(q, inputs)
+        val live = budget.liveCalls
+        val cached = budget.cachedCalls
+        val skipped = budget.skippedCalls
+        val returns = budget.returnLookupsUpperBound
         val warnings = mutableListOf<String>()
         if (q.cacheOnly) {
             warnings += "Cache only: nothing is fetched. Return lookups run only when that outbound is already cached."
-            returns = 0
         } else if (returns > 0) {
             warnings +=
                 "Plus up to $returns return lookups (one per chosen outbound). Those are cached too, and skipped once they are on disk."
@@ -72,7 +58,7 @@ class SearchService(
         if (q.excludedAirlines.isNotEmpty()) {
             warnings += "Excluded marketing/operating airlines: ${q.excludedAirlines.joinToString(", ")}."
         }
-        val shown = if (lines.size > 40) lines.take(40) + "… and ${lines.size - 40} more" else lines
+        val shown = if (budget.lines.size > 40) budget.lines.take(40) + "… and ${budget.lines.size - 40} more" else budget.lines
         val quota =
             selected(q).map { provider ->
                 if (includeQuota) {
