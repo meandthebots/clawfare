@@ -258,6 +258,7 @@ class SearchService(
             stored.result.copy(
                 vendorItineraryId = request.itineraryId,
                 vendors = fetch.rows,
+                sellerOptions = fetch.options,
                 vendorIntro =
                     listOf(
                         NoteCard(
