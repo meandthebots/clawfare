@@ -16,7 +16,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { createReadOnlySitesHandler } from "../src/site-handler.mjs";
 import { D1Investigations } from "../src/investigations.mjs";
-import { bootstrapPublicSample } from "../src/public-sample.mjs";
+
 import { D1ProviderHttpBudget } from "../src/provider-http-budget.mjs";
 import { kotlinEngineFromBundle } from "../src/kotlin-engine.mjs";
 import { ownerKeyFromVerifiedEmail } from "../src/read-only-api.mjs";
@@ -70,11 +70,9 @@ const db = {
   },
 };
 const sample = JSON.parse(readFileSync(samplePath, "utf8"));
-const options = { cryptoApi: webcrypto, clock: () => new Date("2026-11-16T12:00:00Z") };
-const digest = await bootstrapPublicSample(db, sample, options);
-assert.match(digest, /^[a-f0-9]{64}$/);
-assert.equal(digest, await bootstrapPublicSample(db, sample, options));
-assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM public_sample_fixtures").get().n, 1);
+// A new hosted D1 binding initially has no imported sample. Sites may apply
+// migrations during deployment without offering an administrative seed hook.
+assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM public_sample_fixtures").get().n, 0);
 assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM investigation_snapshots").get().n, 0);
 
 const secret = "integration-only-long-random-ish-secret-not-for-hosting";
@@ -103,6 +101,7 @@ assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM provider_http_reservations")
 const templateHtml = readFileSync(htmlPath, "utf8");
 const createSite = email => createReadOnlySitesHandler({
   templateHtml, db, cryptoApi: webcrypto, ownerKeySecret: secret,
+  bundledPublicSample: sample, // Fixed, trusted build artifact; never request data
   getVerifiedEmail: async () => email, // Test-only trusted identity injection
 });
 const sites = [createSite("alice@example.com"), createSite("bob@example.com"), createSite(null)];
@@ -119,12 +118,22 @@ assert.ok(homepageHtml.includes("window.__CLAWFARE_HOSTED_READ_ONLY__ = true"));
 assert.ok(homepageHtml.includes("Hosted read-only preview:"));
 assert.ok(homepageHtml.includes("loadSample().then(refreshSaved)"));
 
-const aliceSample = await get(sites[0], "/api/sample");
+// Signed-out requests cannot initialize a database. Two first signed-in
+// requests may race, but INSERT ... ON CONFLICT DO NOTHING creates one row.
+assert.equal((await get(sites[2], "/api/sample")).status, 401);
+assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM public_sample_fixtures").get().n, 0);
+const [aliceSample, bobSample] = await Promise.all([
+  get(sites[0], "/api/sample"), get(sites[1], "/api/sample"),
+]);
 assert.equal(aliceSample.status, 200);
 assert.deepEqual(aliceSample.data, sample);
-assert.equal(aliceSample.headers.get("cache-control"), "private, no-store");
-const bobSample = await get(sites[1], "/api/sample");
 assert.deepEqual(bobSample.data, sample);
+assert.equal(aliceSample.headers.get("cache-control"), "private, no-store");
+assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM public_sample_fixtures").get().n, 1);
+assert.match(
+  sql.prepare("SELECT content_sha256 FROM public_sample_fixtures").get().content_sha256,
+  /^[a-f0-9]{64}$/,
+);
 assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM investigation_snapshots").get().n, 2);
 
 const aliceListing = await get(sites[0], "/api/searches");
