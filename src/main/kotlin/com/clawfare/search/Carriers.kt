@@ -165,7 +165,12 @@ fun cabinKeyOf(raw: String?): String =
  * provider segment cabins; unknown must never count as economy in strict mode.
  */
 fun recognizedCabinKeyOf(raw: String?): String? {
-    val key = raw?.trim()?.lowercase()?.replace('_', ' ')?.replace('-', ' ') ?: return null
+    val key =
+        raw
+            ?.trim()
+            ?.lowercase()
+            ?.replace('_', ' ')
+            ?.replace('-', ' ') ?: return null
     return when {
         key in setOf("f", "first", "first class") || key.startsWith("first ") -> "first"
         key in setOf("j", "c", "business", "business class") || key.startsWith("business ") -> "business"
