@@ -5,6 +5,7 @@
  * does not fabricate .openai/hosting.json or an identity-bearing Worker.
  */
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import {
   copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync,
   rmSync, writeFileSync,
@@ -24,7 +25,7 @@ const webpackDir = "fare-core/build/kotlin-webpack/js/productionExecutable";
 const expectedModules = [
   "hosted-page.mjs", "site-handler.mjs", "read-only-api.mjs",
   "investigations.mjs", "public-sample.mjs", "provider-http-budget.mjs",
-  "kotlin-engine.mjs",
+  "kotlin-engine.mjs", "worker-factory.mjs",
 ];
 for (const path of [fixtureSource, htmlSource, ...expectedModules.map(name => "sites-runtime/src/" + name)]) {
   if (!existsSync(path)) throw new Error("Missing required Sites source: " + path);
@@ -60,12 +61,44 @@ for (const name of [
   "0003_public_sample_fixtures.sql",
 ]) write("server/migrations/" + name, readFileSync("sites-runtime/migrations/" + name));
 write("server/kotlin/fare-core.cjs", readFileSync(join(webpackDir, webpackFiles[0])));
+// A genuine Worker ESM entry factory with the exact Kotlin HTML and fixture
+// statically embedded. No default fetch export or untrusted identity fallback.
+// Sites MUST supply an attested callback and bind D1/secret before creating a
+// public entrypoint. This can be bundled as one ESM file without rewriting
+// Kotlin flight rules in JS.
+const workerSource = [
+  'import { createClawfareWorkerFactory } from "./src/worker-factory.mjs";',
+  'import compiledKotlin from "./kotlin/fare-core.cjs";',
+  "const templateHtml = " + JSON.stringify(html) + ";",
+  "const bundledPublicSample = " + JSON.stringify(sample) + ";",
+  "export const clawfareSitesWorker = createClawfareWorkerFactory({ templateHtml, bundledPublicSample, kotlinBundle: compiledKotlin });",
+  "export const createTrustedWorker = options => clawfareSitesWorker.createTrustedWorker(options);",
+  "",
+].join("\n");
+write("server/worker-source.mjs", workerSource);
+const bundlePath = join(output, "server/worker.mjs");
+const bundled = spawnSync("npx", [
+  "--yes", "esbuild@0.28.2", join(output, "server/worker-source.mjs"),
+  "--bundle", "--format=esm", "--platform=browser", "--target=es2022",
+  "--outfile=" + bundlePath,
+], { encoding: "utf8", timeout: 120000 });
+if (bundled.status !== 0) {
+  throw new Error("Worker ESM assembly failed: " + (bundled.stderr || bundled.error || bundled.stdout));
+}
+const bundledBytes = readFileSync(bundlePath);
+files.push({
+  path: "server/worker.mjs",
+  sha256: createHash("sha256").update(bundledBytes).digest("hex"),
+  size: bundledBytes.length,
+});
 write("SITES-HANDOFF.md", readFileSync("docs/SITES-SOURCE-HANDOFF.md"));
 const manifest = {
   format: "clawfare-sites-readonly-source-v1",
   readOnly: true,
   publicHttpEntrypoint: false,
   identityBindingRequired: true,
+  workerModule: "server/worker.mjs",
+  workerRequiresTrustedFactory: true,
   d1BindingName: "DB",
   sampleSlug: sample.id,
   files: files.sort((a, b) => a.path.localeCompare(b.path)),
