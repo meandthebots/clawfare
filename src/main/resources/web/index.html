@@ -1053,16 +1053,23 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     $("btnRun").disabled = !canRun;
     pendingQuery = canRun ? queryFromForm() : null;
   }
-  // The token is never put into a URL, cookie, export or private trip config.
-  // Cross-origin pages cannot read this JSON response (no CORS enabled).
-  var localSession = fetch("/api/session", { cache: "no-store" }).then(function (r) {
-    if (!r.ok) throw new Error("Local session unavailable");
-    return r.json();
-  }).then(function (data) { return data.token; });
+  // The JVM server uses a loopback-only session. A hosted read-only site
+  // must not request or manufacture that token: authentication is enforced
+  // by the trusted Sites gateway and the server's tenant-scoped API.
+  var hostedReadOnly = window.__CLAWFARE_HOSTED_READ_ONLY__ === true;
+  var localSession = hostedReadOnly ? Promise.resolve(null) :
+    fetch("/api/session", { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("Local session unavailable");
+      return r.json();
+    }).then(function (data) { return data.token; });
   var searchConsent = null;
   function api(path, body, consent) {
+    if (hostedReadOnly && body !== undefined) {
+      return Promise.resolve({ status: 405, body: { error: "Hosted preview is read-only." } });
+    }
     return localSession.then(function (session) {
-      var opts = { headers: { "Accept": "application/json", "X-Clawfare-Session": session } };
+      var opts = { headers: { "Accept": "application/json" } };
+      if (session) opts.headers["X-Clawfare-Session"] = session;
       if (body !== undefined) {
         opts.method = "POST";
         opts.headers["Content-Type"] = "application/json";
@@ -1321,6 +1328,12 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     download("/api/export/csv", { result: editedResult(), filters: currentFilters(), kind: tab === "vendors" ? "vendors" : "itineraries" }, "clawfare.csv");
   });
 
+  if (hostedReadOnly) {
+    ["btnEstimate", "btnRun", "btnHtml", "btnCsv"].forEach(function (id) {
+      var el = $(id); if (el) { el.disabled = true; el.title = "Hosted preview: read-only"; }
+    });
+    $("estimate").textContent = "Hosted read-only preview: explore saved flights and filters; live searches and exports are disabled.";
+  }
   if (window.__SNAPSHOT__) {
     boot(window.__SNAPSHOT__);
   } else {
