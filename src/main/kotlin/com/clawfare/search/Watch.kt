@@ -109,18 +109,21 @@ object FareWatch {
                 var fxOnlyChanges = 0
                 var expenseOnlyChanges = 0
                 val candidates =
-                    current.filter { row ->
-                        row.allInGbp != null &&
-                            row.sourceLabel == "live" &&
-                            (row.offerExpiresAt == null ||
-                                runCatching { Instant.parse(row.offerExpiresAt).isAfter(observed) }.getOrDefault(false)) &&
-                            row.retrievedAt?.let { stamp ->
-                                runCatching {
-                                    val age = Duration.between(Instant.parse(stamp), observed)
-                                    !age.isNegative && age <= Duration.ofHours(2)
-                                }.getOrDefault(false)
-                            } == true
-                    }.mapNotNull { row ->
+                    current
+                        .filter { row ->
+                            val offerFresh =
+                                row.offerExpiresAt == null ||
+                                    runCatching { Instant.parse(row.offerExpiresAt).isAfter(observed) }.getOrDefault(false)
+                            row.allInGbp != null &&
+                                row.sourceLabel == "live" &&
+                                offerFresh &&
+                                row.retrievedAt?.let { stamp ->
+                                    runCatching {
+                                        val age = Duration.between(Instant.parse(stamp), observed)
+                                        !age.isNegative && age <= Duration.ofHours(2)
+                                    }.getOrDefault(false)
+                                } == true
+                        }.mapNotNull { row ->
                         val before = previousByProduct[row.productKey]
                         if (before != null && before.expensesKey != row.expensesKey) {
                             expenseOnlyChanges++
