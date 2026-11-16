@@ -13,11 +13,13 @@ object OfferEligibility {
     ): String? {
         if (!Filters.matches(itinerary, FilterSpec(airlineBlock = query.excludedAirlines))) return "excluded_carrier"
 
-        TransitRules.rejectionReason(
-            itinerary,
-            query.excludedTransitAirports,
-            query.excludedTransitCountries,
-        )?.let { return it }
+        val transitRejection =
+            TransitRules.rejectionReason(
+                itinerary,
+                query.excludedTransitAirports,
+                query.excludedTransitCountries,
+            )
+        if (transitRejection != null) return transitRejection
 
         val directions = listOf(itinerary.outbound) + listOfNotNull(itinerary.returning)
         val legs = directions.flatMap { it.legs }
