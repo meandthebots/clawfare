@@ -86,29 +86,29 @@ fun parseGoogleFlightsOffers(body: String): List<ParsedOffer> {
     }
 }
 
-fun parseBookingQuotes(body: String): List<SellerQuote> {
-    val root = AppJson.parseToJsonElement(body) as? JsonObject ?: return emptyList()
-    val options = root["booking_options"]?.let { runCatching { it.jsonArray }.getOrNull() } ?: return emptyList()
-    val seen = LinkedHashMap<String, SellerQuote>()
-    for (opt in options) {
-        val obj = opt as? JsonObject ?: continue
-        val together = obj["together"] as? JsonObject ?: continue
-        val vendor = together.str("book_with") ?: continue
-        if (vendor.contains(",")) continue
-        val title = together.str("option_title")?.takeIf { it.isNotBlank() }
-        val name = if (title != null) "$vendor — $title" else vendor
-        if (name in seen) continue
-        val price = together.dbl("price") ?: continue
-        val bags =
-            together["baggage_prices"]
-                ?.let { runCatching { it.jsonArray }.getOrNull() }
-                ?.mapNotNull { it.jsonPrimitive.contentOrNull }
-                ?.joinToString("; ")
-                .orEmpty()
-        seen[name] = SellerQuote(name, price, bags, title)
-    }
-    return seen.values.toList()
-}
+/** Compatibility view of priced, single-ticket options only. The full metadata
+ * (including unpriced and split-ticket options) is returned by parseGoogleSellerOptions.
+ */
+fun parseBookingQuotes(body: String): List<SellerQuote> =
+    parseGoogleSellerOptions(
+        body = body,
+        provider = "unknown",
+        market = "uk",
+        currency = "GBP",
+        itineraryId = "unselected",
+        passengers = 1,
+        journey = "round_trip",
+        observedAt = "",
+    ).filter { !it.splitTickets && it.priceTotal != null }
+        .map { option ->
+            SellerQuote(
+                vendor = listOfNotNull(option.seller, option.fareBrand ?: option.fareType).joinToString(" — "),
+                price = requireNotNull(option.priceTotal),
+                bags = option.bags,
+                title = option.fareBrand ?: option.fareType,
+                optionId = option.id,
+            )
+        }
 
 fun parseSerpQuota(body: String): QuotaView {
     val obj = runCatching { AppJson.parseToJsonElement(body) as JsonObject }.getOrNull()
@@ -307,12 +307,13 @@ class GoogleFlightsProvider(
         var cachedHits = 0
         var stopped = false
         val quotes = linkedMapOf<String, MarketQuotes>()
+        val options = mutableListOf<SellerOption>()
         val links = mutableMapOf<String, List<BookLink>>()
         for (market in markets) {
             if (stopped) break
             val (gl, cur) = marketParams(market)
             val rt =
-                quotesForDirection(itinerary, stored, gl, cur, roundTrip = true, outboundOnly = false, cache, allowNetwork, warnings, {
+                quotesForDirection(itinerary, stored, gl, cur, roundTrip = true, outboundOnly = false, options, cache, allowNetwork, warnings, {
                     stopped =
                         true
                 }, { if (it) cachedHits++ else live++ })
@@ -320,7 +321,7 @@ class GoogleFlightsProvider(
                 if (stopped) {
                     emptyMap()
                 } else {
-                    quotesForDirection(itinerary, null, gl, cur, roundTrip = false, outboundOnly = true, cache, allowNetwork, warnings, {
+                    quotesForDirection(itinerary, null, gl, cur, roundTrip = false, outboundOnly = true, options, cache, allowNetwork, warnings, {
                         stopped =
                             true
                     }, { if (it) cachedHits++ else live++ })
@@ -329,7 +330,7 @@ class GoogleFlightsProvider(
                 if (stopped) {
                     emptyMap()
                 } else {
-                    quotesForDirection(itinerary, null, gl, cur, roundTrip = false, outboundOnly = false, cache, allowNetwork, warnings, {
+                    quotesForDirection(itinerary, null, gl, cur, roundTrip = false, outboundOnly = false, options, cache, allowNetwork, warnings, {
                         stopped =
                             true
                     }, { if (it) cachedHits++ else live++ })
@@ -347,7 +348,7 @@ class GoogleFlightsProvider(
                     .toString(),
                 itinerary.passengers,
             )
-        return VendorFetch(rows, warnings, live, cachedHits)
+        return VendorFetch(rows = rows, options = options, warnings = warnings, liveCalls = live, cachedCalls = cachedHits)
     }
 
     private fun quotesForDirection(
@@ -357,6 +358,7 @@ class GoogleFlightsProvider(
         currency: String,
         roundTrip: Boolean,
         outboundOnly: Boolean,
+        options: MutableList<SellerOption>,
         cache: ResponseCache,
         allowNetwork: Boolean,
         warnings: MutableList<String>,
@@ -398,14 +400,19 @@ class GoogleFlightsProvider(
             val fetched = load(cache, params, allowNetwork, warnings, stop) ?: return emptyMap()
             count(fetched.fromCache)
             val offers = parseGoogleFlightsOffers(fetched.body)
-            val match = offers.firstOrNull { flightMatch(it.legs, legs) } ?: offers.minByOrNull { it.price ?: Double.MAX_VALUE }
-            if (roundTrip && match?.departureToken != null && match.bookingToken == null) {
+            val match = offers.firstOrNull { flightMatch(it.legs, legs) }
+            if (match == null) {
+                warnings += "$displayName returned no matching flight for the selected itinerary; seller options not attributed."
+                return emptyMap()
+            }
+            if (roundTrip && match.departureToken != null && match.bookingToken == null) {
                 val ret =
                     load(cache, params + ("departure_token" to match.departureToken), allowNetwork, warnings, stop) ?: return emptyMap()
                 count(ret.fromCache)
                 val returns = parseGoogleFlightsOffers(ret.body)
                 val want = itinerary.returning?.legs.orEmpty()
-                val chosen = returns.firstOrNull { want.isEmpty() || flightMatch(it.legs, want) } ?: returns.firstOrNull()
+                val chosen = returns.firstOrNull { want.isNotEmpty() && flightMatch(it.legs, want) }
+                if (chosen == null) warnings += "$displayName returned no matching inbound flight; booking token discarded."
                 bookingToken = chosen?.bookingToken
             } else {
                 bookingToken = match?.bookingToken
@@ -417,7 +424,35 @@ class GoogleFlightsProvider(
         }
         val booked = load(cache, params + ("booking_token" to bookingToken), allowNetwork, warnings, stop) ?: return emptyMap()
         count(booked.fromCache)
-        return parseBookingQuotes(booked.body).associateBy { it.vendor }
+        val parsed =
+            parseGoogleSellerOptions(
+                body = booked.body,
+                provider = id,
+                market = gl,
+                currency = currency,
+                itineraryId = itinerary.id,
+                passengers = itinerary.passengers,
+                journey = if (roundTrip) "round_trip" else if (outboundOnly) "one_way_out" else "one_way_back",
+                observedAt = booked.cachedAt,
+            )
+        options += parsed
+        val notRankable = parsed.count { it.splitTickets || it.priceTotal == null || it.phoneServiceFee != null }
+        if (notRankable > 0) {
+            warnings += "$notRankable seller options recorded without a comparable single-ticket all-in quote (split/unpriced/phone fee)."
+        }
+        return parsed
+            .filter { !it.splitTickets && it.priceTotal != null && it.phoneServiceFee == null }
+            .associate { option ->
+                val label = listOfNotNull(option.seller, option.fareBrand ?: option.fareType).joinToString(" — ")
+                option.id to
+                    SellerQuote(
+                        vendor = label,
+                        price = requireNotNull(option.priceTotal),
+                        bags = option.bags,
+                        title = option.fareBrand ?: option.fareType,
+                        optionId = option.id,
+                    )
+            }
     }
 
     private fun addOffer(
