@@ -311,5 +311,4 @@ class TicketUseTest {
         assertNull(result.allInGbp)
         assertTrue(result.ticketUseNote!!.contains("no journey remains"))
     }
-
 }
