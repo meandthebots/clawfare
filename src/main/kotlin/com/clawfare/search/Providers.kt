@@ -73,6 +73,7 @@ data class ProviderOutcome(
 
 data class VendorFetch(
     val rows: List<VendorRow> = emptyList(),
+    val options: List<SellerOption> = emptyList(),
     val warnings: List<String> = emptyList(),
     val liveCalls: Int = 0,
     val cachedCalls: Int = 0,
