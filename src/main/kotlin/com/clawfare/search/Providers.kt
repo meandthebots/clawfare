@@ -704,7 +704,7 @@ class DuffelProvider(
             flightNumber = fn,
             airline = marketing?.str("name") ?: AIRLINE_NAMES[code] ?: code,
             airlineCode = code,
-            operatingCarrier = operating?.str("name") ?: marketing?.str("name") ?: code,
+            operatingCarrier = operating?.str("name") ?: operating?.str("iata_code").orEmpty(),
             from = origin,
             to = dest,
             departTime = normalizeTime(dep.substring(11).take(5)),
@@ -712,7 +712,7 @@ class DuffelProvider(
             departDate = dep.take(10),
             arriveDate = arr.take(10),
             durationMinutes = isoMinutes(seg.str("duration")),
-            cabin = cabin?.let { cabinLabelOf(cabinKeyOf(it)) },
+            cabin = cabin,
         )
     }
 }
