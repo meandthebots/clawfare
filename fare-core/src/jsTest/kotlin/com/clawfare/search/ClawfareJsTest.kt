@@ -16,5 +16,24 @@ class ClawfareJsTest {
         assertEquals(listOf("TPA"), normalized.destinations)
         assertEquals("one_way", normalized.tripType)
         assertEquals(200.0, ClawfareJs.toGbpOrNull(250.0, 1.25))
+        val providersJson =
+            AppJson.encodeToString(
+                kotlinx.serialization.builtins.ListSerializer(PlannedProvider.serializer()),
+                listOf(
+                    PlannedProvider(
+                        id = "serpapi",
+                        configured = true,
+                        calls = listOf(PlannedCall("LHR to TPA", cached = false)),
+                    ),
+                ),
+            )
+        val budget =
+            AppJson.decodeFromString(
+                CallBudget.serializer(),
+                ClawfareJs.projectBudgetJson(raw, providersJson),
+            )
+        assertEquals(1, budget.liveCalls)
+        assertEquals(0, budget.returnLookupsUpperBound)
+
     }
 }
