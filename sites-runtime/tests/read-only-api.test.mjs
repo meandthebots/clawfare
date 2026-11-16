@@ -137,7 +137,7 @@ test("only API requests are handled and no quota/network discovery occurs", asyn
   assert.deepEqual((await status.json()).providers, []);
   const quota = await handleReadOnlyApi(call("/api/quota"), config(db, "a@example.com"));
   assert.deepEqual(await quota.json(), []);
-  const invalid = await handleReadOnlyApi(call("/api/results/../../other"), config(db, "a@example.com"));
+  const invalid = await handleReadOnlyApi(call("/api/results/bad%2fslug"), config(db, "a@example.com"));
   assert.equal(invalid.status, 404);
   assert.equal(db.calls.length, 0);
 });
@@ -153,7 +153,8 @@ test("missing, invalid and cross-tenant results do not disclose data", async () 
       assert.equal(result.status, 404);
     }
   }
-  const badIdentity = await handleReadOnlyApi(call("/api/results/test"),
-    config(db, "not-an-email"));
-  await assert.rejects(badIdentity.json(), /./);
+  await assert.rejects(
+    handleReadOnlyApi(call("/api/results/test"), config(db, "not-an-email")),
+    /verified ChatGPT identity/,
+  );
 });
