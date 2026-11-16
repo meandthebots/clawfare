@@ -53,6 +53,8 @@ fare batch plan ~/travel-search-private.json
 fare batch run ~/travel-search-private.json
 fare batch run ~/travel-search-private.json --confirm
 fare batch report ~/travel-search-private.json --out ~/flight-comparison.csv
+fare batch coverage ~/travel-search-private.json --out ~/private-coverage.csv
+fare batch run ~/travel-search-private.json --resume --confirm
 ```
 
 The non-confirmed `run` command is dry-run only. An executable run is
@@ -102,3 +104,22 @@ Existing Google Flights seller lookups can add more quota-spending calls
 per selected offer; the batch process does not automatically run those.
 No external scheduled job or airline API credentials are created by this
 feature.
+
+
+### Coverage and resume semantics
+
+The offline `fare batch coverage` command uses the complete requested
+provider × route × date matrix as the denominator. It distinguishes
+`not_searched`, `zero_returned`, `filtered_all`, `eligible`,
+`provider_unconfigured`, `provider_failed`, `cache_only`, and
+`legacy_unknown`. It uses local audit entries, not inferred availability.
+A provider's returned count is **not** global inventory coverage; the
+provider may return a truncated result subset or not expose fare brands.
+
+`fare batch run --resume --confirm` skips a query only when an exact query
+hash has a completed per-provider observation in the private journal. Missing
+or malformed audit journals are not silently treated as complete. This is
+**not** a proof of actual billed requests, and the original upper-bound
+budget remains conservative; see #19 for durable per-provider billing.
+Older journals without provider observations show `legacy_unknown` rather
+than falsely displaying zero fares. Only synthetic tests belong in CI.
