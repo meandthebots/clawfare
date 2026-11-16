@@ -14,11 +14,25 @@ runs only `fare load-sample` and `report html`. The output is self-contained:
 it has an embedded sample snapshot, browser-side filters, itinerary details,
 matrix, vendors and exports. It is *not* live airfare or real-time availability.
 
+The preview build also writes `clawfare-sample.json`, the exact serialized
+`ResultSet` returned by the existing JVM `/api/sample` endpoint. It is built
+directly from the **bundled public fixture**, never from user searches or
+arbitrary provider data. Import this JSON only through a trusted, authenticated
+administrative path into D1 `investigation_snapshots` for the intended viewer.
+The hosted API must not allow anonymous users to write snapshots or choose
+arbitrary owners.
+
+The equivalent standalone CLI command is:
+
+```sh
+./gradlew run --args="report sample-json --out build/sites/clawfare-sample.json"
+```
+
 ## GitHub Actions
 
 Run **Build read-only Sites preview** (or open a PR changing its inputs).
-Download the `clawfare-sites-sample` workflow artifact. It contains the single
-HTML page. The workflow uploads no database, keys or other private data.
+Download the `clawfare-sites-sample` workflow artifact. It contains the self-contained HTML page and the matching
+public sample ResultSet JSON. The workflow uploads no database, keys or other private data.
 
 ## Publishing
 
