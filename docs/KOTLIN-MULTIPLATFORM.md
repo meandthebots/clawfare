@@ -2,7 +2,7 @@
 
 ## Status
 
-The JVM CLI and Ktor web UI remain the production implementation. The `:fare-core` module is compiled from the **same Kotlin source** for JVM, JavaScript (Node), and WebAssembly/JavaScript (Node). It currently contains serializable search/flight DTOs, JSON configuration/redaction, carrier/cabin classification, and pure fare calculations. The JVM application depends on that module.
+The JVM CLI and Ktor web UI remain the production implementation. The `:fare-core` module is compiled from the **same Kotlin source** for JVM, JavaScript (Node), and WebAssembly/JavaScript (Node). It currently contains serializable search/flight DTOs, query normalization, JSON configuration/redaction, carrier/cabin classification, and pure fare calculations. Both JS and Wasm are configured for Node tests and browser compilation. The JVM application depends on that module.
 
 **This is not yet a deployed ChatGPT Site.** No hosted execution path or D1 persistence layer is claimed. Do not publish the existing localhost server or accept public search POSTs without authentication and quota enforcement.
 
@@ -13,6 +13,8 @@ The JVM CLI and Ktor web UI remain the production implementation. The `:fare-cor
 ./gradlew :fare-core:jvmTest :fare-core:jsNodeTest :fare-core:wasmJsNodeTest
 ./gradlew :fare-core:compileKotlinJs :fare-core:compileKotlinWasmJs
 ```
+
+The JS boundary is implemented in `fare-core/src/jsMain/kotlin/com/clawfare/search/ClawfareJs.kt`; it does not perform network or database operations.
 
 The existing JVM CLI is unchanged:
 
@@ -26,7 +28,7 @@ Kotlin/JS and Kotlin/Wasm compile from `commonMain`; there is no alternative han
 
 - **`fare-core/commonMain`**: pure model, validation, currency, fare math, itinerary, query normalization/estimation as dependencies become multiplatform.
 - **JVM application**: existing Ktor, JDBC/Exposed SQLite, CLI, provider HTTP clients, local cache, and filesystem import/export.
-- **Hosted JS API** (future): HTTP request-handler adapter around the same shared policies, JavaScript `fetch` for upstream providers, D1 for persistent fare history and quota reservations, platform secret bindings, and authorization for mutating operations.
+- **Hosted JS API** (future): `ClawfareJs.normalizeSearchJson` and `ClawfareJs.toGbpOrNull` are JSON/primitive JS exports of the shared Kotlin rules. Add an HTTP request-handler adapter around the same shared policies, JavaScript `fetch` for upstream providers, D1 for persistent fare history and quota reservations, platform secret bindings, and authorization for mutating operations.
 - **Browser Wasm** (optional): pure analysis, fare filters, matrix computation. The existing HTML UI is usable without Wasm. Wasm never gets provider secrets, authorization tokens, or authority to initiate charged upstream calls.
 
 ## Non-negotiable deployment invariants
