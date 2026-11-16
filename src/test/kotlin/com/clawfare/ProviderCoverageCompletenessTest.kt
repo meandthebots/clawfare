@@ -20,7 +20,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ProviderCoverageCompletenessTest {
-    private class ScriptedHttp(vararg initial: HttpResult) : HttpFetcher {
+    private class ScriptedHttp(
+        vararg initial: HttpResult,
+    ) : HttpFetcher {
         val queue = ArrayDeque(initial.toList())
         var calls = 0
 
@@ -182,7 +184,8 @@ class ProviderCoverageCompletenessTest {
             )
         val result = service(http, DiskCache(root())).search(q)
         assertTrue(result.ok)
-        assertTrue(result.result!!.itineraries.single().returnMissing)
+        val returnedTicket = result.result!!.itineraries.single()
+        assertTrue(returnedTicket.returnMissing)
         val observation = result.providerObservations.single()
         assertEquals("partial", observation.state)
         assertEquals(1, observation.unresolvedReturns)
