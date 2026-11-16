@@ -83,7 +83,11 @@ class RefundProofTest {
         assertFalse(evidence.copy(sellerProof = proof.copy(refundToTravellerOriginalPayment = false)).isVerifiedFor(itinerary, at))
         assertFalse(evidence.copy(sellerProof = proof.copy(coversFullTicketBeforeOutbound = false)).isVerifiedFor(itinerary, at))
         assertFalse(evidence.copy(sellerProof = proof.copy(termsSha256 = "undocumented")).isVerifiedFor(itinerary, at))
-        assertFalse(evidence.copy(sellerProof = proof.copy(termsSourceUrl = "https://airline.example/terms?booking_token=secret")).isVerifiedFor(itinerary, at))
+        assertFalse(
+            evidence
+                .copy(sellerProof = proof.copy(termsSourceUrl = "https://airline.example/terms?booking_token=secret"))
+                .isVerifiedFor(itinerary, at),
+        )
         assertFalse(evidence.copy(sellerProof = proof.copy(cancellationDeadlineAt = "2026-11-15T00:00:00Z")).isVerifiedFor(itinerary, at))
         assertFalse(evidence.copy(sellerProof = proof.copy(reviewedAt = "2026-11-10T00:00:00Z")).isVerifiedFor(itinerary, at))
         assertFalse(evidence.copy(sellerProof = proof.copy(offerId = "different-fare")).isVerifiedFor(itinerary, at))
