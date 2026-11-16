@@ -52,4 +52,27 @@ class FareCoreTest {
         assertFalse("secretABC" in safe)
         assertFalse("token12345" in safe)
     }
+
+    @Test
+    fun normalizesSearchRequestsConsistently() {
+        val normalized =
+            normalizeQuery(
+                SearchQuery(
+                    origins = listOf(" lhr, LGW ", "LHR"),
+                    destinations = listOf("tpa"),
+                    outboundFrom = " 2026-12-18 ",
+                    tripType = "one_way",
+                    nights = 8,
+                    providers = listOf("SerpApi", "serpapi"),
+                    checkedBags = 99,
+                ),
+            )
+        assertEquals(listOf("LHR", "LGW"), normalized.origins)
+        assertEquals(listOf("TPA"), normalized.destinations)
+        assertEquals("2026-12-18", normalized.outboundFrom)
+        assertEquals("2026-12-18", normalized.outboundTo)
+        assertNull(normalized.nights)
+        assertEquals(4, normalized.checkedBags)
+        assertEquals(listOf("serpapi"), normalized.providers)
+    }
 }
