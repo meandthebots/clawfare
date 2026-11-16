@@ -1,0 +1,46 @@
+name: Build private Sites source handoff
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'sites-runtime/src/**'
+      - 'sites-runtime/migrations/**'
+      - 'fare-core/**'
+      - 'src/main/resources/web/**'
+      - 'scripts/package-sites-readonly.mjs'
+      - 'scripts/verify-sites-readonly-package.mjs'
+      - 'docs/SITES-SOURCE-HANDOFF.md'
+      - '.github/workflows/sites-source-package.yml'
+
+jobs:
+  source-handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: temurin
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build Kotlin production JS and canonical public sample
+        run: |
+          ./gradlew :fare-core:jsBrowserProductionWebpack
+          bash scripts/build-sites-preview.sh build/sites/clawfare-sample.html
+      - name: Package and verify read-only Sites source
+        run: |
+          node scripts/package-sites-readonly.mjs build/sites-readonly-package
+          node scripts/verify-sites-readonly-package.mjs build/sites-readonly-package
+      - name: Upload read-only Sites source handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: clawfare-sites-readonly-source
+          path: build/sites-readonly-package/
+          if-no-files-found: error
+          retention-days: 14
