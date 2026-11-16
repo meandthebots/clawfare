@@ -60,6 +60,7 @@ class FareCommand : Callable<Int> {
         FareBatchPlanCommand::class,
         FareBatchRunCommand::class,
         FareBatchReportCommand::class,
+        FareBatchCoverageCommand::class,
         FareBatchWatchCommand::class,
     ],
 )
@@ -106,6 +107,9 @@ class FareBatchRunCommand : Callable<Int> {
     @Option(names = ["--confirm"], description = ["Explicitly authorize live searches within cap"])
     var confirm: Boolean = false
 
+    @Option(names = ["--resume"], description = ["Skip fully completed query signatures from the private audit journal"])
+    var resume: Boolean = false
+
     override fun call(): Int {
         parent.parent.parent.ensureDb()
         val config = AppJson.decodeFromString(BatchConfig.serializer(), File(file).readText())
@@ -123,10 +127,72 @@ class FareBatchRunCommand : Callable<Int> {
         val audit =
             System.getenv("CLAWFARE_BATCH_AUDIT")?.let(::File)
                 ?: File(ClawfareDatabase.defaultPath).parentFile.resolve("batch-attempts.ndjson")
-        val run = BatchSweep.run(config, service, confirmed = true, auditFile = audit)
-        println("Executed ${run.executed}; saved ${run.saved}; failures ${run.failures.size}. Audit: ${audit.absolutePath}")
+        val run = BatchSweep.run(config, service, confirmed = true, auditFile = audit, resume = resume)
+        println(
+            "Executed ${run.executed}; resumed/skipped ${run.resumedSkipped}; " +
+                "saved ${run.saved}; failures ${run.failures.size}. Audit: ${audit.absolutePath}",
+        )
         run.failures.forEach { Output.error(it) }
         return if (run.failures.isEmpty()) 0 else 1
+    }
+}
+
+@Command(name = "coverage", description = ["Export attempted/filtered/unsearched route and provider coverage as CSV"])
+class FareBatchCoverageCommand : Callable<Int> {
+    @ParentCommand
+    lateinit var parent: FareBatchCommand
+
+    @Parameters(index = "0", description = ["Private local JSON batch config"])
+    lateinit var file: String
+
+    @Option(names = ["--audit"], description = ["Private NDJSON attempt log"])
+    var audit: String? = null
+
+    @Option(names = ["--out"], required = true, description = ["Private coverage CSV path"])
+    lateinit var out: String
+
+    override fun call(): Int {
+        val config = AppJson.decodeFromString(BatchConfig.serializer(), File(file).readText())
+        val auditFile =
+            audit?.let(::File)
+                ?: File(ClawfareDatabase.defaultPath).parentFile.resolve("batch-attempts.ndjson")
+        val rows = BatchSweep.coverage(config, auditFile)
+
+        fun cell(raw: Any?): String {
+            val text = raw?.toString().orEmpty()
+            val safe = if (text.startsWith("=") || text.startsWith("+") || text.startsWith("@")) "'$text" else text
+            return "\"" + safe.replace("\"", "\"\"") + "\""
+        }
+        val csv =
+            buildString {
+                appendLine(
+                    "signature,origin,destination,date,returning,market,provider,status,returned,eligible,reasons,observedAt",
+                )
+                for (row in rows) {
+                    appendLine(
+                        listOf(
+                            row.signature,
+                            row.origin,
+                            row.destination,
+                            row.date,
+                            row.returning,
+                            row.market,
+                            row.provider,
+                            row.status,
+                            row.returned,
+                            row.eligible,
+                            row.reasons.entries.joinToString(";") { "${it.key}=${it.value}" },
+                            row.observedAt,
+                        ).joinToString(",") { cell(it) },
+                    )
+                }
+            }
+        File(out).writeText(csv)
+        println(
+            "Coverage: ${rows.size} provider/route/date cells; ${rows.count { it.status == "not_searched" }} not searched, " +
+                "${rows.count { it.status == "eligible" }} with eligible results. Private report: $out",
+        )
+        return 0
     }
 }
 
