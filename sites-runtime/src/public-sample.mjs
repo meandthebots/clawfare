@@ -13,6 +13,12 @@ export const UPSERT_PUBLIC_SAMPLE_SQL = [
   "  imported_at = excluded.imported_at",
 ].join("\n");
 
+export const INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL = [
+  "INSERT INTO public_sample_fixtures (slug, result_json, content_sha256, imported_at)",
+  "VALUES (?, ?, ?, ?)",
+  "ON CONFLICT(slug) DO NOTHING",
+].join("\n");
+
 export const GET_PUBLIC_SAMPLE_SQL = [
   "SELECT result_json, content_sha256 FROM public_sample_fixtures WHERE slug = ?",
 ].join("\n");
@@ -88,4 +94,49 @@ export async function loadPublicSample(db, { cryptoApi = globalThis.crypto } = {
   const parsed = JSON.parse(row.result_json);
   validatePublicSample(parsed);
   return parsed;
+}
+
+
+/**
+ * One-time server-side bootstrap for Sites, where D1 migrations may be
+ * applied only during deployment and an administrative seed hook may not
+ * exist. Supply the public Kotlin fixture as a trusted, built-in server asset.
+ *
+ * No caller input controls the seed, and this must be invoked only after the
+ * trusted Sites identity gate accepts the request. An internal idempotent
+ * INSERT is the sole permitted write; all public mutation APIs stay disabled.
+ *
+ * INSERT ... ON CONFLICT DO NOTHING is race-safe and deliberately cannot
+ * overwrite an existing fixture. If the record differs from the bundled
+ * version or was corrupted, fail closed pending an explicit migration.
+ */
+export async function ensureBundledPublicSample(
+  db,
+  bundledSample,
+  { cryptoApi = globalThis.crypto, clock = () => new Date() } = {},
+) {
+  if (!db?.prepare) throw new TypeError("D1 binding required.");
+  const canonical = validatePublicSample(bundledSample);
+  const existing = await loadPublicSample(db, { cryptoApi });
+  if (existing) {
+    if (JSON.stringify(existing) !== canonical) {
+      throw new Error("Existing public sample differs from bundled Kotlin fixture; explicit migration required.");
+    }
+    return existing;
+  }
+  const now = clock();
+  if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
+    throw new Error("Invalid server UTC clock.");
+  }
+  const digest = await sha256(canonical, cryptoApi);
+  await db.prepare(INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL)
+    .bind(PUBLIC_SAMPLE_SLUG, canonical, digest, now.toISOString())
+    .run();
+  // Always read back and check the stored digest. The INSERT may have lost a
+  // race to another application instance running a different release.
+  const stored = await loadPublicSample(db, { cryptoApi });
+  if (!stored || JSON.stringify(stored) !== canonical) {
+    throw new Error("Bundled Kotlin sample bootstrap conflict; explicit migration required.");
+  }
+  return stored;
 }
