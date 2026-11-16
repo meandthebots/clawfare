@@ -90,7 +90,9 @@ class DiskCache(
     ): Int {
         if (!root.isDirectory) return 0
         val stale =
-            root.listFiles().orEmpty()
+            root
+                .listFiles()
+                .orEmpty()
                 .filter { it.isDirectory && !Files.isSymbolicLink(it.toPath()) }
                 .flatMap { provider -> provider.listFiles().orEmpty().toList() }
                 .filter { it.isFile && it.extension == "json" && !Files.isSymbolicLink(it.toPath()) }
