@@ -186,6 +186,33 @@ trusted Sites runtime bootstrapper may receive the D1 binding and call
 `bootstrapPublicSample`. No operator account IDs, provider keys, bearer
 tokens or private search results belong in public sample records.
 
+## D1 public sample initialization after deployment
+
+ChatGPT Sites may apply D1 migrations only during deployment, without a
+separate hosted pre-deploy seed action. The Fetch adapter now optionally
+accepts `bundledPublicSample`: the **server-side, checked-in Kotlin public
+fixture** from `server/fixtures/clawfare-sample.json`. If provided, the
+adapter validates and copies it at handler construction. On the first
+*authenticated* `GET /api/sample`, it checks the hosted D1 fixture table
+and, if empty, performs one bounded, idempotent
+`INSERT ... ON CONFLICT DO NOTHING`; then reads back and validates the
+SHA-256 integrity and exact bundled sample. This runs after migrations are
+available and does **not** require an admin import endpoint.
+
+It never inserts a private investigation, accepts a sample from HTTP input,
+or makes provider requests. An unauthenticated request cannot initiate the
+seed. Concurrent first reads are safe; the code must never overwrite
+existing fixture data or silently replace a corrupt/older version. On a
+mismatch, it fails closed and requires an explicit reviewed migration.
+
+If `bundledPublicSample` is absent, the previous behavior remains: GET
+returns a 404 until a trusted admin explicitly imports the sample. The
+legacy `bootstrapPublicSample` administrative API is still available.
+The hosting adapter must supply the bundled file as a server-only import,
+not from the client request, and the actual Sites sign-in gate must be
+verified after an owner-only deployment. A saved, undeployed Site version
+cannot demonstrate live D1 or identity security.
+
 ## Remaining requirements
 
 - Authenticate and scope data to approved identities, including protection
