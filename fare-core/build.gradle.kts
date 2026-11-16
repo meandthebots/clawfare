@@ -3,6 +3,10 @@ plugins {
     kotlin("plugin.serialization")
 }
 
+repositories {
+    mavenCentral()
+}
+
 kotlin {
     jvm {
         compilerOptions {
