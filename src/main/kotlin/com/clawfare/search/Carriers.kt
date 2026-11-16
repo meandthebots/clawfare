@@ -160,6 +160,23 @@ fun cabinKeyOf(raw: String?): String =
         else -> "economy"
     }
 
+/**
+ * Unlike the permissive UI label classifier, this returns null for unknown
+ * provider segment cabins; unknown must never count as economy in strict mode.
+ */
+fun recognizedCabinKeyOf(raw: String?): String? {
+    val key = raw?.trim()?.lowercase()?.replace('_', ' ')?.replace('-', ' ') ?: return null
+    return when {
+        key in setOf("f", "first", "first class") || key.startsWith("first ") -> "first"
+        key in setOf("j", "c", "business", "business class") || key.startsWith("business ") -> "business"
+        key in setOf("w", "premium economy", "premium economy class", "premium") ||
+            key.startsWith("premium economy ") -> "premium_economy"
+        key in setOf("y", "m", "economy", "economy class", "coach", "main cabin") ||
+            key.startsWith("economy ") -> "economy"
+        else -> null
+    }
+}
+
 fun cabinLabelOf(key: String): String =
     when (key) {
         "premium_economy" -> "Premium economy"
