@@ -27,7 +27,12 @@ class SqliteResponseCache : ResponseCache {
     ): Int =
         transaction {
             val boundary = cutoff.toString()
-            val aged = ProviderCache.selectAll().where { ProviderCache.fetchedAt less boundary }.count().toInt()
+            val aged =
+                ProviderCache
+                    .selectAll()
+                    .where { ProviderCache.fetchedAt less boundary }
+                    .count()
+                    .toInt()
             if (confirm && aged > 0) {
                 ProviderCache.deleteWhere { ProviderCache.fetchedAt less boundary }
             }
