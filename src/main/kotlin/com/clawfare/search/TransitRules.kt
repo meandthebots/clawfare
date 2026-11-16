@@ -92,16 +92,29 @@ object TransitRules {
         excludedAirports: List<String>,
         excludedCountries: List<String>,
         countries: Map<String, String> = expanded,
-    ): Boolean {
+    ): Boolean = rejectionReason(itinerary, excludedAirports, excludedCountries, countries) == null
+
+    /** Stable diagnostic categories; never put private itinerary details in public audits. */
+    fun rejectionReason(
+        itinerary: Itinerary,
+        excludedAirports: List<String>,
+        excludedCountries: List<String>,
+        countries: Map<String, String> = expanded,
+    ): String? {
         val explicit = excludedAirports.map { it.uppercase() }.toSet()
         val forbidden = excludedCountries.map { it.uppercase() }.toSet()
         val connections =
             (listOf(itinerary.outbound) + listOfNotNull(itinerary.returning)).flatMap { direction ->
                 direction.legs.dropLast(1).map { it.to.uppercase() } + direction.layovers.map { it.airport.uppercase() }
             }
-        return connections.none { code ->
-            code in explicit || (forbidden.isNotEmpty() && (countries[code] == null || countries[code] in forbidden))
+        for (code in connections) {
+            if (code in explicit) return "excluded_transit_airport"
+            if (forbidden.isNotEmpty()) {
+                val country = countries[code] ?: return "unknown_transit_country"
+                if (country in forbidden) return "excluded_transit_country"
+            }
         }
+        return null
     }
 
     fun parseOurAirports(file: File): Map<String, String> {
@@ -116,7 +129,12 @@ object TransitRules {
                 if (cols.size > maxOf(iata, country)) {
                     val code = cols[iata].uppercase()
                     val nation = cols[country].uppercase()
-                    if (code.length == 3 && nation.length == 2) result[code] = nation
+                    if (code.matches(Regex("[A-Z]{3}")) && nation.matches(Regex("[A-Z]{2}"))) {
+                        require(result[code] == null || result[code] == nation) {
+                            "Conflicting countries for IATA airport $code in OurAirports data."
+                        }
+                        result[code] = nation
+                    }
                 }
             }
             return result
