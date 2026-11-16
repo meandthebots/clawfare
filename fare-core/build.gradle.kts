@@ -15,7 +15,12 @@ kotlin {
     }
     js(IR) {
         nodejs()
-        browser()
+        browser {
+            webpackTask {
+                output.libraryTarget = "commonjs2"
+            }
+        }
+        binaries.executable()
     }
     wasmJs {
         nodejs()
