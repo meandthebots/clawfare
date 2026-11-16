@@ -157,6 +157,35 @@ remains the immediate no-backend demonstration.
 
 Reference: https://learn.chatgpt.com/docs/sites/data-and-connections
 
+## Shared read-only demo fixture
+
+Migration `0003_public_sample_fixtures.sql` stores one publicly shareable
+sample separately from personal investigations. A trusted bootstrap process
+calls `bootstrapPublicSample(DB, kotlinResultSet)` using **only** the
+`clawfare-sample.json` artifact generated from the JVM Kotlin
+`report sample-json` command. There is deliberately no network import
+or public mutation endpoint.
+
+The bootstrap validates the exact expected fixture ID, nonempty sample
+itineraries, non-live pricing, absence of provider-token and secret fields,
+and the 512 KiB payload limit. It records a SHA-256 digest. Reads validate
+the digest again and refuse to serve corrupted/tampered data. The existing
+authenticated GET `/api/sample` uses this public fixture table, rather
+than writing a copy to every visitor's personal saved investigations.
+Private investigation listings/history remain owner-scoped.
+
+Validate the actual Kotlin-generated artifact:
+
+```bash
+bash scripts/build-sites-preview.sh build/sites/clawfare-sample.html
+node scripts/validate-kotlin-public-sample.mjs build/sites/clawfare-sample.json
+```
+
+This is not yet an automated Sites deployment or provisioning job: only a
+trusted Sites runtime bootstrapper may receive the D1 binding and call
+`bootstrapPublicSample`. No operator account IDs, provider keys, bearer
+tokens or private search results belong in public sample records.
+
 ## Remaining requirements
 
 - Authenticate and scope data to approved identities, including protection

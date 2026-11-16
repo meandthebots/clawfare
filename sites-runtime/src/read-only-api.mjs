@@ -2,6 +2,7 @@
 // This is NOT a public entrypoint: Sites must supply an authenticated email
 // from a trusted identity gateway. Raw user headers are never accepted here.
 import { D1Investigations } from "./investigations.mjs";
+import { loadPublicSample } from "./public-sample.mjs";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -111,8 +112,10 @@ export async function handleReadOnlyApi(
     })));
   }
   if (url.pathname === "/api/sample") {
-    const result = await store.loadSnapshot(ownerId, "florida-dec-2026");
-    return result ? respond(result) : respond({ error: "No sample has been imported for this account." }, 404);
+    // Immutable public fixture stored separately from private investigations.
+    // No user snapshot is read, written, or searched for this route.
+    const result = await loadPublicSample(db, { cryptoApi });
+    return result ? respond(result) : respond({ error: "Bundled sample has not been seeded." }, 404);
   }
 
   const resultPath = /^\/api\/results\/([a-z0-9][a-z0-9_-]{0,99})$/.exec(url.pathname);

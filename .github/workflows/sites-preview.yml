@@ -22,6 +22,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Generate sample-only portable HTML
         run: bash scripts/build-sites-preview.sh build/sites/clawfare-sample.html
+      - name: Validate public Kotlin sample against hosted D1 rules
+        run: node scripts/validate-kotlin-public-sample.mjs build/sites/clawfare-sample.json
       - name: Upload static Sites preview
         uses: actions/upload-artifact@v4
         with:
