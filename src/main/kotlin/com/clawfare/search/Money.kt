@@ -52,7 +52,8 @@ object Fx {
         amount: Double,
         marketOrCode: String,
     ): Double? {
-        val per = PER_GBP[currencyOf(marketOrCode)] ?: return null
+        val per = PER_GBP[currencyOf(marketOrCode)]?.takeIf { it.isFinite() && it > 0.0 } ?: return null
+        if (!amount.isFinite() || amount < 0.0) return null
         return round(amount / per)
     }
 
@@ -231,8 +232,8 @@ object VendorMath {
     ): Pair<Double?, String> {
         val options =
             listOfNotNull(
-                roundTripWithBag?.let { Fx.toGbp(it, market).toDouble() to "RT" },
-                oneWaysWithBag?.let { Fx.toGbp(it, market).toDouble() to "2×1-way" },
+                roundTripWithBag?.let { Fx.toGbpOrNull(it, market)?.let { gbp -> gbp to "RT" } },
+                oneWaysWithBag?.let { Fx.toGbpOrNull(it, market)?.let { gbp -> gbp to "2×1-way" } },
             )
         if (options.isEmpty()) return null to ""
         val best = options.minBy { it.first }
