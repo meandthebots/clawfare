@@ -3,6 +3,7 @@ import test from "node:test";
 import { webcrypto } from "node:crypto";
 import {
   bootstrapPublicSample, loadPublicSample, validatePublicSample,
+  ensureBundledPublicSample, INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL,
   UPSERT_PUBLIC_SAMPLE_SQL, GET_PUBLIC_SAMPLE_SQL,
 } from "../src/public-sample.mjs";
 import { handleReadOnlyApi } from "../src/read-only-api.mjs";
@@ -30,8 +31,10 @@ function fakeDatabase() {
           calls.push({ sql, args });
           return {
             async run() {
-              assert.equal(sql, UPSERT_PUBLIC_SAMPLE_SQL);
-              row = { result_json: args[1], content_sha256: args[2] };
+              assert.ok([UPSERT_PUBLIC_SAMPLE_SQL, INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL].includes(sql));
+              if (sql === UPSERT_PUBLIC_SAMPLE_SQL || !row) {
+                row = { result_json: args[1], content_sha256: args[2] };
+              }
               return { success: true };
             },
             async first() {
@@ -97,4 +100,72 @@ test("GET /api/sample is authenticated and never accesses tenant investigations"
   const rejected = await handleReadOnlyApi(new Request("https://example.com/api/sample", { method: "POST" }), env);
   assert.equal(rejected.status, 405);
   assert.equal(db.calls.length, 1);
+});
+
+
+test("an authenticated first GET seeds the fixed public Kotlin fixture exactly once", async () => {
+  const db = fakeDatabase();
+  const request = new Request("https://example.com/api/sample");
+  const context = {
+    db, ownerKeySecret: "this-is-a-stable-secret-longer-than-thirty-two-bytes",
+    cryptoApi: webcrypto, bundledPublicSample: base,
+    getVerifiedEmail: async () => "alice@example.com",
+  };
+  const first = await handleReadOnlyApi(request, context);
+  assert.equal(first.status, 200);
+  assert.deepEqual(await first.json(), base);
+  assert.deepEqual(db.calls.map(x => x.sql), [
+    GET_PUBLIC_SAMPLE_SQL, INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL, GET_PUBLIC_SAMPLE_SQL,
+  ]);
+  const second = await handleReadOnlyApi(request, context);
+  assert.equal(second.status, 200);
+  assert.deepEqual(await second.json(), base);
+  assert.equal(db.calls.filter(x => x.sql === INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL).length, 1);
+  const direct = await ensureBundledPublicSample(db, base, { cryptoApi: webcrypto });
+  assert.deepEqual(direct, base);
+  assert.equal(db.calls.filter(x => x.sql === INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL).length, 1);
+});
+
+test("anonymous and spoofed requests cannot trigger even an internal sample seed", async () => {
+  const db = fakeDatabase();
+  const context = {
+    db, ownerKeySecret: "this-is-a-stable-secret-longer-than-thirty-two-bytes",
+    cryptoApi: webcrypto, bundledPublicSample: base,
+    getVerifiedEmail: async () => null,
+  };
+  const req = new Request("https://example.com/api/sample", {
+    headers: { "oai-authenticated-user-email": "alice@example.com" },
+  });
+  assert.equal((await handleReadOnlyApi(req, context)).status, 401);
+  assert.equal((await handleReadOnlyApi(
+    new Request("https://example.com/api/sample", { method: "POST" }), context,
+  )).status, 405);
+  assert.deepEqual(db.calls, []);
+});
+
+test("concurrent first requests are idempotent; mismatched or corrupt fixtures fail closed", async () => {
+  const db = fakeDatabase();
+  const options = { cryptoApi: webcrypto, clock: () => new Date("2026-11-16T12:00:00Z") };
+  const [a, b] = await Promise.all([
+    ensureBundledPublicSample(db, base, options),
+    ensureBundledPublicSample(db, base, options),
+  ]);
+  assert.deepEqual(a, base);
+  assert.deepEqual(b, base);
+  const conflict = { ...base, title: "New Kotlin release" };
+  await assert.rejects(
+    ensureBundledPublicSample(db, conflict, options),
+    /differs from bundled Kotlin fixture/,
+  );
+  assert.equal((await loadPublicSample(db, options)).title, base.title);
+  db.corrupt();
+  const writes = db.calls.filter(x => x.sql === INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL).length;
+  await assert.rejects(
+    ensureBundledPublicSample(db, base, options),
+    /digest mismatch/,
+  );
+  assert.equal(db.calls.filter(x => x.sql === INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL).length, writes);
+  await assert.rejects(ensureBundledPublicSample(db, {
+    ...base, itineraries: [{ ...base.itineraries[0], livePrice: true }],
+  }, options), /sample-only/);
 });
