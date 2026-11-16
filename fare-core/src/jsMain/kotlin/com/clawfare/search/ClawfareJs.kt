@@ -48,3 +48,28 @@ object ClawfareJs {
         unitsPerGbp: Double,
     ): Double? = FareMath.toGbpOrNull(amount, unitsPerGbp)
 }
+
+/**
+ * Explicit top-level entrypoints for bundlers. Kotlin/JS executable
+ * dead-code elimination can discard unused object methods when no main()
+ * references the singleton; top-level @JsExport functions are stable roots.
+ * They delegate to the same Kotlin implementation and accept only JSON or
+ * primitive values, never provider credentials.
+ */
+@JsExport
+fun normalizeSearchForHost(queryJson: String): String = ClawfareJs.normalizeSearchJson(queryJson)
+
+@JsExport
+fun planSearchForHost(queryJson: String): String = ClawfareJs.planSearchJson(queryJson)
+
+@JsExport
+fun projectBudgetForHost(
+    queryJson: String,
+    providersJson: String,
+): String = ClawfareJs.projectBudgetJson(queryJson, providersJson)
+
+@JsExport
+fun toGbpForHost(
+    amount: Double,
+    unitsPerGbp: Double,
+): Double? = ClawfareJs.toGbpOrNull(amount, unitsPerGbp)
