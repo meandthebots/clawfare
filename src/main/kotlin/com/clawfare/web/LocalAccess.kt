@@ -28,8 +28,7 @@ class LocalAccess(
     val sessionToken: String = newToken()
     private val grants = ConcurrentHashMap<String, Grant>()
 
-    fun acceptsHost(host: String?): Boolean =
-        host != null && host.matches(Regex("(?i)^(localhost|127[.]0[.]0[.]1)(:[0-9]{1,5})?$"))
+    fun acceptsHost(host: String?): Boolean = host != null && host.matches(Regex("(?i)^(localhost|127[.]0[.]0[.]1)(:[0-9]{1,5})?$"))
 
     fun acceptsOrigin(
         host: String?,
