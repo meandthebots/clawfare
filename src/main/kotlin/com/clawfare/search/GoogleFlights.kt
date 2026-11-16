@@ -699,8 +699,13 @@ fun flightMatch(
     wanted: List<Leg>,
 ): Boolean {
     if (wanted.isEmpty() || offered.size != wanted.size) return false
-    return offered.map { it.flightNumber.replace(" ", "").uppercase() } ==
-        wanted.map { it.flightNumber.replace(" ", "").uppercase() }
+    return offered.zip(wanted).all { (candidate, selected) ->
+        candidate.flightNumber.replace(" ", "").equals(selected.flightNumber.replace(" ", ""), ignoreCase = true) &&
+            candidate.from.equals(selected.from, ignoreCase = true) &&
+            candidate.to.equals(selected.to, ignoreCase = true) &&
+            candidate.departDate == selected.departDate &&
+            normalizeTime(candidate.departTime) == normalizeTime(selected.departTime)
+    }
 }
 
 fun itineraryId(
