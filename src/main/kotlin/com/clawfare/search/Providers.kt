@@ -114,46 +114,6 @@ interface FareProvider {
     ): VendorFetch = VendorFetch(warnings = listOf("$displayName does not return per-seller booking options."))
 }
 
-fun datePairs(query: SearchQuery): List<Pair<String, String?>> {
-    val outs = inclusiveDates(query.outboundFrom, query.outboundTo.ifBlank { query.outboundFrom })
-    if (query.tripType == "one_way") return outs.map { it.toString() to null }
-    val nights = query.nights
-    if (nights != null) {
-        return outs.map { it.toString() to it.plusDays(nights.toLong()).toString() }
-    }
-    val rets = inclusiveDates(query.returnFrom ?: return emptyList(), query.returnTo ?: query.returnFrom!!)
-    return outs.flatMap { o -> rets.filter { it.isAfter(o) }.map { o.toString() to it.toString() } }
-}
-
-private fun inclusiveDates(
-    fromRaw: String,
-    toRaw: String,
-): List<LocalDate> {
-    val from = LocalDate.parse(fromRaw)
-    val to = LocalDate.parse(toRaw)
-    if (to.isBefore(from)) return emptyList()
-    return generateSequence(from) { it.plusDays(1) }.takeWhile { !it.isAfter(to) }.toList()
-}
-
-fun validateQuery(q: SearchQuery): String? {
-    if (q.origins.isEmpty() || q.destinations.isEmpty()) return "Enter at least one origin and one destination airport code."
-    try {
-        datePairs(q)
-    } catch (e: Exception) {
-        return "Check the dates. Use a return range, or a number of nights."
-    }
-    if (q.tripType != "one_way" && q.nights == null && q.returnFrom.isNullOrBlank()) {
-        return "Set a return date range or a trip length in nights."
-    }
-    val pairs = datePairs(q)
-    if (pairs.isEmpty()) return "No outbound/return pairs. The return has to be after the outbound."
-    val routes = pairs.size * q.origins.size * q.destinations.size
-    if (routes > 500) {
-        return "That is $routes route searches before return lookups. Narrow the airports or the dates."
-    }
-    return null
-}
-
 class TravelpayoutsProvider(
     private val token: String?,
     private val http: HttpFetcher,
