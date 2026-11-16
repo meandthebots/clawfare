@@ -57,10 +57,14 @@ object Fx {
         return round(amount / per)
     }
 
+    /** Legacy strict numeric interface: never reinterpret an unconvertible price as GBP. */
     fun toGbp(
         amount: Double,
         marketOrCode: String,
-    ): Int = (toGbpOrNull(amount, marketOrCode) ?: round(amount)).toInt()
+    ): Int =
+        requireNotNull(toGbpOrNull(amount, marketOrCode)) {
+            "Cannot convert amount in ${currencyOf(marketOrCode)} to GBP: reference rate or valid amount missing."
+        }.toInt()
 }
 
 data class SellerQuote(
