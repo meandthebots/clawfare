@@ -117,13 +117,14 @@ object TicketUse {
             itinerary.pricePerPerson
                 ?.takeIf { it.isFinite() && it >= 0.0 && itinerary.passengers > 0 }
                 ?.times(itinerary.passengers)
+
         fun unknown(reason: String): TicketUseOutcome = TicketUseOutcome(plan.mode, gross, null, null, "not_computable", reason)
 
         fun known(
             net: Double,
             cash: Double = 0.0,
-        ): TicketUseOutcome {
-            return TicketUseOutcome(
+        ): TicketUseOutcome =
+            TicketUseOutcome(
                 plan.mode,
                 gross,
                 net,
@@ -131,7 +132,6 @@ object TicketUse {
                 "computable",
                 "Manual fare-rule evidence; recheck with ticket issuer.",
             )
-        }
 
         if (gross == null || !gross.isFinite()) return unknown("Price per party or amount scope is not established.")
         val isReturn =
@@ -168,9 +168,9 @@ object TicketUse {
                 val cash =
                     plan.partialRefundProof?.verifiedRefundGbp(itinerary, plan.sellerId, now)
                         ?: return unknown(
-                        "Post-outbound cancellation must have exact seller and fare-rule evidence " +
-                            "for actual cash refund, coupon repricing and all fees. Gross price is shown only.",
-                    )
+                            "Post-outbound cancellation must have exact seller and fare-rule evidence " +
+                                "for actual cash refund, coupon repricing and all fees. Gross price is shown only.",
+                        )
                 return known(gross - cash, cash)
             }
             "cancel_whole_before_outbound" -> {
