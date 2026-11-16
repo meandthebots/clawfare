@@ -2,7 +2,7 @@
 // This is NOT a public entrypoint: Sites must supply an authenticated email
 // from a trusted identity gateway. Raw user headers are never accepted here.
 import { D1Investigations } from "./investigations.mjs";
-import { loadPublicSample } from "./public-sample.mjs";
+import { ensureBundledPublicSample, loadPublicSample } from "./public-sample.mjs";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -63,7 +63,8 @@ export async function ownerKeyFromVerifiedEmail(email, secret, cryptoApi = globa
  */
 export async function handleReadOnlyApi(
   request,
-  { db, getVerifiedEmail, ownerKeySecret, cryptoApi = globalThis.crypto },
+  { db, getVerifiedEmail, ownerKeySecret, cryptoApi = globalThis.crypto,
+    bundledPublicSample = null },
 ) {
   if (typeof getVerifiedEmail !== "function") {
     throw new Error("Trusted identity gateway integration is required");
@@ -114,7 +115,9 @@ export async function handleReadOnlyApi(
   if (url.pathname === "/api/sample") {
     // Immutable public fixture stored separately from private investigations.
     // No user snapshot is read, written, or searched for this route.
-    const result = await loadPublicSample(db, { cryptoApi });
+    const result = bundledPublicSample == null
+      ? await loadPublicSample(db, { cryptoApi })
+      : await ensureBundledPublicSample(db, bundledPublicSample, { cryptoApi });
     return result ? respond(result) : respond({ error: "Bundled sample has not been seeded." }, 404);
   }
 
