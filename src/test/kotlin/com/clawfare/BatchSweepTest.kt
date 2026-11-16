@@ -167,6 +167,27 @@ class BatchSweepTest {
                 sourceLabel = "live",
                 pricePerPerson = 1500.0,
                 passengers = 2,
+                outbound =
+                    com.clawfare.search.Direction(
+                        legs =
+                            listOf(
+                                com.clawfare.search.Leg(
+                                    "XX 123",
+                                    "Synthetic Airline",
+                                    "XX",
+                                    "Synthetic Airline",
+                                    "CDG",
+                                    "HND",
+                                    "10:00",
+                                    "08:00",
+                                    "2027-09-12",
+                                    "2027-09-13",
+                                    cabin = "Business",
+                                ),
+                            ),
+                    ),
+                returning = null,
+                returnMissing = false,
             )
         val sink =
             object : FareSink {

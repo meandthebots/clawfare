@@ -357,7 +357,9 @@ object BatchSweep {
         val rows =
             entries.flatMap { entry ->
                 val result = sink.load(entry.signature)?.result ?: return@flatMap emptyList()
-                result.itineraries.map { itinerary ->
+                // Saved offers may predate tightened policy. Do not rank or
+                // alert on an itinerary that fails the current scenario.
+                result.itineraries.filter { OfferEligibility.rejectionReason(it, entry.query) == null }.map { itinerary ->
                     val fare = itinerary.pricePerPerson?.let { it * itinerary.passengers }
                     val scenario = entry.scenario
                     val useOutcome = scenario.ticketUsePlan?.let { TicketUse.evaluate(itinerary, it) }

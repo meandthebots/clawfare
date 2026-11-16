@@ -84,6 +84,8 @@ data class Leg(
     val durationMinutes: Int? = null,
     val cabin: String? = null,
     val aircraft: String? = null,
+    /** False if the operating carrier was inferred from marketing data instead of explicitly reported. */
+    val operatingCarrierVerified: Boolean = true,
 )
 
 @Serializable

@@ -11,7 +11,11 @@ object OfferEligibility {
         itinerary: Itinerary,
         query: SearchQuery,
     ): String? {
-        if (!Filters.matches(itinerary, FilterSpec(airlineBlock = query.excludedAirlines))) return "excluded_carrier"
+        if (query.excludedAirlines.isNotEmpty() &&
+            !Filters.matches(itinerary, FilterSpec(airlineBlock = query.excludedAirlines, hideMock = false))
+        ) {
+            return "excluded_carrier"
+        }
 
         val transitRejection =
             TransitRules.rejectionReason(
@@ -24,12 +28,20 @@ object OfferEligibility {
         val directions = listOf(itinerary.outbound) + listOfNotNull(itinerary.returning)
         val legs = directions.flatMap { it.legs }
         if (legs.isEmpty() || directions.any { it.legs.isEmpty() }) return "missing_legs"
-        if (query.strictOperatingCarrier && legs.any { it.operatingCarrier.isBlank() }) return "unknown_operator"
+        if (query.tripType != "one_way" &&
+            itinerary.returnMissing &&
+            (query.strictPerLegCabin || query.strictOperatingCarrier)
+        ) {
+            return "unverified_return_legs"
+        }
+        if (query.strictOperatingCarrier && legs.any { it.operatingCarrier.isBlank() || !it.operatingCarrierVerified }) {
+            return "unknown_operator"
+        }
 
         for (leg in legs) {
             val minimum = if (isShortHaul(leg)) query.cabinShortHaul else query.cabin
             if (query.strictPerLegCabin) {
-                if (leg.cabin.isNullOrBlank()) return "unknown_cabin"
+                if (recognizedCabinKeyOf(leg.cabin) == null) return "unknown_cabin"
                 if (!cabinAtLeast(leg.cabin, minimum)) return "insufficient_cabin"
             }
         }
