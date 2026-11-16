@@ -157,50 +157,6 @@ remains the immediate no-backend demonstration.
 
 Reference: https://learn.chatgpt.com/docs/sites/data-and-connections
 
-## Existing HTML frontend in hosted read-only mode
-
-`renderHostedReadOnlyPage(template)` prepares the **existing Kotlin Ktor
-frontend HTML** for a Sites-compatible static/HTTP handler. It injects the
-explicit flag `window.__CLAWFARE_HOSTED_READ_ONLY__ = true`, while preserving
-the original snapshot marker and layout.
-
-The browser then skips the localhost-only `/api/session` token exchange and
-omits `X-Clawfare-Session` for hosted read-only GET requests. It disables
-estimate, paid search and export buttons and refuses to dispatch any mutation
-POST through its API helper. Browsing saved investigations and applying local
-filters remains functional. The JVM server, without the explicit flag, retains
-its existing LocalAccess session behavior.
-
-This UI flag is **not an authorization mechanism**. The authenticated Sites
-route handler still must enforce tenant scoping and reject all paid endpoints
-server-side. Do not infer hosted mode from the hostname; enable it explicitly
-only in an authenticated Sites build.
-
-## Read-only Fetch API assembly
-
-`createReadOnlySitesHandler({templateHtml, db, getVerifiedEmail,
-ownerKeySecret, cryptoApi})` composes the actual Kotlin-generated HTML UI
-and the tenant-scoped D1 API into a platform-neutral Fetch API handler.
-
-It serves `/` and `/index.html` with the explicit hosted read-only flag,
-uses the trusted identity gateway for `/api/...`, denies all mutation
-routes through the API, and returns `null` for login/logout paths so the
-Sites host can handle its native Sign in with ChatGPT flow.
-
-This is a **library to integrate into a Sites starter**, not a deployed
-Worker or an instruction to treat arbitrary HTTP headers as verified.
-The trusted platform must:
-- Provision D1 and apply migrations in order.
-- Pass the actual generated Kotlin HTML template (not arbitrary user HTML).
-- Supply a verified sign-in callback derived from secure Sites ingress.
-- Bind a stable 32-byte-plus owner-key secret.
-- Handle `null` responses with native sign-in/out or a safe 404.
-- Test browser usage and save a Sites version for private review.
-
-Unit tests invoke the handler using genuine Fetch `Request`/`Response`
-objects and the actual Kotlin web template. They do not claim that Site
-deployment or SIWC identity attestation has already succeeded.
-
 ## Remaining requirements
 
 - Authenticate and scope data to approved identities, including protection
