@@ -16,8 +16,14 @@ Sites project ID.
   provider HTTP quota safety module, and compiled Kotlin/JS loader.
 - `server/kotlin/fare-core.cjs` — **actual Kotlin/JS** production bundle,
   exposing normalized queries, search-date planning, provider call-budget
-  projection and FX. The hosting build may need to bundle this CommonJS module
-  for its ESM Worker runtime; do not replace it with handwritten fare math.
+  projection and FX. Do not replace it with handwritten fare math.
+- `server/worker.mjs` — a self-contained **ESM Worker factory**, bundled
+  with a pinned esbuild release. It embeds the original HTML and fixed Kotlin
+  public fixture and loads the genuine Kotlin/JS bridge. The host imports
+  `createTrustedWorker({ getVerifiedEmail })` and delegates Fetch requests
+  to that returned object. There is **deliberately no default public fetch
+  export**, no implicit identity header trust and no fabricated Sites runtime
+  configuration. `server/worker-source.mjs` is the readable assembly input.
 - `server/fixtures/clawfare-sample.json` — the canonical Kotlin-generated
   sample ResultSet, approved for public demonstration, **not** private user data.
 - `server/migrations/*.sql` — D1 schema for disabled-by-default paid provider
@@ -37,14 +43,20 @@ Sites project ID.
    of at least 32 bytes through Sites Settings. Keep the value out of prompts,
    Git history, static assets, and the browser. Do not rotate it without
    migrating pseudonymous owner keys.
-4. Create a **trusted Sites gateway integration** that invokes
-   `createReadOnlySitesHandler({ templateHtml, db: env.DB, getVerifiedEmail,
-   ownerKeySecret: env.OWNER_KEY_SECRET, cryptoApi: globalThis.crypto })`.
+4. Implement the **trusted Sites gateway integration** around the
+   prepared `server/worker.mjs`. It exports `createTrustedWorker({
+   getVerifiedEmail })` and **does not export a ready-to-publish default
+   Worker handler**. Provide the platform's verified identity callback and
+   only then attach the returned `fetch(request, env, context)` handler to
+   Sites ingress, with `env.DB` and `env.OWNER_KEY_SECRET` bindings.
    The `getVerifiedEmail` function must use an identity attested by Sites
    ingress. Do **not** trust an arbitrary user-provided
    `oai-authenticated-user-email` header on a publicly reachable Worker.
    Before enabling site access, verify that Sites sign-in controls the header
    and that visitors cannot spoof the identity or bypass the gate.
+   If the installed Sites runtime cannot expose a trusted callback, **keep
+   the Site undeployed and report the blocker**; never add a raw-header
+   fallback.
 5. Sites may apply D1 migrations **only when a version is deployed**.
    If there is no trusted pre-deployment D1 seed action, supply the canonical
    Kotlin `server/fixtures/clawfare-sample.json` to
@@ -58,9 +70,10 @@ Sites project ID.
    if Sites exposes such an action, but is no longer required for the sample.
    Neither path exposes a public import route.
 6. Serve the packaged `public/index.html` and route all `/api/*` requests
-   through the authenticated Fetch handler. Route native
-   `/signin-with-chatgpt` and `/signout-with-chatgpt` to Sites.
-   Deny all unsupported requests by default.
+   through the trusted `server/worker.mjs` Fetch factory. Route native
+   `/signin-with-chatgpt` and `/signout-with-chatgpt` to Sites **before**
+   its 404 fallback. Deny all unsupported requests by default. The Worker
+   factory does not make outbound provider calls or expose public writes.
 7. **Save a version for review without deploying**. Verify its build
    logs, bundled fixture, Kotlin UI, code compatibility, and disabled paid
    routes locally. Do not claim real hosted D1/auth/browser validation for an
@@ -125,6 +138,20 @@ node scripts/verify-sites-readonly-package.mjs build/sites-readonly-package
 The integration tests use real SQLite (not D1 native hosting) and injected
 test identity, and therefore cannot certify the actual Sites gateway. The
 GitHub CI preview/source artifact is **not a deployed URL**.
+
+## Existing version 1 and Work environment limitation (16 November 2026)
+
+Version 1 remains **owner-only and undeployed**. The subsequent Work attempt
+could not update or save version 2 because its Site execution environment was
+unavailable. That is a Work runtime/access blocker, **not** a Kotlin build
+failure. The source package now includes a verified bundled ESM Worker
+factory so that Work does not need to assemble Kotlin/JS, UI, fixture or D1
+adapters from scratch. It still must attach a trusted Sites identity callback
+and provision/verify live D1 during an explicitly authorized owner-only
+deployment. Continue in the **existing Clawfare Site**, not a new project.
+
+Do not claim that version 2 was saved until the Sites editor confirms it.
+Avoid repeated creation of new Sites to work around missing access.
 
 ## Suggested ChatGPT Work / @Sites request
 
