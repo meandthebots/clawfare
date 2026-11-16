@@ -49,9 +49,7 @@ object Fx {
     fun toGbpOrNull(
         amount: Double,
         marketOrCode: String,
-    ): Double? {
-        return FareMath.toGbpOrNull(amount, PER_GBP[currencyOf(marketOrCode)])
-    }
+    ): Double? = FareMath.toGbpOrNull(amount, PER_GBP[currencyOf(marketOrCode)])
 
     /** Legacy strict numeric interface: never reinterpret an unconvertible price as GBP. */
     fun toGbp(
