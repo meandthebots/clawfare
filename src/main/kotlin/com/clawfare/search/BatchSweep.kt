@@ -366,7 +366,11 @@ object BatchSweep {
                         listOf(scenario.positioningGbp, scenario.hotelsGbp, scenario.groundTransfersGbp, scenario.baggageGbp)
                     val complete = knownCosts.all { it != null }
                     val finalPrice =
-                        if (effectiveFare != null && complete && itinerary.sourceLabel == "live") {
+                        if (effectiveFare != null &&
+                            complete &&
+                            itinerary.sourceLabel == "live" &&
+                            scenario.ticketUsePlan?.mode != "cancel_whole_before_outbound"
+                        ) {
                             effectiveFare + knownCosts.filterNotNull().sum()
                         } else {
                             null
