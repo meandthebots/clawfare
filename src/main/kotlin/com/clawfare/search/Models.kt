@@ -283,12 +283,26 @@ data class Estimate(
 )
 
 @Serializable
+data class ProviderObservation(
+    val provider: String,
+    /** completed, cache_only, unconfigured, or failed; not a bookability claim. */
+    val state: String,
+    val returned: Int = 0,
+    val eligible: Int = 0,
+    val excludedByReason: Map<String, Int> = emptyMap(),
+    /** Provider-reported counts, not verified billing counters. */
+    val reportedNetworkCalls: Int? = null,
+    val reportedCachedCalls: Int? = null,
+)
+
+@Serializable
 data class SearchResponse(
     val ok: Boolean,
     val needsConfirmation: Boolean = false,
     val estimate: Estimate? = null,
     val result: ResultSet? = null,
     val error: String? = null,
+    val providerObservations: List<ProviderObservation> = emptyList(),
 )
 
 @Serializable

@@ -106,12 +106,15 @@ class SearchService(
         val effectiveCache = if (q.cacheOnly) cache else FreshResponseCache(cache)
         val found = mutableListOf<Itinerary>()
         val tokens = mutableMapOf<String, FlightTokens>()
+        val observations = mutableListOf<ProviderObservation>()
         for (provider in selected(q)) {
             val outcome =
                 try {
                     provider.search(q, effectiveCache, allowNetwork = !q.cacheOnly && provider.configured)
                 } catch (e: Exception) {
                     warnings += "${provider.displayName} failed: ${redact(e.message ?: "error")}"
+                    // An exception may occur after a billable request; its cost is unknown.
+                    observations += ProviderObservation(provider = provider.id, state = "failed")
                     continue
                 }
             warnings += outcome.warnings
@@ -120,9 +123,29 @@ class SearchService(
             // These preferences are independent of the browser's display-only filters.
             val classifications = outcome.itineraries.groupBy { OfferEligibility.rejectionReason(it, q) }
             val eligible = classifications[null].orEmpty()
-            classifications.filterKeys { it != null }.forEach { (reason, excluded) ->
-                warnings += "${excluded.size} fares filtered: $reason"
+            val exclusionCounts =
+                classifications
+                    .filterKeys { it != null }
+                    .mapKeys { (reason, _) -> requireNotNull(reason) }
+                    .mapValues { (_, items) -> items.size }
+            exclusionCounts.forEach { (reason, count) ->
+                warnings += "$count fares filtered: $reason"
             }
+            observations +=
+                ProviderObservation(
+                    provider = provider.id,
+                    state =
+                        when {
+                            q.cacheOnly || !provider.configured && outcome.cachedCalls > 0 -> "cache_only"
+                            !provider.configured -> "unconfigured"
+                            else -> "completed"
+                        },
+                    returned = outcome.itineraries.size,
+                    eligible = eligible.size,
+                    excludedByReason = exclusionCounts,
+                    reportedNetworkCalls = outcome.liveCalls,
+                    reportedCachedCalls = outcome.cachedCalls,
+                )
             found += eligible
         }
         val (itineraries, keptTokens) = dedupe(found, tokens)
@@ -171,7 +194,7 @@ class SearchService(
                 query = q,
             )
         val saved = sink.save(StoredResult(result, keptTokens))
-        return SearchResponse(ok = true, estimate = est, result = saved)
+        return SearchResponse(ok = true, estimate = est, result = saved, providerObservations = observations)
     }
 
     fun vendors(
