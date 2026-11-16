@@ -550,7 +550,7 @@ class FareReingestCommand : Callable<Int> {
     }
 }
 
-@Command(name = "quota", description = ["Query provider account quotas (HTTP request; counts against conservative local cap)"]
+@Command(name = "quota", description = ["Query provider account quotas (HTTP request; counts against conservative local cap)"])
 class FareQuotaCommand : Callable<Int> {
     @ParentCommand
     lateinit var parent: FareCommand
