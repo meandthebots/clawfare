@@ -1,0 +1,30 @@
+name: Build read-only Sites preview
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/build-sites-preview.sh'
+      - '.github/workflows/sites-preview.yml'
+      - 'src/main/resources/web/**'
+      - 'src/main/kotlin/com/clawfare/search/**'
+      - 'src/main/kotlin/com/clawfare/export/**'
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Generate sample-only portable HTML
+        run: bash scripts/build-sites-preview.sh build/sites/clawfare-sample.html
+      - name: Upload static Sites preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: clawfare-sites-sample
+          path: build/sites/clawfare-sample.html
+          retention-days: 14
