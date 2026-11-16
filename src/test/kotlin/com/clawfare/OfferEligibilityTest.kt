@@ -91,9 +91,10 @@ class OfferEligibilityTest {
         val continuation = long.copy(from = "HKG")
         val blocked = eligible.copy(outbound = Direction(legs = listOf(viaHongKong, continuation)))
         assertEquals("excluded_transit_country", OfferEligibility.rejectionReason(blocked, q))
-        val unknown = blocked.copy(
-            outbound = Direction(legs = listOf(viaHongKong.copy(to = "ZZZ"), continuation.copy(from = "ZZZ"))),
-        )
+        val unknown =
+            blocked.copy(
+                outbound = Direction(legs = listOf(viaHongKong.copy(to = "ZZZ"), continuation.copy(from = "ZZZ"))),
+            )
         assertEquals("unknown_transit_country", OfferEligibility.rejectionReason(unknown, q))
         assertEquals(
             "excluded_transit_country",
