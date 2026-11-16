@@ -30,8 +30,7 @@ class BatchCoverageTest {
 
         override fun quota(): QuotaView = QuotaView(id, true, remaining = 100)
 
-        override fun baseCalls(query: SearchQuery): List<CallSpec> =
-            listOf(CallSpec(id, "fixture", mapOf("date" to query.outboundFrom)))
+        override fun baseCalls(query: SearchQuery): List<CallSpec> = listOf(CallSpec(id, "fixture", mapOf("date" to query.outboundFrom)))
 
         override fun search(
             query: SearchQuery,
@@ -69,10 +68,11 @@ class BatchCoverageTest {
 
     @Test
     fun neverSearchedVersusAllFilteredAndResumeWithoutAnotherCall() {
-        val root = File.createTempFile("coverage", "").apply {
-            delete()
-            mkdirs()
-        }
+        val root =
+            File.createTempFile("coverage", "").apply {
+                delete()
+                mkdirs()
+            }
         val journal = root.resolve("attempts.ndjson")
         val query =
             SearchQuery(
