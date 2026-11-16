@@ -161,8 +161,7 @@ object TransitRules {
         return null
     }
 
-    fun parseOurAirports(file: File): Map<String, String> =
-        file.bufferedReader().use { reader -> parseOurAirports(reader) }
+    fun parseOurAirports(file: File): Map<String, String> = file.bufferedReader().use { parseOurAirports(it) }
 
     /** Accept duplicate IATA codes only when their country is identical. */
     internal fun parseOurAirports(reader: BufferedReader): Map<String, String> {

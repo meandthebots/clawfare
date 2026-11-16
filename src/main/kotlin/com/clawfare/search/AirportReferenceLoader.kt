@@ -40,7 +40,8 @@ object AirportReferenceLoader {
         // create a mapping different from the recorded fingerprint.
         val bytes = file.readBytes()
         val digest =
-            MessageDigest.getInstance("SHA-256").digest(bytes)
+            MessageDigest.getInstance("SHA-256")
+                .digest(bytes)
                 .joinToString("") { "%02x".format(it) }
         expectedSha256?.takeIf { it.isNotBlank() }?.let { pinned ->
             require(pinned.matches(Regex("[0-9a-fA-F]{64}"))) { "Expected airport-country SHA-256 is invalid." }
