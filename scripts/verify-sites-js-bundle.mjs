@@ -22,6 +22,15 @@ const exports = require(bundle);
 // public exported object and functions must remain callable without a JVM.
 function locateBridge(obj, depth = 0) {
   if (!obj || depth > 8 || (typeof obj !== "object" && typeof obj !== "function")) return null;
+  if (typeof obj.normalizeSearchForHost === "function" && typeof obj.planSearchForHost === "function" &&
+      typeof obj.projectBudgetForHost === "function" && typeof obj.toGbpForHost === "function") {
+    return {
+      normalizeSearchJson: obj.normalizeSearchForHost,
+      planSearchJson: obj.planSearchForHost,
+      projectBudgetJson: obj.projectBudgetForHost,
+      toGbpOrNull: obj.toGbpForHost,
+    };
+  }
   if (typeof obj.normalizeSearchJson === "function" && typeof obj.planSearchJson === "function" &&
       typeof obj.projectBudgetJson === "function") return obj;
   for (const key of Object.keys(obj)) {
