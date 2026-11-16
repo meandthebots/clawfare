@@ -229,6 +229,12 @@ class FareBatchReportCommand : Callable<Int> {
                 "expenseEvidence",
                 "retrievedAt",
                 "journeyType",
+                "ticketUseMode",
+                "ticketUseState",
+                "grossPartyTicketGbp",
+                "netPartyTicketGbp",
+                "travellerCashRefundGbp",
+                "ticketUseNote",
             )
         val csv =
             buildString {
@@ -247,6 +253,12 @@ class FareBatchReportCommand : Callable<Int> {
                             row.expenseEvidence,
                             row.retrievedAt,
                             row.journeyType,
+                            row.ticketUseMode,
+                            row.ticketUseState,
+                            row.partyFareGbp,
+                            row.netPartyTicketGbp,
+                            row.travellerCashRefundGbp,
+                            row.ticketUseNote,
                         ).joinToString(",") { cell(it ?: "") },
                     )
                 }
