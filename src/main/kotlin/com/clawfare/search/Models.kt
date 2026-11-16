@@ -19,6 +19,10 @@ data class SearchQuery(
     val cabin: String = "premium_economy",
     /** Domestic / short-haul legs may be this cabin or higher. */
     val cabinShortHaul: String = "economy",
+    /** Unknown segment cabin must fail eligibility, not inherit a search-level cabin. */
+    val strictPerLegCabin: Boolean = false,
+    /** Reject missing operating carrier on individual segments. */
+    val strictOperatingCarrier: Boolean = false,
     val checkedBags: Int = 0,
     /** Default traveller preference. Set to an empty list to include LOT. */
     val excludedAirlines: List<String> = listOf("LO"),
