@@ -22,6 +22,8 @@ import picocli.CommandLine.Option
 import picocli.CommandLine.Parameters
 import picocli.CommandLine.ParentCommand
 import java.io.File
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.Callable
 
 private fun fareService(): SearchService = SearchService(providersFromEnv(), SqliteResponseCache(), FareStore)
@@ -37,6 +39,7 @@ private fun splitCodes(raw: String): List<String> = raw.split(Regex("[,\\s]+")).
         FareFetchCommand::class,
         FareReingestCommand::class,
         FareQuotaCommand::class,
+        FarePruneProviderCacheCommand::class,
         FareLoadSampleCommand::class,
         FareFxRefreshCommand::class,
         FareVerifyDuffelCommand::class,
@@ -546,6 +549,36 @@ class FareQuotaCommand : Callable<Int> {
             val note = quota.note?.let { " — $it" } ?: ""
             println("${quota.provider}: ${if (quota.configured) "configured" else "not configured"}$remaining$limit$note")
         }
+        return 0
+    }
+}
+
+@Command(name = "prune-provider-cache", description = ["Preview or delete aged raw SQLite provider responses; offline"])
+class FarePruneProviderCacheCommand : Callable<Int> {
+    @ParentCommand
+    lateinit var parent: FareCommand
+
+    @Option(names = ["--days"], defaultValue = "90", description = ["Keep raw responses newer than this many UTC days"])
+    var days: Int = 90
+
+    @Option(names = ["--confirm"], description = ["Actually delete old raw responses; default is preview only"])
+    var confirm: Boolean = false
+
+    override fun call(): Int {
+        if (days !in 1..3650) {
+            Output.error("Retention days must be between 1 and 3650.")
+            return 2
+        }
+        parent.parent.ensureDb()
+        val cutoff = Instant.now().minus(days.toLong(), ChronoUnit.DAYS)
+        val count = SqliteResponseCache().pruneOlderThan(cutoff, confirm)
+        println(
+            if (confirm) {
+                "Deleted $count aged raw provider responses before $cutoff; normalized prices/history are untouched."
+            } else {
+                "$count raw provider responses older than $cutoff. No changes made; re-run with --confirm to delete."
+            },
+        )
         return 0
     }
 }

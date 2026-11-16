@@ -4,6 +4,7 @@ import com.clawfare.db.ProviderCache
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
@@ -18,6 +19,25 @@ import java.time.Instant
  */
 class SqliteResponseCache : ResponseCache {
     private val maps = MapSerializer(String.serializer(), String.serializer())
+
+    /** Dry-run by default. Deletes raw provider responses, not normalized fare history. */
+    fun pruneOlderThan(
+        cutoff: Instant,
+        confirm: Boolean = false,
+    ): Int =
+        transaction {
+            val boundary = cutoff.toString()
+            val aged =
+                ProviderCache
+                    .selectAll()
+                    .where { ProviderCache.fetchedAt less boundary }
+                    .count()
+                    .toInt()
+            if (confirm && aged > 0) {
+                ProviderCache.deleteWhere { ProviderCache.fetchedAt less boundary }
+            }
+            aged
+        }
 
     override fun get(
         provider: String,
