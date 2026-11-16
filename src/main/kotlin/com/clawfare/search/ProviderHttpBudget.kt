@@ -229,14 +229,15 @@ class MeteredProviderHttp(
         val (provider, category) = classify(method, url)
             ?: error("Unrecognized provider API route; no network request sent.")
         val id = budget.reserve(provider, category)
-        try {
-            val result = delegate.request(method, url, headers, body)
-            budget.complete(id, provider, category, result.status, if (result.status == 429) "rate_limited" else "response")
-            return result
-        } catch (e: Exception) {
-            budget.complete(id, provider, category, null, "transport_error")
-            throw e
-        }
+        val result =
+            try {
+                delegate.request(method, url, headers, body)
+            } catch (e: Exception) {
+                budget.complete(id, provider, category, null, "transport_error")
+                throw e
+            }
+        budget.complete(id, provider, category, result.status, if (result.status == 429) "rate_limited" else "response")
+        return result
     }
 
     private fun classify(
