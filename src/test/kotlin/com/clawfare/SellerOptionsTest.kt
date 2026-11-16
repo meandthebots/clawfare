@@ -61,7 +61,7 @@ class SellerOptionsTest {
         assertEquals(5, options.size)
         assertEquals(3, options.count { it.seller == "British Airways" })
         assertEquals(2, options.count { it.fareBrand == "Business Flex" })
-        assertEquals(3, options.map { it.id }.toSet().intersect(options.filter { it.seller == "British Airways" }.map { it.id }.toSet()).size)
+        assertEquals(options.size, options.map { it.id }.distinct().size)
         assertTrue(options.first().directAirline == true)
         assertTrue(options[3].splitTickets)
         assertEquals(null, options[4].priceTotal)
