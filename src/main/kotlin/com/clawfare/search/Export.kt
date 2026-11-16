@@ -151,6 +151,39 @@ object Export {
         }
     }
 
+    /** Safe, read-only export: no booking POST data, credentials or opaque tokens. */
+    fun sellerOptionsCsv(result: ResultSet): String =
+        buildString {
+            appendLine(
+                "option_id,product_key,itinerary_id,provider,market,seller,fare_brand,fare_type,party_price,currency,passengers,journey," +
+                    "direct_airline,split_tickets,bags,phone_service_fee,observed_at,refund_status",
+            )
+            for (option in result.sellerOptions) {
+                appendLine(
+                    listOf(
+                        option.id,
+                        option.productKey,
+                        option.itineraryId,
+                        option.provider,
+                        option.market,
+                        option.seller,
+                        option.fareBrand.orEmpty(),
+                        option.fareType.orEmpty(),
+                        option.priceTotal?.toString().orEmpty(),
+                        option.currency,
+                        option.passengers.toString(),
+                        option.journey,
+                        option.directAirline?.toString().orEmpty(),
+                        option.splitTickets.toString(),
+                        option.bags,
+                        option.phoneServiceFee?.toString().orEmpty(),
+                        option.observedAt,
+                        "unverified",
+                    ).joinToString(",") { csv(it) },
+                )
+            }
+        }
+
     /** Drop the result into the app page so the file renders with no server. */
     fun html(
         page: String,

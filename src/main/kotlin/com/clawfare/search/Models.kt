@@ -223,6 +223,8 @@ data class ResultSet(
     val addons: List<Itinerary> = emptyList(),
     val cells: List<ComboCell> = emptyList(),
     val vendors: List<VendorRow> = emptyList(),
+    /** Evidence-only seller variants; unverified until exact fare rules are captured. */
+    val sellerOptions: List<SellerOption> = emptyList(),
     val vendorIntro: List<NoteCard> = emptyList(),
     val headerNotes: List<NoteCard> = emptyList(),
     val suggestedFilters: FilterSpec = FilterSpec(),
@@ -241,6 +243,7 @@ data class Presentation(
     val subtitle: String = "",
     val headerNotes: List<NoteCard> = emptyList(),
     val vendorIntro: List<NoteCard> = emptyList(),
+    val sellerOptions: List<SellerOption> = emptyList(),
     val suggestedFilters: FilterSpec = FilterSpec(),
     val warnings: List<String> = emptyList(),
     val fetchedAt: String? = null,

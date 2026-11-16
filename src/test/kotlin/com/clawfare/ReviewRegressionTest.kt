@@ -43,6 +43,11 @@ class ReviewRegressionTest {
     @Test
     fun twoAdultSellerSearchesAndBaggageUsePartyCount() {
         val urls = mutableListOf<String>()
+        val selected = SampleData.florida().itineraries.first { it.returning != null }
+        val flightJson =
+            selected.outbound.legs.joinToString(",") { leg ->
+                """{"departure_airport":{"id":"${leg.from}","time":"${leg.departDate} ${leg.departTime}"},"arrival_airport":{"id":"${leg.to}","time":"${leg.arriveDate} ${leg.arriveTime}"},"airline":"${leg.airline}","flight_number":"${leg.flightNumber}","travel_class":"Business"}"""
+            }
         val http =
             object : HttpFetcher {
                 override fun request(
@@ -60,13 +65,12 @@ class ReviewRegressionTest {
                     } else {
                         HttpResult(
                             200,
-                            """{"best_flights":[{"price":4200,"booking_token":"book-123","flights":[{"departure_airport":{"id":"LHR","time":"2027-03-23 10:00"},"arrival_airport":{"id":"HND","time":"2027-03-24 08:00"},"duration":780,"airline":"British Airways","flight_number":"BA 5","travel_class":"Business"}]}]}""",
+                            """{"best_flights":[{"price":4200,"booking_token":"book-123","flights":[$flightJson]}]}""",
                         )
                     }
                 }
             }
         val provider = GoogleFlightsProvider("serpapi", "SerpApi", "test-key", GoogleFlightsStyle.SERPAPI, http)
-        val selected = SampleData.florida().itineraries.first { it.returning != null }
         val itinerary = selected.copy(passengers = 2)
         val cacheDir = File.createTempFile("clawfare-review-cache", "")
         cacheDir.delete()
