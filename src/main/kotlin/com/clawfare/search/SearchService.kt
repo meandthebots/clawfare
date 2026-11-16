@@ -212,6 +212,12 @@ class SearchService(
         val itinerary =
             (stored.result.itineraries + stored.result.addons).find { it.id == request.itineraryId }
                 ?: return SearchResponse(ok = false, error = "Itinerary not in this search.")
+        stored.result.query?.let { original ->
+            val rejection = OfferEligibility.rejectionReason(itinerary, original)
+            if (rejection != null) {
+                return SearchResponse(ok = false, error = "Offer violates original flight policy: $rejection.")
+            }
+        }
         val markets =
             request.markets
                 .map { it.lowercase() }
