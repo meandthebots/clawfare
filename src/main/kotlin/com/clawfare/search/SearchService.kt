@@ -131,20 +131,40 @@ class SearchService(
             exclusionCounts.forEach { (reason, count) ->
                 warnings += "$count fares filtered: $reason"
             }
+            val missingBase =
+                outcome.baseCallsExpected != null &&
+                    (outcome.baseCallsLoaded ?: 0) < outcome.baseCallsExpected
+            val missingReturn =
+                outcome.returnLookupsExpected != null &&
+                    (outcome.returnLookupsLoaded ?: 0) < outcome.returnLookupsExpected
+            val partial =
+                missingBase || missingReturn || outcome.unresolvedReturns > 0 || outcome.malformedResponses > 0
+            val loadedAny = outcome.liveCalls > 0 || outcome.cachedCalls > 0
+            val state =
+                when {
+                    q.cacheOnly && !loadedAny -> "not_cached"
+                    !provider.configured && !loadedAny -> "unconfigured"
+                    partial && !loadedAny -> "failed"
+                    partial -> "partial"
+                    q.cacheOnly || !provider.configured || outcome.liveCalls == 0 && outcome.cachedCalls > 0 -> "cache_only"
+                    outcome.baseCallsExpected == null && !loadedAny && outcome.itineraries.isEmpty() -> "unknown"
+                    else -> "completed"
+                }
             observations +=
                 ProviderObservation(
                     provider = provider.id,
-                    state =
-                        when {
-                            q.cacheOnly || !provider.configured && outcome.cachedCalls > 0 -> "cache_only"
-                            !provider.configured -> "unconfigured"
-                            else -> "completed"
-                        },
+                    state = state,
                     returned = outcome.itineraries.size,
                     eligible = eligible.size,
                     excludedByReason = exclusionCounts,
                     reportedNetworkCalls = outcome.liveCalls,
                     reportedCachedCalls = outcome.cachedCalls,
+                    baseCallsExpected = outcome.baseCallsExpected,
+                    baseCallsLoaded = outcome.baseCallsLoaded,
+                    returnLookupsExpected = outcome.returnLookupsExpected,
+                    returnLookupsLoaded = outcome.returnLookupsLoaded,
+                    unresolvedReturns = outcome.unresolvedReturns,
+                    malformedResponses = outcome.malformedResponses,
                 )
             found += eligible
         }

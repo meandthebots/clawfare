@@ -300,6 +300,13 @@ data class ProviderObservation(
     /** Provider-reported counts, not verified billing counters. */
     val reportedNetworkCalls: Int? = null,
     val reportedCachedCalls: Int? = null,
+    /** Expected/loaded base requests; missing data is not an availability result. */
+    val baseCallsExpected: Int? = null,
+    val baseCallsLoaded: Int? = null,
+    val returnLookupsExpected: Int? = null,
+    val returnLookupsLoaded: Int? = null,
+    val unresolvedReturns: Int = 0,
+    val malformedResponses: Int = 0,
 )
 
 @Serializable

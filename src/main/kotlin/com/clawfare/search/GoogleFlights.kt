@@ -57,6 +57,18 @@ data class ParsedOffer(
     val fareBrand: String? = null,
 )
 
+/**
+ * HTTP 200 alone is not evidence of zero availability. A recognized Google
+ * flights response has flight arrays (possibly empty), or an explicit empty
+ * result error. Unrecognized payloads must stay incomplete, not sold-out.
+ */
+private fun recognizedFlightResponse(body: String): Boolean {
+    val root = runCatching { AppJson.parseToJsonElement(body) as? JsonObject }.getOrNull() ?: return false
+    val keys = listOf("best_flights", "other_flights")
+    if (keys.any { it in root }) return keys.all { it !in root || root[it] is JsonArray }
+    return failureKind(200, body) == FailureKind.EMPTY
+}
+
 fun parseGoogleFlightsOffers(body: String): List<ParsedOffer> {
     val root = AppJson.parseToJsonElement(body) as? JsonObject ?: return emptyList()
     val lists =
@@ -241,11 +253,23 @@ class GoogleFlightsProvider(
         val tokens = mutableMapOf<String, FlightTokens>()
         var live = 0
         var cached = 0
+        var loadedBase = 0
+        var returnExpected = 0
+        var returnLoaded = 0
+        var unresolvedReturns = 0
+        var malformed = 0
         var stopped = false
-        for (spec in baseCalls(query)) {
+        val specs = baseCalls(query)
+        for (spec in specs) {
             if (stopped) break
             val fetched = load(cache, spec.params, allowNetwork, warnings) { stopped = true } ?: continue
+            loadedBase++
             if (fetched.fromCache) cached++ else live++
+            if (!recognizedFlightResponse(fetched.body)) {
+                malformed++
+                warnings += "$displayName returned an unrecognized flight response; coverage incomplete."
+                continue
+            }
             val offers = parseGoogleFlightsOffers(fetched.body)
             val picked =
                 offers
@@ -260,27 +284,50 @@ class GoogleFlightsProvider(
                 if (stopped) break
                 val token = offer.departureToken
                 if (token.isNullOrBlank()) {
+                    unresolvedReturns++
                     addOffer(itineraries, tokens, offer, null, query, spec.params, fetched.cachedAt, fetched.fromCache)
                     continue
                 }
+                returnExpected++
                 val returnParams = spec.params + ("departure_token" to token)
                 val ret = load(cache, returnParams, allowNetwork, warnings) { stopped = true }
                 if (ret == null) {
+                    unresolvedReturns++
                     addOffer(itineraries, tokens, offer, null, query, spec.params, fetched.cachedAt, fetched.fromCache)
                     continue
                 }
+                returnLoaded++
                 if (ret.fromCache) cached++ else live++
+                if (!recognizedFlightResponse(ret.body)) {
+                    malformed++
+                    unresolvedReturns++
+                    addOffer(itineraries, tokens, offer, null, query, spec.params, fetched.cachedAt, fetched.fromCache)
+                    continue
+                }
                 val returns =
                     parseGoogleFlightsOffers(ret.body)
                         .filter { !query.nonstopOnly || it.legs.size == 1 }
                         .sortedBy { it.price ?: Double.MAX_VALUE }
                 val chosen = returns.firstOrNull()
+                if (chosen == null) unresolvedReturns++
                 val priceWasCached = if (chosen != null) ret.fromCache else fetched.fromCache
                 val stamped = if (chosen != null) ret.cachedAt else fetched.cachedAt
                 addOffer(itineraries, tokens, offer, chosen, query, spec.params, stamped, priceWasCached, token)
             }
         }
-        return ProviderOutcome(itineraries, tokens, warnings, live, cached)
+        return ProviderOutcome(
+            itineraries = itineraries,
+            tokens = tokens,
+            warnings = warnings,
+            liveCalls = live,
+            cachedCalls = cached,
+            baseCallsExpected = specs.size,
+            baseCallsLoaded = loadedBase,
+            returnLookupsExpected = returnExpected,
+            returnLookupsLoaded = returnLoaded,
+            unresolvedReturns = unresolvedReturns,
+            malformedResponses = malformed,
+        )
     }
 
     override fun vendors(

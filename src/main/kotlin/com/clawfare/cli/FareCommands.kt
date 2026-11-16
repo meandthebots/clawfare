@@ -171,7 +171,8 @@ class FareBatchCoverageCommand : Callable<Int> {
         val csv =
             buildString {
                 appendLine(
-                    "signature,origin,destination,date,returning,market,provider,status,returned,eligible,reasons,observedAt",
+                    "signature,origin,destination,date,returning,market,provider,status,returned,eligible,reasons,observedAt," +
+                        "baseCallsExpected,baseCallsLoaded,returnLookupsExpected,returnLookupsLoaded,unresolvedReturns,malformedResponses",
                 )
                 for (row in rows) {
                     appendLine(
@@ -188,6 +189,12 @@ class FareBatchCoverageCommand : Callable<Int> {
                             row.eligible,
                             row.reasons.entries.joinToString(";") { "${it.key}=${it.value}" },
                             row.observedAt,
+                            row.baseCallsExpected,
+                            row.baseCallsLoaded,
+                            row.returnLookupsExpected,
+                            row.returnLookupsLoaded,
+                            row.unresolvedReturns,
+                            row.malformedResponses,
                         ).joinToString(",") { cell(it) },
                     )
                 }
