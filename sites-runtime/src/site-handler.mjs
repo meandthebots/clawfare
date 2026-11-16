@@ -3,6 +3,7 @@
 // callback from authenticated platform ingress. No generic header trust.
 import { renderHostedReadOnlyPage } from "./hosted-page.mjs";
 import { handleReadOnlyApi } from "./read-only-api.mjs";
+import { validatePublicSample } from "./public-sample.mjs";
 
 /**
  * Return a Fetch-compatible request handler for the public read-only preview.
@@ -17,6 +18,7 @@ export function createReadOnlySitesHandler({
   getVerifiedEmail,
   ownerKeySecret,
   cryptoApi = globalThis.crypto,
+  bundledPublicSample = null,
 }) {
   if (!db?.prepare || typeof getVerifiedEmail !== "function" ||
       typeof ownerKeySecret !== "string" ||
@@ -26,6 +28,11 @@ export function createReadOnlySitesHandler({
   // Fail before accepting requests if the Kotlin UI version does not support
   // hosted mode. No silent fallback to localhost token auth.
   const page = renderHostedReadOnlyPage(templateHtml);
+  // The fixture is provided by the server build, never supplied by the
+  // request. Copy and validate before accepting requests so a caller cannot
+  // mutate the in-memory object after handler initialization.
+  const trustedSample = bundledPublicSample == null
+    ? null : JSON.parse(validatePublicSample(bundledPublicSample));
   return async function handle(request) {
     const path = new URL(request.url).pathname;
     if (path === "/" || path === "/index.html") {
@@ -43,7 +50,10 @@ export function createReadOnlySitesHandler({
       });
     }
     if (path.startsWith("/api/")) {
-      return handleReadOnlyApi(request, { db, getVerifiedEmail, ownerKeySecret, cryptoApi });
+      return handleReadOnlyApi(request, {
+        db, getVerifiedEmail, ownerKeySecret, cryptoApi,
+        bundledPublicSample: trustedSample,
+      });
     }
     if (path === "/favicon.ico") return new Response(null, { status: 204 });
     return null;
