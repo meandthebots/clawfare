@@ -177,7 +177,14 @@ object TicketUse {
                 if (itinerary.refundEvidence?.isVerifiedFor(itinerary, now) != true) {
                     return unknown("Full pre-departure cash refund requires separate original-payment proof.")
                 }
-                return known(0.0, gross)
+                return TicketUseOutcome(
+                    mode = plan.mode,
+                    grossTicketGbp = gross,
+                    netTicketGbp = 0.0,
+                    travellerCashRefundGbp = gross,
+                    state = "computable_nontravel",
+                    note = "Entire ticket cancelled before travel; no journey remains. Excluded from travel ranking.",
+                )
             }
             else -> return unknown("Unknown ticket-use mode.")
         }
