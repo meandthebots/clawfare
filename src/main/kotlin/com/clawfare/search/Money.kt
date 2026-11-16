@@ -1,6 +1,5 @@
 package com.clawfare.search
 
-
 /** Pounds sterling per 1 unit is not stored; [PER_GBP] is how many units of that currency buy £1. */
 object Fx {
     private const val FALLBACK_AS_OF =
