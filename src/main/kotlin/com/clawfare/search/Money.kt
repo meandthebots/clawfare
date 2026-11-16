@@ -52,14 +52,19 @@ object Fx {
         amount: Double,
         marketOrCode: String,
     ): Double? {
-        val per = PER_GBP[currencyOf(marketOrCode)] ?: return null
+        val per = PER_GBP[currencyOf(marketOrCode)]?.takeIf { it.isFinite() && it > 0.0 } ?: return null
+        if (!amount.isFinite() || amount < 0.0) return null
         return round(amount / per)
     }
 
+    /** Legacy strict numeric interface: never reinterpret an unconvertible price as GBP. */
     fun toGbp(
         amount: Double,
         marketOrCode: String,
-    ): Int = (toGbpOrNull(amount, marketOrCode) ?: round(amount)).toInt()
+    ): Int =
+        requireNotNull(toGbpOrNull(amount, marketOrCode)) {
+            "Cannot convert amount in ${currencyOf(marketOrCode)} to GBP: reference rate or valid amount missing."
+        }.toInt()
 }
 
 data class SellerQuote(
@@ -67,6 +72,7 @@ data class SellerQuote(
     val price: Double,
     val bags: String,
     val title: String? = null,
+    val optionId: String? = null,
 )
 
 object VendorMath {
@@ -149,7 +155,7 @@ object VendorMath {
                     .filterValues { knownBagFee(it.bags, 1, checkedBags, passengers) != null }
                     .minByOrNull { it.value.price + knownBagFee(it.value.bags, 1, checkedBags, passengers)!! }
             if (outBest != null && backBest != null) {
-                val mixName = "Mix (any vendor): ${outBest.key} out + ${backBest.key} back"
+                val mixName = "Mix (any vendor): ${outBest.value.vendor} out + ${backBest.value.vendor} back"
                 val worst = worseTrust(trustOf(outBest.key).second, trustOf(backBest.key).second)
                 out +=
                     row(
@@ -183,11 +189,12 @@ object VendorMath {
         fetchedAt: String?,
         passengers: Int,
     ): VendorRow {
+        val displayVendor = (rt ?: ow ?: back)?.vendor ?: vendor
         val base =
-            vendor.substringBefore(" — ").substringBefore(" out +").let {
+            displayVendor.substringBefore(" — ").substringBefore(" out +").let {
                 if (vendor.startsWith("Mix")) vendor.substringAfter(": ").substringBefore(" out +") else it
             }
-        val (type, trust) = if (trustOverride != null) "OTA" to trustOverride else trustOf(if (mix) base else vendor.substringBefore(" — "))
+        val (type, trust) = if (trustOverride != null) "OTA" to trustOverride else trustOf(base)
         val rtb = rt?.let { quote -> knownBagFee(quote.bags, 2, checkedBags, passengers)?.let { quote.price + it } }
         val sb =
             if (ow != null && back != null) {
@@ -201,7 +208,7 @@ object VendorMath {
         val bags = (rt ?: ow ?: back)?.bags.orEmpty()
         val brand = (rt ?: ow ?: back)?.title
         return VendorRow(
-            vendor = vendor,
+            vendor = displayVendor,
             market = market,
             marketLabel = MARKET_LABELS[market] ?: market.uppercase(),
             currency = Fx.currencyOf(market),
@@ -231,8 +238,8 @@ object VendorMath {
     ): Pair<Double?, String> {
         val options =
             listOfNotNull(
-                roundTripWithBag?.let { Fx.toGbp(it, market).toDouble() to "RT" },
-                oneWaysWithBag?.let { Fx.toGbp(it, market).toDouble() to "2×1-way" },
+                roundTripWithBag?.let { Fx.toGbpOrNull(it, market)?.let { gbp -> gbp to "RT" } },
+                oneWaysWithBag?.let { Fx.toGbpOrNull(it, market)?.let { gbp -> gbp to "2×1-way" } },
             )
         if (options.isEmpty()) return null to ""
         val best = options.minBy { it.first }

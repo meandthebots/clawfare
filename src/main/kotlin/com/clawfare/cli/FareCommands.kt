@@ -23,6 +23,8 @@ import picocli.CommandLine.Option
 import picocli.CommandLine.Parameters
 import picocli.CommandLine.ParentCommand
 import java.io.File
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.Callable
 
 private fun fareService(): SearchService = SearchService(providersFromEnv(), SqliteResponseCache(), FareStore)
@@ -39,6 +41,7 @@ private fun splitCodes(raw: String): List<String> = raw.split(Regex("[,\\s]+")).
         FareReingestCommand::class,
         FareQuotaCommand::class,
         FareHttpBudgetCommand::class,
+        FarePruneProviderCacheCommand::class,
         FareLoadSampleCommand::class,
         FareFxRefreshCommand::class,
         FareVerifyDuffelCommand::class,
@@ -228,6 +231,12 @@ class FareBatchReportCommand : Callable<Int> {
                 "expenseEvidence",
                 "retrievedAt",
                 "journeyType",
+                "ticketUseMode",
+                "ticketUseState",
+                "grossPartyTicketGbp",
+                "netPartyTicketGbp",
+                "travellerCashRefundGbp",
+                "ticketUseNote",
             )
         val csv =
             buildString {
@@ -246,6 +255,12 @@ class FareBatchReportCommand : Callable<Int> {
                             row.expenseEvidence,
                             row.retrievedAt,
                             row.journeyType,
+                            row.ticketUseMode,
+                            row.ticketUseState,
+                            row.partyFareGbp,
+                            row.netPartyTicketGbp,
+                            row.travellerCashRefundGbp,
+                            row.ticketUseNote,
                         ).joinToString(",") { cell(it ?: "") },
                     )
                 }
@@ -346,8 +361,7 @@ class FareEstimateCommand : Callable<Int> {
 
     override fun call(): Int {
         parent.parent.ensureDb()
-        // Estimates are strictly offline. Even account/quota checks are
-        // conservative budgeted HTTP requests and require a separate command.
+        // Dry-run estimates must never spend even an account/quota HTTP request.
         val estimate = fareService().estimate(queryFrom(this), includeQuota = false)
         println(formatEstimate(estimate))
         return if (estimate.warnings.any {
@@ -536,7 +550,7 @@ class FareReingestCommand : Callable<Int> {
     }
 }
 
-@Command(name = "quota", description = ["Query provider account quotas (HTTP request; counts against conservative local cap)"])
+@Command(name = "quota", description = ["Query provider account quotas (HTTP request; counts against conservative local cap)"]
 class FareQuotaCommand : Callable<Int> {
     @ParentCommand
     lateinit var parent: FareCommand
@@ -569,6 +583,36 @@ class FareHttpBudgetCommand : Callable<Int> {
                     "${usage.unfinished} unfinished. Charge status is unknown unless confirmed by provider billing.",
             )
         }
+        return 0
+    }
+}
+
+@Command(name = "prune-provider-cache", description = ["Preview or delete aged raw SQLite provider responses; offline"])
+class FarePruneProviderCacheCommand : Callable<Int> {
+    @ParentCommand
+    lateinit var parent: FareCommand
+
+    @Option(names = ["--days"], defaultValue = "90", description = ["Keep raw responses newer than this many UTC days"])
+    var days: Int = 90
+
+    @Option(names = ["--confirm"], description = ["Actually delete old raw responses; default is preview only"])
+    var confirm: Boolean = false
+
+    override fun call(): Int {
+        if (days !in 1..3650) {
+            Output.error("Retention days must be between 1 and 3650.")
+            return 2
+        }
+        parent.parent.ensureDb()
+        val cutoff = Instant.now().minus(days.toLong(), ChronoUnit.DAYS)
+        val count = SqliteResponseCache().pruneOlderThan(cutoff, confirm)
+        println(
+            if (confirm) {
+                "Deleted $count aged raw provider responses before $cutoff; normalized prices/history are untouched."
+            } else {
+                "$count raw provider responses older than $cutoff. No changes made; re-run with --confirm to delete."
+            },
+        )
         return 0
     }
 }

@@ -277,7 +277,12 @@ fun Application.clawfareModule() {
         post("/api/export/csv") {
             if (!authorized(call)) return@post
             val body = call.receive<ExportRequest>()
-            val csv = if (body.kind == "vendors") Export.vendorCsv(body.result) else Export.itineraryCsv(body.result, body.filters)
+            val csv =
+                when (body.kind) {
+                    "vendors" -> Export.vendorCsv(body.result)
+                    "seller_options" -> Export.sellerOptionsCsv(body.result)
+                    else -> Export.itineraryCsv(body.result, body.filters)
+                }
             call.response.header("Content-Disposition", "attachment; filename=\"clawfare-${safeName(body.result.id)}.csv\"")
             call.respondText(csv, ContentType.Text.CSV)
         }

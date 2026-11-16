@@ -143,10 +143,12 @@ object FareStore : FareSink {
             addons = addons,
             cells = cells,
             vendors = loadOffers(slug),
+            sellerOptions = presentation.sellerOptions,
             vendorIntro = presentation.vendorIntro,
             headerNotes = presentation.headerNotes,
             suggestedFilters = presentation.suggestedFilters,
             warnings = presentation.warnings,
+            fx = presentation.fx ?: FxInfo(),
             scenarioLabel = inv.scenario,
             query = query,
             vendorItineraryId = vendorTarget(slug),
@@ -181,6 +183,7 @@ object FareStore : FareSink {
                 addons = emptyList(),
                 cells = emptyList(),
                 vendors = emptyList(),
+                sellerOptions = emptyList(),
                 scenarioLabel = null,
                 headerNotes = emptyList(),
                 vendorIntro = emptyList(),
@@ -218,9 +221,11 @@ object FareStore : FareSink {
                 subtitle = result.subtitle,
                 headerNotes = result.headerNotes,
                 vendorIntro = result.vendorIntro,
+                sellerOptions = result.sellerOptions,
                 suggestedFilters = result.suggestedFilters,
                 warnings = result.warnings,
                 fetchedAt = result.fetchedAt,
+                fx = result.fx,
             )
         val now = Instant.now().toString()
         val dto =
