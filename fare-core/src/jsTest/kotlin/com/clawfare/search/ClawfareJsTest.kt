@@ -23,6 +23,25 @@ class ClawfareJsTest {
             )
         assertEquals(null, plan.error)
         assertEquals(listOf(FlightDatePair("2026-12-18")), plan.pairs)
+        val providersJson =
+            AppJson.encodeToString(
+                kotlinx.serialization.builtins.ListSerializer(PlannedProvider.serializer()),
+                listOf(
+                    PlannedProvider(
+                        id = "serpapi",
+                        configured = true,
+                        calls = listOf(PlannedCall("LHR to TPA", cached = false)),
+                    ),
+                ),
+            )
+        val budget =
+            AppJson.decodeFromString(
+                CallBudget.serializer(),
+                ClawfareJs.projectBudgetJson(raw, providersJson),
+            )
+        assertEquals(1, budget.liveCalls)
+        assertEquals(0, budget.returnLookupsUpperBound)
+
 
     }
 }
