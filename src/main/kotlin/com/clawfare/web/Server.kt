@@ -5,6 +5,7 @@ import com.clawfare.search.AppJson
 import com.clawfare.search.Export
 import com.clawfare.search.FareStore
 import com.clawfare.search.FilterSpec
+import com.clawfare.search.Estimate
 import com.clawfare.search.ResultSet
 import com.clawfare.search.SampleSeeder
 import com.clawfare.search.SearchQuery
@@ -16,6 +17,7 @@ import com.clawfare.search.VendorRequest
 import com.clawfare.search.providersFromEnv
 import com.clawfare.search.redact
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
@@ -35,6 +37,7 @@ import io.ktor.server.routing.routing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import java.util.concurrent.Semaphore
 
 @Serializable
 data class ExportRequest(
@@ -74,6 +77,34 @@ fun Application.clawfareModule() {
     }
     SampleSeeder.ensure()
     val service = SearchService(providersFromEnv(), SqliteResponseCache(), FareStore)
+    val local = LocalAccess()
+    val paidRequestLock = Semaphore(1)
+    // Web requests are deliberately smaller than offline CLI batches.
+    val maxWebCalls = System.getenv("CLAWFARE_WEB_MAX_NETWORK_CALLS")?.toIntOrNull()?.coerceIn(0, 100) ?: 16
+
+    suspend fun authorized(call: io.ktor.server.application.ApplicationCall): Boolean {
+        if (local.acceptsWrite(call)) return true
+        call.respondText(
+            """{"error":"A same-origin local session with JSON content is required."}""",
+            ContentType.Application.Json,
+            HttpStatusCode.Forbidden,
+        )
+        return false
+    }
+
+    suspend fun denied(call: io.ktor.server.application.ApplicationCall, detail: String) {
+        call.respondText(
+            """{"error":"$detail"}""",
+            ContentType.Application.Json,
+            HttpStatusCode.Forbidden,
+        )
+    }
+
+    fun searchFingerprint(q: SearchQuery): String =
+        AppJson.encodeToString(SearchQuery.serializer(), q.copy(confirmed = false))
+
+    fun vendorFingerprint(req: VendorRequest): String =
+        AppJson.encodeToString(VendorRequest.serializer(), req.copy(confirmed = false))
 
     install(ContentNegotiation) { json(AppJson) }
     install(StatusPages) {
@@ -87,6 +118,14 @@ fun Application.clawfareModule() {
     }
     routing {
         get("/") { call.respondText(Server.page(), ContentType.Text.Html) }
+        get("/api/session") {
+            if (!local.acceptsHost(call.request.headers[HttpHeaders.Host])) {
+                denied(call, "Invalid local host.")
+                return@get
+            }
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+            call.respond(mapOf("token" to local.sessionToken))
+        }
         get("/favicon.ico") { call.respond(HttpStatusCode.NoContent) }
         get("/api/status") {
             call.respond(
@@ -115,22 +154,89 @@ fun Application.clawfareModule() {
             }
         }
         post("/api/estimate") {
+            if (!authorized(call)) return@post
             val query = call.receive<SearchQuery>()
             val estimate = withContext(Dispatchers.IO) { service.estimate(query, includeQuota = true) }
-            call.respond(estimate)
+            val upper = estimate.liveCalls + estimate.returnLookupsUpperBound
+            if (upper in 1..maxWebCalls) {
+                call.response.header("X-Clawfare-Consent", local.issueConsent("search", searchFingerprint(query)))
+            }
+            val shown =
+                if (upper > maxWebCalls) {
+                    estimate.copy(warnings = estimate.warnings + "Web request exceeds the $maxWebCalls-call limit; use an offline capped batch.")
+                } else {
+                    estimate
+                }
+            call.respond(shown)
         }
         post("/api/search") {
+            if (!authorized(call)) return@post
             val query = call.receive<SearchQuery>()
-            val response = withContext(Dispatchers.IO) { service.search(query) }
-            call.respond(response)
+            val estimate = service.estimate(query)
+            val upper = estimate.liveCalls + estimate.returnLookupsUpperBound
+            if (upper > maxWebCalls) {
+                call.respondText(
+                    """{"error":"Web network-call limit exceeded."}""",
+                    ContentType.Application.Json,
+                    HttpStatusCode.TooManyRequests,
+                )
+                return@post
+            }
+            if (upper > 0 && (
+                    !query.confirmed ||
+                        !local.consumeConsent(call.request.headers["X-Clawfare-Consent"], "search", searchFingerprint(query))
+                )
+            ) {
+                denied(call, "A matching, unexpired estimate and explicit confirmation are required.")
+                return@post
+            }
+            if (!paidRequestLock.tryAcquire()) {
+                call.respond(HttpStatusCode.TooManyRequests)
+                return@post
+            }
+            try {
+                val bounded = query.copy(maxLiveCalls = minOf(query.maxLiveCalls ?: maxWebCalls, maxWebCalls))
+                val response = withContext(Dispatchers.IO) { service.search(bounded) }
+                call.respond(response)
+            } finally {
+                paidRequestLock.release()
+            }
         }
         post("/api/results/{id}/vendors") {
+            if (!authorized(call)) return@post
             val id = call.parameters["id"] ?: ""
             val body = call.receive<VendorRequest>()
-            val response = withContext(Dispatchers.IO) { service.vendors(id, body) }
-            call.respond(response)
+            if (body.markets.size > 2 || body.markets.size * 7 > maxWebCalls) {
+                call.respondText(
+                    """{"error":"Seller-market request exceeds the configured web call cap."}""",
+                    ContentType.Application.Json,
+                    HttpStatusCode.TooManyRequests,
+                )
+                return@post
+            }
+            val action = "vendors/$id"
+            if (!body.cacheOnly && body.confirmed &&
+                !local.consumeConsent(call.request.headers["X-Clawfare-Consent"], action, vendorFingerprint(body))
+            ) {
+                denied(call, "A matching seller lookup estimate and confirmation are required.")
+                return@post
+            }
+            if (!paidRequestLock.tryAcquire()) {
+                call.respond(HttpStatusCode.TooManyRequests)
+                return@post
+            }
+            try {
+                val response = withContext(Dispatchers.IO) { service.vendors(id, body) }
+                if (!body.cacheOnly && !body.confirmed && response.needsConfirmation) {
+                    call.response.header("X-Clawfare-Consent", local.issueConsent(action, vendorFingerprint(body)))
+                }
+                call.respond(response)
+            } finally {
+                paidRequestLock.release()
+            }
         }
         post("/api/results/{id}/track") {
+            if (!authorized(call)) return@post
             val id = call.parameters["id"] ?: ""
             val body = call.receive<TrackRequest>()
             val slug =
@@ -145,6 +251,7 @@ fun Application.clawfareModule() {
             call.respondText("""{"slug":"$slug"}""", ContentType.Application.Json)
         }
         post("/api/export/html") {
+            if (!authorized(call)) return@post
             val body = call.receive<ExportRequest>()
             val snapshot = body.result.copy(suggestedFilters = body.filters)
             val html = Export.html(Server.page(), snapshot)
@@ -152,6 +259,7 @@ fun Application.clawfareModule() {
             call.respondText(html, ContentType.Text.Html)
         }
         post("/api/export/csv") {
+            if (!authorized(call)) return@post
             val body = call.receive<ExportRequest>()
             val csv = if (body.kind == "vendors") Export.vendorCsv(body.result) else Export.itineraryCsv(body.result, body.filters)
             call.response.header("Content-Disposition", "attachment; filename=\"clawfare-${safeName(body.result.id)}.csv\"")
