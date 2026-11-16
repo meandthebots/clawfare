@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { kotlinEngineFromBundle } from "../sites-runtime/src/kotlin-engine.mjs";
 import { validatePublicSample } from "../sites-runtime/src/public-sample.mjs";
 const root = resolve(process.argv[2] || "build/sites-readonly-package");
@@ -14,6 +15,8 @@ assert.equal(manifest.format, "clawfare-sites-readonly-source-v1");
 assert.equal(manifest.readOnly, true);
 assert.equal(manifest.publicHttpEntrypoint, false);
 assert.equal(manifest.identityBindingRequired, true);
+assert.equal(manifest.workerModule, "server/worker.mjs");
+assert.equal(manifest.workerRequiresTrustedFactory, true);
 assert.equal(manifest.d1BindingName, "DB");
 assert.ok(manifest.files.length >= 12);
 const paths = new Set(manifest.files.map(x => x.path));
@@ -41,6 +44,34 @@ const query = JSON.stringify({
 const result = JSON.parse(engine.planSearchJson(query));
 assert.equal(result.error ?? null, null);
 assert.deepEqual(result.pairs, [{ outbound: "2028-02-28" }]);
+assert.ok(paths.has("server/worker-source.mjs"));
+assert.ok(paths.has("server/worker.mjs"));
+assert.ok(paths.has("server/src/worker-factory.mjs"));
+const workerSource = readFileSync(join(root, "server/worker-source.mjs"), "utf8");
+assert.ok(workerSource.includes("createClawfareWorkerFactory"));
+assert.ok(workerSource.includes("bundledPublicSample"));
+assert.ok(!workerSource.includes("export default"));
+const workerModule = await import(pathToFileURL(join(root, "server/worker.mjs")).href);
+assert.equal(typeof workerModule.createTrustedWorker, "function");
+const workerCore = workerModule.clawfareSitesWorker.kotlin;
+assert.equal(workerCore.toGbpOrNull(250, 1.25), 200);
+assert.throws(() => workerModule.createTrustedWorker({}), /Verified Sites identity callback/);
+const worker = workerModule.createTrustedWorker({
+  getVerifiedEmail: async () => null,
+});
+const fakeD1 = { prepare() {
+  return { bind() {
+    return { async first() { return null; }, async all() { return { results: [] }; } };
+  } };
+} };
+const env = { DB: fakeD1, OWNER_KEY_SECRET: "long-unpredictable-secret-for-tests-only-not-deployment" };
+assert.equal((await worker.fetch(new Request("https://example.com/api/sample"), {})).status, 503);
+assert.equal((await worker.fetch(new Request("https://example.com/api/searches", {
+  headers: { "oai-authenticated-user-email": "forged@example.com" },
+}), env)).status, 401);
+assert.equal((await worker.fetch(new Request("https://example.com/api/search", {
+  method: "POST",
+}), env)).status, 405);
 assert.ok(paths.has("server/src/site-handler.mjs"));
 assert.ok(paths.has("server/src/public-sample.mjs"));
 assert.ok(paths.has("server/migrations/0001_provider_http_budget.sql"));
