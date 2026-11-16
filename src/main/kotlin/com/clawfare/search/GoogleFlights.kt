@@ -313,7 +313,9 @@ class GoogleFlightsProvider(
             if (stopped) break
             val (gl, cur) = marketParams(market)
             val rt =
-                quotesForDirection(itinerary, stored, gl, cur, roundTrip = true, outboundOnly = false, options, cache, allowNetwork, warnings, {
+                quotesForDirection(
+                    itinerary, stored, gl, cur, roundTrip = true, outboundOnly = false,
+                    options, cache, allowNetwork, warnings, {
                     stopped =
                         true
                 }, { if (it) cachedHits++ else live++ })
@@ -321,7 +323,9 @@ class GoogleFlightsProvider(
                 if (stopped) {
                     emptyMap()
                 } else {
-                    quotesForDirection(itinerary, null, gl, cur, roundTrip = false, outboundOnly = true, options, cache, allowNetwork, warnings, {
+                    quotesForDirection(
+                        itinerary, null, gl, cur, roundTrip = false, outboundOnly = true,
+                        options, cache, allowNetwork, warnings, {
                         stopped =
                             true
                     }, { if (it) cachedHits++ else live++ })
@@ -330,7 +334,9 @@ class GoogleFlightsProvider(
                 if (stopped) {
                     emptyMap()
                 } else {
-                    quotesForDirection(itinerary, null, gl, cur, roundTrip = false, outboundOnly = false, options, cache, allowNetwork, warnings, {
+                    quotesForDirection(
+                        itinerary, null, gl, cur, roundTrip = false, outboundOnly = false,
+                        options, cache, allowNetwork, warnings, {
                         stopped =
                             true
                     }, { if (it) cachedHits++ else live++ })
@@ -432,7 +438,12 @@ class GoogleFlightsProvider(
                 currency = currency,
                 itineraryId = itinerary.id,
                 passengers = itinerary.passengers,
-                journey = if (roundTrip) "round_trip" else if (outboundOnly) "one_way_out" else "one_way_back",
+                journey =
+                    when {
+                        roundTrip -> "round_trip"
+                        outboundOnly -> "one_way_out"
+                        else -> "one_way_back"
+                    },
                 observedAt = booked.cachedAt,
             )
         options += parsed
