@@ -147,10 +147,11 @@ class SellerOptionsTest {
                 true,
                 snapshot,
             )
-        val dir = File.createTempFile("seller-options", "").apply {
-            delete()
-            mkdirs()
-        }
+        val dir =
+            File.createTempFile("seller-options", "").apply {
+                delete()
+                mkdirs()
+            }
         val provider = GoogleFlightsProvider("serpapi", "SerpApi", "test-secret", GoogleFlightsStyle.SERPAPI, http)
         val response = provider.vendors(fare, null, listOf("uk"), 1, DiskCache(dir), allowNetwork = true)
         assertTrue(response.options.count { it.fareBrand == "Business Basic" } >= 1)
