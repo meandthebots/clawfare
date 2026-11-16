@@ -30,6 +30,10 @@ data class RefundEvidence(
     val availablePassengers: Int? = null,
     val baggageEvidence: List<String> = emptyList(),
     val sourceDescription: String = "",
+    /** Explicit issuer/seller at the traveller checkout; null for airline-only API conditions. */
+    val sellerId: String? = null,
+    /** Reviewed private evidence; absent for provider search offers by default. */
+    val sellerProof: SellerRefundProof? = null,
 ) {
     val refundStatus: String
         get() =
