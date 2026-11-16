@@ -72,6 +72,11 @@ data class BatchAttemptRecord(
     val maxNetworkCalls: Int,
     val offerCount: Int,
     val warnings: List<String>,
+    /** Added in v2. Old attempts are explicitly unknown rather than zero results. */
+    val providerObservations: List<ProviderObservation> = emptyList(),
+    val estimatedCachedCalls: Int = 0,
+    val estimatedSkippedCalls: Int = 0,
+    val estimatedReturnCalls: Int = 0,
 )
 
 data class BatchRunSummary(
@@ -80,6 +85,22 @@ data class BatchRunSummary(
     val saved: Int,
     val failures: List<String>,
     val observedAt: String,
+    val resumedSkipped: Int = 0,
+)
+
+data class BatchCoverageRow(
+    val signature: String,
+    val origin: String,
+    val destination: String,
+    val date: String,
+    val returning: String?,
+    val market: String,
+    val provider: String,
+    val status: String,
+    val returned: Int?,
+    val eligible: Int?,
+    val reasons: Map<String, Int>,
+    val observedAt: String?,
 )
 
 /**
@@ -140,6 +161,7 @@ object BatchSweep {
         service: SearchService,
         confirmed: Boolean = false,
         auditFile: File? = null,
+        resume: Boolean = false,
     ): BatchRunSummary {
         val planned = estimate(config, service)
         require(config.maxLiveCalls >= 0) { "maxLiveCalls must not be negative" }
@@ -175,7 +197,27 @@ object BatchSweep {
         var saved = 0
         var reserved = 0
         var executed = 0
+        var resumedSkipped = 0
+        val prior =
+            if (resume) {
+                readAttempts(auditFile)
+                    .groupBy { it.querySignatureSha256 }
+                    .mapValues { (_, records) -> records.last() }
+            } else {
+                emptyMap()
+            }
         for (entry in planned.entries) {
+            val key = sha256(AppJson.encodeToString(SearchQuery.serializer(), entry.query))
+            val last = prior[key]
+            if (last != null &&
+                last.status in setOf("ok", "zero_returned", "filtered_all") &&
+                entry.query.providers.all { provider ->
+                    last.providerObservations.any { it.provider == provider && it.state == "completed" }
+                }
+            ) {
+                resumedSkipped++
+                continue
+            }
             val remaining = config.maxLiveCalls - reserved
             val estimate = service.estimate(entry.query)
             val upper = estimate.liveCalls + estimate.returnLookupsUpperBound
@@ -189,20 +231,31 @@ object BatchSweep {
             // Append every attempted scenario, including zero-result and failed searches.
             auditFile?.let { target ->
                 target.parentFile?.mkdirs()
+                val observations = response.providerObservations
+                val count = response.result?.itineraries?.size ?: 0
+                val state =
+                    when {
+                        !response.ok -> "error"
+                        observations.any { it.state == "failed" || it.state == "unconfigured" } -> "incomplete"
+                        observations.isEmpty() -> "unknown"
+                        count > 0 -> "ok"
+                        observations.any { it.returned > 0 } -> "filtered_all"
+                        else -> "zero_returned"
+                    }
                 val record =
                     BatchAttemptRecord(
                         observedAt = Instant.now().toString(),
-                        querySignatureSha256 = sha256(AppJson.encodeToString(SearchQuery.serializer(), entry.query)),
+                        querySignatureSha256 = key,
                         investigation = entry.signature,
                         providerIds = entry.query.providers,
-                        status = if (response.ok) "ok" else "error",
+                        status = state,
                         maxNetworkCalls = upper,
-                        offerCount = response.result?.itineraries?.size ?: 0,
-                        warnings =
-                            response.result
-                                ?.warnings
-                                .orEmpty()
-                                .take(8),
+                        offerCount = count,
+                        warnings = response.result?.warnings.orEmpty().take(8).map { redact(it).take(200) },
+                        providerObservations = observations,
+                        estimatedCachedCalls = estimate.cachedCalls,
+                        estimatedSkippedCalls = estimate.skippedCalls,
+                        estimatedReturnCalls = estimate.returnLookupsUpperBound,
                     )
                 target.appendText(AppJson.encodeToString(BatchAttemptRecord.serializer(), record) + "\n")
             }
@@ -219,8 +272,58 @@ object BatchSweep {
                 break
             }
         }
-        return BatchRunSummary(planned, executed, saved, failures, Instant.now().toString())
+        return BatchRunSummary(planned, executed, saved, failures, Instant.now().toString(), resumedSkipped)
     }
+
+    /** The full expected matrix is the denominator: unattempted entries are never called sold-out. */
+    fun coverage(
+        config: BatchConfig,
+        auditFile: File?,
+    ): List<BatchCoverageRow> {
+        val attempts = readAttempts(auditFile).groupBy { it.querySignatureSha256 }
+        return expand(config).flatMap { entry ->
+            val key = sha256(AppJson.encodeToString(SearchQuery.serializer(), entry.query))
+            val latest = attempts[key]?.lastOrNull()
+            entry.query.providers.map { provider ->
+                val observation = latest?.providerObservations?.firstOrNull { it.provider == provider }
+                val status =
+                    when {
+                        latest == null -> "not_searched"
+                        observation == null -> "legacy_unknown"
+                        observation.state == "failed" -> "provider_failed"
+                        observation.state == "unconfigured" -> "provider_unconfigured"
+                        observation.state == "cache_only" -> "cache_only"
+                        observation.returned == 0 -> "zero_returned"
+                        observation.eligible == 0 -> "filtered_all"
+                        else -> "eligible"
+                    }
+                BatchCoverageRow(
+                    signature = entry.signature,
+                    origin = entry.query.origins.single(),
+                    destination = entry.query.destinations.single(),
+                    date = entry.query.outboundFrom,
+                    returning = entry.query.returnFrom,
+                    market = entry.query.market,
+                    provider = provider,
+                    status = status,
+                    returned = observation?.returned,
+                    eligible = observation?.eligible,
+                    reasons = observation?.excludedByReason.orEmpty(),
+                    observedAt = latest?.observedAt,
+                )
+            }
+        }
+    }
+
+    /** Corrupt journals fail closed before resuming a potentially paid batch. */
+    private fun readAttempts(auditFile: File?): List<BatchAttemptRecord> =
+        if (auditFile?.isFile == true) {
+            auditFile.readLines().filter { it.isNotBlank() }.map { line ->
+                AppJson.decodeFromString(BatchAttemptRecord.serializer(), line)
+            }
+        } else {
+            emptyList()
+        }
 
     /**
      * Unknown positioning, hotel, transfer or bag costs remain unknown.
