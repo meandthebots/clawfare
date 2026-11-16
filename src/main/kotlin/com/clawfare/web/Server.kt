@@ -91,7 +91,10 @@ fun Application.clawfareModule() {
         return false
     }
 
-    suspend fun denied(call: io.ktor.server.application.ApplicationCall, detail: String) {
+    suspend fun denied(
+        call: io.ktor.server.application.ApplicationCall,
+        detail: String,
+    ) {
         call.respondText(
             """{"error":"$detail"}""",
             ContentType.Application.Json,
@@ -99,11 +102,9 @@ fun Application.clawfareModule() {
         )
     }
 
-    fun searchFingerprint(q: SearchQuery): String =
-        AppJson.encodeToString(SearchQuery.serializer(), q.copy(confirmed = false))
+    fun searchFingerprint(q: SearchQuery): String = AppJson.encodeToString(SearchQuery.serializer(), q.copy(confirmed = false))
 
-    fun vendorFingerprint(req: VendorRequest): String =
-        AppJson.encodeToString(VendorRequest.serializer(), req.copy(confirmed = false))
+    fun vendorFingerprint(req: VendorRequest): String = AppJson.encodeToString(VendorRequest.serializer(), req.copy(confirmed = false))
 
     install(ContentNegotiation) { json(AppJson) }
     install(StatusPages) {
@@ -162,7 +163,11 @@ fun Application.clawfareModule() {
             }
             val shown =
                 if (upper > maxWebCalls) {
-                    estimate.copy(warnings = estimate.warnings + "Web request exceeds the $maxWebCalls-call limit; use an offline capped batch.")
+                    estimate.copy(
+                        warnings =
+                            estimate.warnings +
+                                "Web request exceeds the $maxWebCalls-call limit; use an offline capped batch.",
+                    )
                 } else {
                     estimate
                 }
@@ -181,13 +186,18 @@ fun Application.clawfareModule() {
                 )
                 return@post
             }
-            if (upper > 0 && (
-                    !query.confirmed ||
-                        !local.consumeConsent(call.request.headers["X-Clawfare-Consent"], "search", searchFingerprint(query))
-                )
-            ) {
-                denied(call, "A matching, unexpired estimate and explicit confirmation are required.")
-                return@post
+            if (upper > 0) {
+                val approved =
+                    query.confirmed &&
+                        local.consumeConsent(
+                            call.request.headers["X-Clawfare-Consent"],
+                            "search",
+                            searchFingerprint(query),
+                        )
+                if (!approved) {
+                    denied(call, "A matching, unexpired estimate and explicit confirmation are required.")
+                    return@post
+                }
             }
             if (!paidRequestLock.tryAcquire()) {
                 call.respond(HttpStatusCode.TooManyRequests)
@@ -214,11 +224,17 @@ fun Application.clawfareModule() {
                 return@post
             }
             val action = "vendors/$id"
-            if (!body.cacheOnly && body.confirmed &&
-                !local.consumeConsent(call.request.headers["X-Clawfare-Consent"], action, vendorFingerprint(body))
-            ) {
-                denied(call, "A matching seller lookup estimate and confirmation are required.")
-                return@post
+            if (!body.cacheOnly && body.confirmed) {
+                val approved =
+                    local.consumeConsent(
+                        call.request.headers["X-Clawfare-Consent"],
+                        action,
+                        vendorFingerprint(body),
+                    )
+                if (!approved) {
+                    denied(call, "A matching seller lookup estimate and confirmation are required.")
+                    return@post
+                }
             }
             if (!paidRequestLock.tryAcquire()) {
                 call.respond(HttpStatusCode.TooManyRequests)
