@@ -9,9 +9,9 @@ import com.clawfare.search.BatchSweep
 import com.clawfare.search.DuffelProvider
 import com.clawfare.search.Export
 import com.clawfare.search.FareStore
-import com.clawfare.search.ProviderHttpBudget
 import com.clawfare.search.FareWatch
 import com.clawfare.search.FxRateStore
+import com.clawfare.search.ProviderHttpBudget
 import com.clawfare.search.SampleSeeder
 import com.clawfare.search.SearchQuery
 import com.clawfare.search.SearchService
