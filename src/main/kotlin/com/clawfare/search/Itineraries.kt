@@ -123,11 +123,12 @@ fun assembleItinerary(
         if (name.isNotBlank()) names += name
     }
     val layoverMinutes = outbound.layovers.map { it.minutes } + (returning?.layovers?.map { it.minutes } ?: emptyList())
+    val outboundMinutes = outbound.durationMinutes
+    val returningMinutes = returning?.durationMinutes
     val travel =
         when {
-            outbound.durationMinutes != null && returning == null -> outbound.durationMinutes
-            outbound.durationMinutes != null && returning?.durationMinutes != null ->
-                outbound.durationMinutes + returning.durationMinutes
+            outboundMinutes != null && returning == null -> outboundMinutes
+            outboundMinutes != null && returningMinutes != null -> outboundMinutes + returningMinutes
             else -> null
         }
     val currency = priceCurrency.uppercase().ifBlank { "GBP" }
@@ -181,33 +182,40 @@ object Filters {
         if (f.verifiedCashRefundOnly && it.refundEvidence?.isVerifiedFor(it) != true) return false
         val stops = if (it.stopsRet == null) it.stopsOut else maxOf(it.stopsOut, it.stopsRet)
         if (f.nonstopOnly && (it.stopsOut != 0 || it.returnMissing || it.stopsRet != 0)) return false
-        if (f.maxStops != null && stops > f.maxStops) return false
-        if (f.maxLayoverMinutes != null && it.layoverMinutes.any { mins -> mins > f.maxLayoverMinutes }) return false
+        val maxStops = f.maxStops
+        if (maxStops != null && stops > maxStops) return false
+        val maxLayover = f.maxLayoverMinutes
+        if (maxLayover != null && it.layoverMinutes.any { mins -> mins > maxLayover }) return false
         if (it.outboundDate in f.excludeOutboundDates) return false
         if (it.returnDate != null && it.returnDate in f.excludeReturnDates) return false
         if (f.europeanPremiumOnly && !it.euPremium) return false
-        if (f.maxTravelMinutes != null && (it.travelMinutes == null || it.travelMinutes > f.maxTravelMinutes)) return false
-        if (!f.outboundDepartAfter.isNullOrBlank() &&
+        val maxTravel = f.maxTravelMinutes
+        if (maxTravel != null && (it.travelMinutes == null || it.travelMinutes > maxTravel)) return false
+        val after = f.outboundDepartAfter
+        if (!after.isNullOrBlank() &&
             it.outboundDepart != null &&
-            it.outboundDepart < normalizeTime(f.outboundDepartAfter)
+            it.outboundDepart < normalizeTime(after)
         ) {
             return false
         }
-        if (!f.outboundDepartBefore.isNullOrBlank() &&
+        val before = f.outboundDepartBefore
+        if (!before.isNullOrBlank() &&
             it.outboundDepart != null &&
-            it.outboundDepart > normalizeTime(f.outboundDepartBefore)
+            it.outboundDepart > normalizeTime(before)
         ) {
             return false
         }
-        if (!f.returnDepartAfter.isNullOrBlank() &&
+        val returnAfter = f.returnDepartAfter
+        if (!returnAfter.isNullOrBlank() &&
             it.returnDepart != null &&
-            it.returnDepart < normalizeTime(f.returnDepartAfter)
+            it.returnDepart < normalizeTime(returnAfter)
         ) {
             return false
         }
         if (!f.cabin.isNullOrBlank() && f.cabin != "all" && it.cabinKey != cabinKeyOf(f.cabin)) return false
         if (f.nights != null && it.nights != f.nights) return false
-        if (!f.origin.isNullOrBlank() && it.origin != f.origin.uppercase()) return false
+        val origin = f.origin
+        if (!origin.isNullOrBlank() && it.origin != origin.uppercase()) return false
         if (f.airlineAllow.isNotEmpty() && !allows(it, f.airlineAllow)) return false
         if (f.airlineBlock.isNotEmpty() && blocked(it, f.airlineBlock)) return false
         return true
