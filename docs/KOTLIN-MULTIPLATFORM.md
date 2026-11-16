@@ -24,6 +24,24 @@ The existing JVM CLI is unchanged:
 
 Kotlin/JS and Kotlin/Wasm compile from `commonMain`; there is no alternative hand-written TypeScript implementation of these rules.
 
+## Importable Kotlin/JS production artifact
+
+Run `./gradlew :fare-core:jsBrowserProductionWebpack`. The existing JVM,
+Kotlin/JS, and Kotlin/Wasm source code remains shared; the JS executable
+compiler and Webpack produce a CommonJS-compatible production bundle under
+`fare-core/build/kotlin-webpack/js/productionExecutable/`.
+
+`node scripts/verify-sites-js-bundle.mjs` loads **the compiled production
+artifact**, not Kotlin source or a test double, and checks exported query
+normalization, leap-day date planning, provider-call upper-bound projection
+and FX conversion. The dedicated GitHub Actions workflow uploads that
+verified bundle for use as an input to a compatible hosted JavaScript app.
+
+This does **not** automatically deploy to Sites. The bundle is a domain
+library, not a public HTTP entrypoint, and requires the trusted Sites
+authentication/D1 route adapter and version-saving workflow described in
+issue #42. Do not embed provider keys in this bundle.
+
 ## Target architecture
 
 - **`fare-core/commonMain`**: pure model, validation, currency, fare math, itinerary, query normalization/estimation as dependencies become multiplatform.
