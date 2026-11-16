@@ -15,9 +15,11 @@ kotlin {
     }
     js(IR) {
         nodejs()
+        browser()
     }
     wasmJs {
         nodejs()
+        browser()
     }
     sourceSets {
         commonMain.dependencies {
