@@ -312,34 +312,62 @@ class GoogleFlightsProvider(
         for (market in markets) {
             if (stopped) break
             val (gl, cur) = marketParams(market)
+            val stop: () -> Unit = { stopped = true }
+            val count: (Boolean) -> Unit = { fromCache ->
+                if (fromCache) cachedHits++ else live++
+            }
             val rt =
                 quotesForDirection(
-                    itinerary, stored, gl, cur, roundTrip = true, outboundOnly = false,
-                    options, cache, allowNetwork, warnings, {
-                    stopped =
-                        true
-                }, { if (it) cachedHits++ else live++ })
+                    itinerary = itinerary,
+                    stored = stored,
+                    gl = gl,
+                    currency = cur,
+                    roundTrip = true,
+                    outboundOnly = false,
+                    options = options,
+                    cache = cache,
+                    allowNetwork = allowNetwork,
+                    warnings = warnings,
+                    stop = stop,
+                    count = count,
+                )
             val ow =
                 if (stopped) {
                     emptyMap()
                 } else {
                     quotesForDirection(
-                        itinerary, null, gl, cur, roundTrip = false, outboundOnly = true,
-                        options, cache, allowNetwork, warnings, {
-                        stopped =
-                            true
-                    }, { if (it) cachedHits++ else live++ })
+                        itinerary = itinerary,
+                        stored = null,
+                        gl = gl,
+                        currency = cur,
+                        roundTrip = false,
+                        outboundOnly = true,
+                        options = options,
+                        cache = cache,
+                        allowNetwork = allowNetwork,
+                        warnings = warnings,
+                        stop = stop,
+                        count = count,
+                    )
                 }
             val back =
                 if (stopped) {
                     emptyMap()
                 } else {
                     quotesForDirection(
-                        itinerary, null, gl, cur, roundTrip = false, outboundOnly = false,
-                        options, cache, allowNetwork, warnings, {
-                        stopped =
-                            true
-                    }, { if (it) cachedHits++ else live++ })
+                        itinerary = itinerary,
+                        stored = null,
+                        gl = gl,
+                        currency = cur,
+                        roundTrip = false,
+                        outboundOnly = false,
+                        options = options,
+                        cache = cache,
+                        allowNetwork = allowNetwork,
+                        warnings = warnings,
+                        stop = stop,
+                        count = count,
+                    )
                 }
             quotes[market] = MarketQuotes(rt, ow, back)
             links[market] = vendorLinks(itinerary, cur, gl)
