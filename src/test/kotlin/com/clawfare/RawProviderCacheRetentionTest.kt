@@ -58,7 +58,8 @@ class RawProviderCacheRetentionTest {
         assertTrue(file.readText().contains("[REDACTED]"))
         assertFalse(file.readText().contains("SECRET_TOKEN"))
         val tempFiles =
-            root.resolve("serpapi")
+            root
+                .resolve("serpapi")
                 .listFiles()
                 .orEmpty()
                 .count { it.name.endsWith(".tmp") }
