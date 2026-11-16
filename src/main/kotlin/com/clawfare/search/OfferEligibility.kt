@@ -28,10 +28,9 @@ object OfferEligibility {
 
         for (leg in legs) {
             val minimum = if (isShortHaul(leg)) query.cabinShortHaul else query.cabin
-            if (leg.cabin.isNullOrBlank()) {
-                if (query.strictPerLegCabin) return "unknown_cabin"
-            } else if (!cabinAtLeast(leg.cabin, minimum)) {
-                return "insufficient_cabin"
+            if (query.strictPerLegCabin) {
+                if (leg.cabin.isNullOrBlank()) return "unknown_cabin"
+                if (!cabinAtLeast(leg.cabin, minimum)) return "insufficient_cabin"
             }
         }
         return null
