@@ -17,6 +17,15 @@ object ClawfareJs {
         return AppJson.encodeToString(SearchQuery.serializer(), normalizeQuery(query))
     }
 
+    /**
+     * Returns normalized search settings, validated local date pairs and an
+     * optional error. No provider request or cost reservation occurs here.
+     */
+    fun planSearchJson(queryJson: String): String {
+        val query = AppJson.decodeFromString(SearchQuery.serializer(), queryJson)
+        return AppJson.encodeToString(FlightSearchPlan.serializer(), planFlightSearch(query))
+    }
+
     fun toGbpOrNull(
         amount: Double,
         unitsPerGbp: Double,
