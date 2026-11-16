@@ -235,37 +235,27 @@ object Filters {
         return legs.any { leg -> tokens.any { token -> carrierMatch(leg, token) } }
     }
 
+    /**
+     * Exact marketing/operating codes and documented aliases only.
+     * Substring matches cause false exclusions (e.g. "Air" and "Air France").
+     */
     private fun carrierMatch(
         leg: Leg,
         token: String,
     ): Boolean {
-        if (token.equals(leg.airlineCode, ignoreCase = true)) return true
-        if (token.equals(leg.airline, ignoreCase = true)) return true
-        if (token.equals(leg.operatingCarrier, ignoreCase = true)) return true
-        val carrierAliases =
-            when (token.uppercase()) {
-                "AI" -> listOf("Air India")
-                "VN" -> listOf("Vietnam Airlines")
-                "LO" -> listOf("LOT", "LOT Polish Airlines")
-                else -> emptyList()
+        val requested = token.trim()
+        if (requested.isEmpty()) return false
+        val aliases =
+            when (requested.uppercase()) {
+                "AI", "AIR INDIA" -> setOf("AI", "Air India")
+                "VN", "VIETNAM AIRLINES" -> setOf("VN", "Vietnam Airlines")
+                "LO", "LOT", "LOT POLISH AIRLINES" -> setOf("LO", "LOT", "LOT Polish Airlines")
+                else ->
+                    AIRLINE_NAMES[requested.uppercase()]?.let { setOf(requested, it) }
+                        ?: setOf(requested)
             }
-        if (carrierAliases.any { alias ->
-                leg.airline.equals(alias, ignoreCase = true) || leg.operatingCarrier.equals(alias, ignoreCase = true)
-            }
-        ) {
-            return true
-        }
-        if (token.equals("LO", ignoreCase = true) &&
-            (leg.operatingCarrier.startsWith("LOT", ignoreCase = true) || leg.airline.startsWith("LOT", ignoreCase = true))
-        ) {
-            return true
-        }
-        if (token.length > 2 &&
-            (leg.airline.contains(token, ignoreCase = true) || leg.operatingCarrier.contains(token, ignoreCase = true))
-        ) {
-            return true
-        }
-        return false
+        val observed = listOf(leg.airlineCode, leg.airline, leg.operatingCarrier)
+        return observed.any { actual -> aliases.any { alias -> actual.trim().equals(alias, ignoreCase = true) } }
     }
 
     /**
