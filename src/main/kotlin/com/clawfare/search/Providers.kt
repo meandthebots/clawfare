@@ -117,8 +117,9 @@ interface FareProvider {
 fun datePairs(query: SearchQuery): List<Pair<String, String?>> {
     val outs = inclusiveDates(query.outboundFrom, query.outboundTo.ifBlank { query.outboundFrom })
     if (query.tripType == "one_way") return outs.map { it.toString() to null }
-    if (query.nights != null) {
-        return outs.map { it.toString() to it.plusDays(query.nights.toLong()).toString() }
+    val nights = query.nights
+    if (nights != null) {
+        return outs.map { it.toString() to it.plusDays(nights.toLong()).toString() }
     }
     val rets = inclusiveDates(query.returnFrom ?: return emptyList(), query.returnTo ?: query.returnFrom!!)
     return outs.flatMap { o -> rets.filter { it.isAfter(o) }.map { o.toString() to it.toString() } }
