@@ -21,7 +21,7 @@ const exports = require(bundle);
 // Kotlin's namespace layout may change between compiler versions, but the
 // public exported object and functions must remain callable without a JVM.
 function locateBridge(obj, depth = 0) {
-  if (!obj || depth > 4 || (typeof obj !== "object" && typeof obj !== "function")) return null;
+  if (!obj || depth > 8 || (typeof obj !== "object" && typeof obj !== "function")) return null;
   if (typeof obj.normalizeSearchJson === "function" && typeof obj.planSearchJson === "function" &&
       typeof obj.projectBudgetJson === "function") return obj;
   for (const key of Object.keys(obj)) {
@@ -35,6 +35,7 @@ console.log("Kotlin/JS bundle inspection:", JSON.stringify({
   hasExportName: source.includes("ClawfareJs"),
   exportKeys: Object.keys(exports).slice(0, 20),
   defaultExportKeys: Object.keys(exports?.default ?? {}).slice(0, 20),
+  namespaceKeys: Object.keys(exports?.["fare-core"] ?? {}).slice(0, 20),
   exportType: typeof exports,
 }));
 const bridge = locateBridge(exports);
