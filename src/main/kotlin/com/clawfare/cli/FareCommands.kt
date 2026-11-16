@@ -12,9 +12,9 @@ import com.clawfare.search.FareStore
 import com.clawfare.search.FareWatch
 import com.clawfare.search.FxRateStore
 import com.clawfare.search.ProviderHttpBudget
+import com.clawfare.search.ResultSet
 import com.clawfare.search.SampleData
 import com.clawfare.search.SampleSeeder
-import com.clawfare.search.ResultSet
 import com.clawfare.search.SearchQuery
 import com.clawfare.search.SearchService
 import com.clawfare.search.SqliteResponseCache
