@@ -216,3 +216,13 @@ or baggage is supplied, or airfare alone. New configurations should set
 explicit airfare-only scenario is intentionally excluded, not treated as free.
 The CSV now includes `costScope` to prevent airfare-only rows being mistaken
 for fully itemized travel costs.
+
+### Reporting and alerts
+
+The existing `allInGbp` field and alert thresholds apply **only to the
+chosen cost scope**, and the CSV's `costScope` column must be displayed with
+it. Airfare-only change alerts are ticket-price changes, not full door-to-door
+budget changes. Altering which components are selected changes the stored
+expense fingerprint, preventing a scope change from masquerading as an airfare
+price drop. The underlying air ticket may still include separately charged
+baggage, positioning, or issuance fees that were not captured.
