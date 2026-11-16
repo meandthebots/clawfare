@@ -28,6 +28,9 @@ Save as a local file outside the repository, e.g. `~/travel-search-private.json`
         "tripType": "one_way",
         "adults": 2,
         "cabin": "business",
+        "cabinShortHaul": "economy",
+        "strictPerLegCabin": true,
+        "strictOperatingCarrier": true,
         "checkedBags": 2,
         "nonstopOnly": true,
         "providers": ["serpapi"],
@@ -63,7 +66,7 @@ refused if the full estimated maximum including return follow-ups exceeds
 are sequential, with a per-query cap set from the remaining budget.
 The default provider response cache can prevent redundant calls.
 The audit trail is appended locally at
-`~/.clawfare/batch-attempts.tsv` or `CLAWFARE_BATCH_AUDIT`. Attempt
+`~/.clawfare/batch-attempts.ndjson` or `CLAWFARE_BATCH_AUDIT`. Attempt
 records include success, provider call upper bounds and observed offer count.
 
 Reports distinguish one-way and return tickets and never assume
