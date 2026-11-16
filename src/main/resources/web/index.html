@@ -434,12 +434,26 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
   }
   function verifiedCashRefund(it) {
     var e = it.refundEvidence;
-    if (!e || it.sourceLabel !== "live" || !it.livePrice || e.allowed !== true ||
-        e.penaltyAmount == null || Number(e.penaltyAmount) !== 0 ||
-        e.method !== "original_payment" || e.servicingFeeAmount == null ||
-        Number(e.servicingFeeAmount) !== 0 || !e.expiresAt) return false;
+    // A provider's airline-level refund fields are NEVER sufficient.
+    // The exact itinerary hash is validated by the server when loading data.
+    // Unknown/manual-only, static exports, and stale proof fail closed.
+    if (!it.cashRefundProofVerified || !e || !e.sellerProof) return false;
+    var p = e.sellerProof;
+    if (!p.sellerId || p.sellerId !== e.sellerId || p.offerId !== e.offerId ||
+        p.partySize !== it.passengers || p.fareBrand !== (it.fareBrand || "") ||
+        p.issuerPenaltyAmount !== 0 || p.sellerServicingFeeAmount !== 0 ||
+        p.refundToTravellerOriginalPayment !== true || p.coversFullTicketBeforeOutbound !== true ||
+        it.sourceLabel !== "live" || !it.livePrice || e.allowed !== true ||
+        e.penaltyAmount !== 0 || e.method !== "original_payment" ||
+        e.servicingFeeAmount !== 0 || !e.expiresAt) return false;
     var expires = Date.parse(e.expiresAt);
-    if (!Number.isFinite(expires) || expires <= Date.now()) return false;
+    var proofExpires = Date.parse(p.expiresAt);
+    var deadline = Date.parse(p.cancellationDeadlineAt);
+    var review = Date.parse(p.reviewedAt);
+    var now = Date.now();
+    if (![expires, proofExpires, deadline, review].every(Number.isFinite)) return false;
+    if (expires <= now || proofExpires <= now || deadline <= now || review > now ||
+        now - review > 48 * 60 * 60 * 1000) return false;
     return e.availablePassengers == null || e.availablePassengers >= it.passengers;
   }
   function refundDetails(it) {
