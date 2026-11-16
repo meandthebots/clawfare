@@ -887,7 +887,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
       }
       html += "<tr class='" + (best ? "bestv" : "") + (v.fresh ? "" : " stale") + "'><td>" + (i + 1) + "</td>" +
         "<td class='num'><b>" + gbp(v.allInGbp) + "</b><div class='muted'>" + esc(v.how || "") + "</div></td>" +
-        "<td><b>" + esc(v.vendor) + "</b><div class='muted'>" + esc(v.fareBrand || "") + (v.bags ? " · " + v.bags : "") + "</div>" +
+        "<td><b>" + esc(v.vendor) + "</b><div class='muted'>" + esc(v.fareBrand || "") + (v.bags ? " · " + esc(v.bags) : "") + "</div>" +
         "<textarea class='noteedit' data-market='" + esc(v.market) + "' data-vendor='" + esc(v.vendor) + "'>" + esc(v.note || "") + "</textarea></td>" +
         "<td><span class='trust " + esc(v.trust) + "'>" + esc(v.trustLabel || v.trust) + "</span><div><select class='trustpick' data-market='" + esc(v.market) + "' data-vendor='" + esc(v.vendor) + "'>" +
         ["airline", "trusted", "caution", "risky"].map(function (t) { return "<option value='" + t + "'" + (v.trust === t ? " selected" : "") + ">" + t + "</option>"; }).join("") +
@@ -903,6 +903,28 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
         }).join("") + "</td></tr>";
     });
     html += "</tbody></table>";
+    var options = (result.sellerOptions || []).filter(function (option) {
+      return state.market === "all" || option.market === state.market;
+    });
+    if (options.length) {
+      html += "<div class='sec'><h3>Exact seller fare options (" + options.length + ")</h3>" +
+        "<div class='muted'>Provider booking options are read-only observations. Fare name and airline cancellation flags do not prove a cash refund to your original payment method. Split tickets, telephone fees, unknown baggage and missing prices are not verified all-in offers.</div>" +
+        "<table class='data'><thead><tr><th>Seller / fare</th><th>Market</th><th>Journey</th><th>Whole-party quote</th><th>Details</th><th>Refund</th></tr></thead><tbody>";
+      options.forEach(function (option) {
+        var label = option.seller + (option.fareBrand || option.fareType ? " — " + (option.fareBrand || option.fareType) : "");
+        var details = [
+          option.splitTickets ? "Separate tickets" : "Ticketing not independently verified",
+          option.directAirline === true ? "Provider marked airline direct" : "Seller/issuer needs confirmation",
+          option.bags || "Baggage fee unknown",
+          option.phoneServiceFee != null ? "Possible telephone service fee " + money(option.phoneServiceFee, option.currency) : ""
+        ].filter(Boolean).join("; ");
+        html += "<tr><td>" + esc(label) + "<div class='muted'>" + esc(option.id) + "</div></td>" +
+          "<td>" + esc(option.market) + "</td><td>" + esc(option.journey) + "</td>" +
+          "<td class='num'>" + money(option.priceTotal, option.currency) + " <span class='muted'>/ " + esc(option.passengers) + " adults</span></td>" +
+          "<td>" + esc(details) + "</td><td>Unverified</td></tr>";
+      });
+      html += "</tbody></table></div>";
+    }
     $("view").innerHTML = html;
   }
 
