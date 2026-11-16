@@ -153,8 +153,8 @@ test("missing, invalid and cross-tenant results do not disclose data", async () 
       assert.equal(result.status, 404);
     }
   }
-  await assert.rejects(
-    handleReadOnlyApi(call("/api/results/test"), config(db, "not-an-email")),
-    /verified ChatGPT identity/,
+  const malformedIdentity = await handleReadOnlyApi(
+    call("/api/results/test"), config(db, "not-an-email"),
   );
+  assert.equal(malformedIdentity.status, 401);
 });
