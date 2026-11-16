@@ -157,25 +157,6 @@ remains the immediate no-backend demonstration.
 
 Reference: https://learn.chatgpt.com/docs/sites/data-and-connections
 
-## Existing HTML frontend in hosted read-only mode
-
-`renderHostedReadOnlyPage(template)` prepares the **existing Kotlin Ktor
-frontend HTML** for a Sites-compatible static/HTTP handler. It injects the
-explicit flag `window.__CLAWFARE_HOSTED_READ_ONLY__ = true`, while preserving
-the original snapshot marker and layout.
-
-The browser then skips the localhost-only `/api/session` token exchange and
-omits `X-Clawfare-Session` for hosted read-only GET requests. It disables
-estimate, paid search and export buttons and refuses to dispatch any mutation
-POST through its API helper. Browsing saved investigations and applying local
-filters remains functional. The JVM server, without the explicit flag, retains
-its existing LocalAccess session behavior.
-
-This UI flag is **not an authorization mechanism**. The authenticated Sites
-route handler still must enforce tenant scoping and reject all paid endpoints
-server-side. Do not infer hosted mode from the hostname; enable it explicitly
-only in an authenticated Sites build.
-
 ## Remaining requirements
 
 - Authenticate and scope data to approved identities, including protection
