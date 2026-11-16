@@ -19,8 +19,20 @@ export DUFFEL_LIVE_ENABLED="false"
 
 ./gradlew run --args="fare load-sample"
 ./gradlew run --args="report html florida-dec-2026 --out $out"
+./gradlew run --args="report sample-json --out $(dirname "$out")/clawfare-sample.json"
 
 test -s "$out"
+test -s "$(dirname "$out")/clawfare-sample.json"
+python3 - "$(dirname "$out")/clawfare-sample.json" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as stream:
+    data = json.load(stream)
+assert data["id"] == "florida-dec-2026"
+assert len(data["itineraries"]) > 0
+assert "tokens" not in data
+assert data["currency"] == "GBP"
+PY
 grep -q "florida-dec-2026" "$out"
 if grep -q 'window.__SNAPSHOT__ = null' "$out"; then
     echo "Expected a self-contained snapshot, not a live API frontend" >&2

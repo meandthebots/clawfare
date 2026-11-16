@@ -26,5 +26,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: clawfare-sites-sample
-          path: build/sites/clawfare-sample.html
+          path: |
+            build/sites/clawfare-sample.html
+            build/sites/clawfare-sample.json
           retention-days: 14

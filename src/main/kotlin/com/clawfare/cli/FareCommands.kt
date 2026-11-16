@@ -12,6 +12,8 @@ import com.clawfare.search.FareStore
 import com.clawfare.search.FareWatch
 import com.clawfare.search.FxRateStore
 import com.clawfare.search.ProviderHttpBudget
+import com.clawfare.search.ResultSet
+import com.clawfare.search.SampleData
 import com.clawfare.search.SampleSeeder
 import com.clawfare.search.SearchQuery
 import com.clawfare.search.SearchService
@@ -676,6 +678,7 @@ class ServeCommand : Callable<Int> {
     mixinStandardHelpOptions = true,
     subcommands = [
         ReportJsonCommand::class,
+        ReportSampleJsonCommand::class,
         ReportTopCommand::class,
         ReportHtmlCommand::class,
         ReportCsvCommand::class,
@@ -702,6 +705,27 @@ class ReportJsonCommand : Callable<Int> {
     override fun call(): Int {
         parent.parent.ensureDb()
         println(JsonExporter.exportByInvestigation(slug))
+        return 0
+    }
+}
+
+/**
+ * A deterministic, public-fixture-only snapshot for private Sites demos.
+ * Unlike generic report JSON, it serializes the exact ResultSet browser API
+ * shape and cannot accidentally export private investigations or tokens.
+ */
+@Command(name = "sample-json", description = ["Export bundled Florida sample ResultSet for hosted preview"])
+class ReportSampleJsonCommand : Callable<Int> {
+    @ParentCommand
+    lateinit var parent: ReportCommand
+
+    @Option(names = ["--out"], required = true, description = ["Output file"])
+    lateinit var out: String
+
+    override fun call(): Int {
+        val snapshot = SampleData.florida()
+        File(out).writeText(AppJson.encodeToString(ResultSet.serializer(), snapshot))
+        println("Wrote $out")
         return 0
     }
 }
