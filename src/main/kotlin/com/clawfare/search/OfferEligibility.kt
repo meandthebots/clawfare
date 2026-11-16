@@ -28,7 +28,8 @@ object OfferEligibility {
         val directions = listOf(itinerary.outbound) + listOfNotNull(itinerary.returning)
         val legs = directions.flatMap { it.legs }
         if (legs.isEmpty() || directions.any { it.legs.isEmpty() }) return "missing_legs"
-        if (query.tripType != "one_way" && itinerary.returnMissing &&
+        if (query.tripType != "one_way" &&
+            itinerary.returnMissing &&
             (query.strictPerLegCabin || query.strictOperatingCarrier)
         ) {
             return "unverified_return_legs"
