@@ -147,6 +147,7 @@ object FareStore : FareSink {
             headerNotes = presentation.headerNotes,
             suggestedFilters = presentation.suggestedFilters,
             warnings = presentation.warnings,
+            fx = presentation.fx ?: FxInfo(),
             scenarioLabel = inv.scenario,
             query = query,
             vendorItineraryId = vendorTarget(slug),
@@ -221,6 +222,7 @@ object FareStore : FareSink {
                 suggestedFilters = result.suggestedFilters,
                 warnings = result.warnings,
                 fetchedAt = result.fetchedAt,
+                fx = result.fx,
             )
         val now = Instant.now().toString()
         val dto =
