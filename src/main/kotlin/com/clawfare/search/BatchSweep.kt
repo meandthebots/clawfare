@@ -251,7 +251,12 @@ object BatchSweep {
                         status = state,
                         maxNetworkCalls = upper,
                         offerCount = count,
-                        warnings = response.result?.warnings.orEmpty().take(8).map { redact(it).take(200) },
+                        warnings =
+                            response.result
+                                ?.warnings
+                                .orEmpty()
+                                .take(8)
+                                .map { redact(it).take(200) },
                         providerObservations = observations,
                         estimatedCachedCalls = estimate.cachedCalls,
                         estimatedSkippedCalls = estimate.skippedCalls,
