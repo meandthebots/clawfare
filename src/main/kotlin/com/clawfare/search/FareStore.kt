@@ -555,9 +555,10 @@ object FareStore : FareSink {
                 leg.arriveDate.ifBlank { leg.departDate },
                 leg.arriveTime.ifBlank { leg.departTime },
             )
+        val reportedDuration = leg.durationMinutes
         val duration =
             when {
-                leg.durationMinutes != null && leg.durationMinutes > 0 -> leg.durationMinutes
+                reportedDuration != null && reportedDuration > 0 -> reportedDuration
                 clockMinutes != null && clockMinutes > 0 -> clockMinutes
                 else -> 1
             }
