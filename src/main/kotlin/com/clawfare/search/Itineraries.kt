@@ -357,10 +357,21 @@ object Feasibility {
             }
         val primaryPrice = primary.pricePerPerson ?: 0.0
         val addonPrice = addon?.pricePerPerson ?: 0.0
-        val total = FareMath.partyTotal(primaryPrice, primaryPassengers, addonPrice, if (addon != null) addonPassengers else 0)
+        val total =
+            FareMath.partyTotal(
+                primaryPrice,
+                primaryPassengers,
+                addonPrice,
+                if (addon != null) addonPassengers else 0,
+            )
         val prev =
             if (primary.prevPrice != null && (addon == null || addon.prevPrice != null)) {
-                FareMath.partyTotal(primary.prevPrice, primaryPassengers, addon?.prevPrice ?: 0.0, if (addon != null) addonPassengers else 0)
+                FareMath.partyTotal(
+                    primary.prevPrice,
+                    primaryPassengers,
+                    addon?.prevPrice ?: 0.0,
+                    if (addon != null) addonPassengers else 0,
+                )
             } else {
                 null
             }
