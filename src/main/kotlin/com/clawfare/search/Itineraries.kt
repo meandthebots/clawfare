@@ -1,9 +1,6 @@
 package com.clawfare.search
 
-import java.time.Duration
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.temporal.ChronoUnit
 
 fun directionOf(
     legs: List<Leg>,
@@ -33,39 +30,6 @@ fun computeLayovers(legs: List<Leg>): List<Layover> {
         if (minutes != null && minutes >= 0) out += Layover(legs[i].to, minutes)
     }
     return out
-}
-
-fun minutesBetween(
-    date1: String,
-    time1: String,
-    date2: String,
-    time2: String,
-): Int? =
-    try {
-        val a = LocalDateTime.parse("${date1}T${normalizeTime(time1)}")
-        val b = LocalDateTime.parse("${date2}T${normalizeTime(time2)}")
-        Duration.between(a, b).toMinutes().toInt()
-    } catch (_: Exception) {
-        null
-    }
-
-fun normalizeTime(raw: String): String {
-    val t = raw.trim().take(5)
-    val parts = t.split(":")
-    if (parts.size < 2) return "00:00"
-    return parts[0].padStart(2, '0') + ":" + parts[1].padStart(2, '0')
-}
-
-fun nightsBetween(
-    start: String?,
-    end: String?,
-): Int? {
-    if (start.isNullOrBlank() || end.isNullOrBlank()) return null
-    return try {
-        ChronoUnit.DAYS.between(LocalDate.parse(start), LocalDate.parse(end)).toInt()
-    } catch (_: Exception) {
-        null
-    }
 }
 
 fun euPremium(
