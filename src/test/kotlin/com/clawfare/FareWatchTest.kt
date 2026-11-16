@@ -140,10 +140,11 @@ class FareWatchTest {
     fun differentFareBrandIsNotReportedAsAPriceDropAndIdsAreDurable() {
         val source = Scripted()
         val sink = MemorySink()
-        val dir = File.createTempFile("watch-products", "").apply {
-            delete()
-            mkdirs()
-        }
+        val dir =
+            File.createTempFile("watch-products", "").apply {
+                delete()
+                mkdirs()
+            }
         val service = SearchService(listOf(source), DiskCache(dir), sink)
         val journal = dir.resolve("alerts.ndjson")
         val privateConfig = config.copy(maxDailyLiveCalls = 4)
@@ -181,10 +182,11 @@ class FareWatchTest {
         source.currency = "EUR"
         source.originalPrice = 1400.0
         val sink = MemorySink()
-        val dir = File.createTempFile("watch-fx", "").apply {
-            delete()
-            mkdirs()
-        }
+        val dir =
+            File.createTempFile("watch-fx", "").apply {
+                delete()
+                mkdirs()
+            }
         val service = SearchService(listOf(source), DiskCache(dir), sink)
 
         fun run() =
