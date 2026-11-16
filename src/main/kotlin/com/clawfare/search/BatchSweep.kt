@@ -4,6 +4,10 @@ import kotlinx.serialization.Serializable
 import java.io.File
 import java.time.Instant
 
+/** Explicit cost scopes are enforced before any potentially paid batch run. */
+private val COST_SCOPES =
+    setOf("airfare_only", "airfare_positioning", "airfare_baggage", "airfare_positioning_baggage", "legacy_full_trip")
+
 /** Keep the actual trip-specific JSON configuration on private/local disk. */
 @Serializable
 data class BatchScenario(
@@ -14,6 +18,13 @@ data class BatchScenario(
     val hotelsGbp: Double? = null,
     val groundTransfersGbp: Double? = null,
     val baggageGbp: Double? = null,
+    /**
+     * Comparison basis. Null autodetects explicitly provided inputs to retain
+     * the semantics of saved pre-scope configurations. Explicit options:
+     * airfare_only, airfare_positioning, airfare_baggage,
+     * airfare_positioning_baggage and legacy_full_trip.
+     */
+    val costScope: String? = null,
     /** Optional hypothetical coupon-use strategy; never an instruction to cancel or no-show. */
     val ticketUsePlan: TicketUsePlan? = null,
 )
@@ -60,6 +71,8 @@ data class BatchRow(
     val partyFareGbp: Double?,
     val allInGbp: Double?,
     val expenseEvidence: String,
+    /** Selected comparable cost components, not a promise of full trip economics. */
+    val costScope: String = "legacy_full_trip",
     val retrievedAt: String?,
     val journeyType: String,
     /** Stable within a query across offer-price and FX changes; deliberately excludes transient provider IDs. */
@@ -127,6 +140,9 @@ object BatchSweep {
         config.scenarios.flatMap { scenario ->
             val normalized = normalizeQuery(scenario.query)
             require(scenario.id.matches(Regex("[a-zA-Z][a-zA-Z0-9-]{0,35}"))) { "Invalid scenario identifier" }
+            require(scenario.costScope == null || scenario.costScope in COST_SCOPES) {
+                "Unknown batch cost scope; no searches started."
+            }
             val pairs = datePairs(normalized)
             require(pairs.size * normalized.origins.size * normalized.destinations.size <= 1500) {
                 "Scenario matrix too large; split searches into batches"
@@ -364,9 +380,30 @@ object BatchSweep {
                     val scenario = entry.scenario
                     val useOutcome = scenario.ticketUsePlan?.let { TicketUse.evaluate(itinerary, it) }
                     val effectiveFare = useOutcome?.netTicketGbp ?: if (scenario.ticketUsePlan == null) fare else null
+                    val scope =
+                        scenario.costScope
+                            ?: when {
+                                scenario.hotelsGbp != null || scenario.groundTransfersGbp != null -> "legacy_full_trip"
+                                scenario.positioningGbp != null && scenario.baggageGbp != null -> "airfare_positioning_baggage"
+                                scenario.positioningGbp != null -> "airfare_positioning"
+                                scenario.baggageGbp != null -> "airfare_baggage"
+                                else -> "airfare_only"
+                            }
                     val knownCosts =
-                        listOf(scenario.positioningGbp, scenario.hotelsGbp, scenario.groundTransfersGbp, scenario.baggageGbp)
-                    val complete = knownCosts.all { it != null }
+                        when (scope) {
+                            "airfare_only" -> emptyList()
+                            "airfare_positioning" -> listOf(scenario.positioningGbp)
+                            "airfare_baggage" -> listOf(scenario.baggageGbp)
+                            "airfare_positioning_baggage" -> listOf(scenario.positioningGbp, scenario.baggageGbp)
+                            else ->
+                                listOf(
+                                    scenario.positioningGbp,
+                                    scenario.hotelsGbp,
+                                    scenario.groundTransfersGbp,
+                                    scenario.baggageGbp,
+                                )
+                        }
+                    val complete = knownCosts.all { it != null && it.isFinite() && it >= 0.0 }
                     val finalPrice =
                         if (effectiveFare != null &&
                             complete &&
@@ -393,13 +430,9 @@ object BatchSweep {
                             },
                         ).joinToString("|")
                     val assumptions =
-                        listOf(
-                            scenario.positioningGbp,
-                            scenario.hotelsGbp,
-                            scenario.groundTransfersGbp,
-                            scenario.baggageGbp,
-                            scenario.ticketUsePlan?.let { AppJson.encodeToString(TicketUsePlan.serializer(), it) },
-                        ).joinToString("|")
+                        (listOf(scope) + knownCosts.map { it.toString() } +
+                            listOf(scenario.ticketUsePlan?.let { AppJson.encodeToString(TicketUsePlan.serializer(), it) }))
+                            .joinToString("|")
                     BatchRow(
                         signature = entry.signature,
                         origin = itinerary.origin,
@@ -411,8 +444,12 @@ object BatchSweep {
                         partyFareGbp = fare,
                         allInGbp = finalPrice,
                         expenseEvidence =
-                            (if (complete) "User-supplied whole-party costs" else "Incomplete positioning or bag costs") +
-                                (useOutcome?.let { "; ${it.note}" } ?: ""),
+                            (if (complete) {
+                                "Comparison basis: $scope; excluded components are not assumed free"
+                            } else {
+                                "Incomplete or invalid cost inputs for $scope; no comparable total"
+                            }) + (useOutcome?.let { "; ${it.note}" } ?: ""),
+                        costScope = scope,
                         retrievedAt = itinerary.fetchedAt,
                         journeyType = if (itinerary.returning == null) "one_way" else "round_trip",
                         productKey = sha256(identity),
