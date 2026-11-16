@@ -242,6 +242,19 @@ object Filters {
         if (token.equals(leg.airlineCode, ignoreCase = true)) return true
         if (token.equals(leg.airline, ignoreCase = true)) return true
         if (token.equals(leg.operatingCarrier, ignoreCase = true)) return true
+        val carrierAliases =
+            when (token.uppercase()) {
+                "AI" -> listOf("Air India")
+                "VN" -> listOf("Vietnam Airlines")
+                "LO" -> listOf("LOT", "LOT Polish Airlines")
+                else -> emptyList()
+            }
+        if (carrierAliases.any { alias ->
+                leg.airline.equals(alias, ignoreCase = true) || leg.operatingCarrier.equals(alias, ignoreCase = true)
+            }
+        ) {
+            return true
+        }
         if (token.equals("LO", ignoreCase = true) &&
             (leg.operatingCarrier.startsWith("LOT", ignoreCase = true) || leg.airline.startsWith("LOT", ignoreCase = true))
         ) {
