@@ -72,7 +72,10 @@ object Export {
                         it.source,
                         it.sourceLabel,
                         (it.refundEvidence?.isVerifiedFor(it) == true).toString(),
-                        it.refundEvidence?.sellerProof?.expiresAt.orEmpty(),
+                        it.refundEvidence
+                            ?.sellerProof
+                            ?.expiresAt
+                            .orEmpty(),
                         it.fetchedAt.orEmpty(),
                         link,
                     )
