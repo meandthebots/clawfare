@@ -60,7 +60,7 @@ class SellerOptionsTest {
         val options = parse(nested, "serpapi", "uk", "GBP")
         assertEquals(5, options.size)
         assertEquals(3, options.count { it.seller == "British Airways" })
-        assertEquals(2, options.count { it.fareBrand == "Business Flex" })
+        assertEquals(2, options.count { it.seller == "British Airways" && it.fareBrand == "Business Flex" })
         assertEquals(options.size, options.map { it.id }.distinct().size)
         assertTrue(options.first().directAirline == true)
         assertTrue(options[3].splitTickets)
