@@ -11,6 +11,7 @@ import com.clawfare.search.Export
 import com.clawfare.search.FareStore
 import com.clawfare.search.FareWatch
 import com.clawfare.search.FxRateStore
+import com.clawfare.search.ProviderHttpBudget
 import com.clawfare.search.SampleSeeder
 import com.clawfare.search.SearchQuery
 import com.clawfare.search.SearchService
@@ -39,6 +40,7 @@ private fun splitCodes(raw: String): List<String> = raw.split(Regex("[,\\s]+")).
         FareFetchCommand::class,
         FareReingestCommand::class,
         FareQuotaCommand::class,
+        FareHttpBudgetCommand::class,
         FarePruneProviderCacheCommand::class,
         FareLoadSampleCommand::class,
         FareFxRefreshCommand::class,
@@ -359,7 +361,8 @@ class FareEstimateCommand : Callable<Int> {
 
     override fun call(): Int {
         parent.parent.ensureDb()
-        val estimate = fareService().estimate(queryFrom(this), includeQuota = true)
+        // Dry-run estimates must never spend even an account/quota HTTP request.
+        val estimate = fareService().estimate(queryFrom(this), includeQuota = false)
         println(formatEstimate(estimate))
         return if (estimate.warnings.any {
                 it.startsWith("Enter") ||
@@ -547,7 +550,7 @@ class FareReingestCommand : Callable<Int> {
     }
 }
 
-@Command(name = "quota", description = ["Show remaining provider quota. Account checks do not spend a flight search."])
+@Command(name = "quota", description = ["Query provider account quotas (HTTP request; counts against conservative local cap)"])
 class FareQuotaCommand : Callable<Int> {
     @ParentCommand
     lateinit var parent: FareCommand
@@ -560,6 +563,25 @@ class FareQuotaCommand : Callable<Int> {
             val limit = quota.limit?.let { " of $it" } ?: ""
             val note = quota.note?.let { " — $it" } ?: ""
             println("${quota.provider}: ${if (quota.configured) "configured" else "not configured"}$remaining$limit$note")
+        }
+        return 0
+    }
+}
+
+@Command(name = "http-budget", description = ["Inspect private provider HTTP reservations without network access"])
+class FareHttpBudgetCommand : Callable<Int> {
+    @ParentCommand
+    lateinit var parent: FareCommand
+
+    override fun call(): Int {
+        val budget = ProviderHttpBudget.fromEnvironment()
+        for (provider in listOf("serpapi", "searchapi", "travelpayouts", "duffel")) {
+            val usage = budget.usage(provider)
+            println(
+                "${usage.provider}: ${usage.reservedToday}/${usage.dailyLimit ?: "unconfigured"} reserved today; " +
+                    "${usage.reservedThisMonth}/${usage.monthlyLimit ?: "no cap"} this month; " +
+                    "${usage.unfinished} unfinished. Charge status is unknown unless confirmed by provider billing.",
+            )
         }
         return 0
     }

@@ -156,7 +156,8 @@ fun Application.clawfareModule() {
         post("/api/estimate") {
             if (!authorized(call)) return@post
             val query = call.receive<SearchQuery>()
-            val estimate = withContext(Dispatchers.IO) { service.estimate(query, includeQuota = true) }
+            // Estimation must never trigger provider quota HTTP calls before consent.
+            val estimate = withContext(Dispatchers.IO) { service.estimate(query, includeQuota = false) }
             val upper = estimate.liveCalls + estimate.returnLookupsUpperBound
             if (upper in 1..maxWebCalls) {
                 call.response.header("X-Clawfare-Consent", local.issueConsent("search", searchFingerprint(query)))

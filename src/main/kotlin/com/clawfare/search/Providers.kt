@@ -733,16 +733,22 @@ private fun JsonObject.dbl(key: String): Double? = this[key]?.jsonPrimitive?.dou
 
 private fun enc(value: String): String = URLEncoder.encode(value, Charsets.UTF_8)
 
-fun providersFromEnv(http: HttpFetcher = JdkHttpFetcher()): List<FareProvider> =
-    listOf(
-        GoogleFlightsProvider("serpapi", "SerpApi Google Flights", System.getenv("SERPAPI_API_KEY"), GoogleFlightsStyle.SERPAPI, http),
+fun providersFromEnv(http: HttpFetcher = JdkHttpFetcher()): List<FareProvider> {
+    // Every production HTTP dispatch (including booking-option and exact-offer
+    // follow-ups) requires a durable per-provider cap, even when invoked by
+    // CLI or Ktor directly. Tests may inject a fake HTTP boundary explicitly.
+    val transport =
+        if (http is JdkHttpFetcher) MeteredProviderHttp(http, ProviderHttpBudget.fromEnvironment()) else http
+    return listOf(
+        GoogleFlightsProvider("serpapi", "SerpApi Google Flights", System.getenv("SERPAPI_API_KEY"), GoogleFlightsStyle.SERPAPI, transport),
         GoogleFlightsProvider(
             "searchapi",
             "SearchAPI Google Flights",
             System.getenv("SEARCHAPI_API_KEY"),
             GoogleFlightsStyle.SEARCHAPI,
-            http,
+            transport,
         ),
-        TravelpayoutsProvider(System.getenv("TRAVELPAYOUTS_API_TOKEN"), http),
-        DuffelProvider(System.getenv("DUFFEL_ACCESS_TOKEN"), http),
+        TravelpayoutsProvider(System.getenv("TRAVELPAYOUTS_API_TOKEN"), transport),
+        DuffelProvider(System.getenv("DUFFEL_ACCESS_TOKEN"), transport),
     )
+}
