@@ -17,6 +17,23 @@ object ClawfareJs {
         return AppJson.encodeToString(SearchQuery.serializer(), normalizeQuery(query))
     }
 
+    /**
+     * Derive a purely informational provider-call upper bound. The HTTP
+     * adapter must still enforce authenticated consent and durable reservation.
+     */
+    fun projectBudgetJson(
+        queryJson: String,
+        providersJson: String,
+    ): String {
+        val query = normalizeQuery(AppJson.decodeFromString(SearchQuery.serializer(), queryJson))
+        val providers =
+            AppJson.decodeFromString(
+                kotlinx.serialization.builtins.ListSerializer(PlannedProvider.serializer()),
+                providersJson,
+            )
+        return AppJson.encodeToString(CallBudget.serializer(), projectCallBudget(query, providers))
+    }
+
     fun toGbpOrNull(
         amount: Double,
         unitsPerGbp: Double,
