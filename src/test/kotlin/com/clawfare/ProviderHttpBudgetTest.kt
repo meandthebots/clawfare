@@ -165,7 +165,14 @@ class ProviderHttpBudgetTest {
                 }
             }
         val ledger = ProviderHttpBudget(root, mapOf("serpapi" to 1), clock = at("2026-11-16T02:00:00Z"))
-        val provider = GoogleFlightsProvider("serpapi", "fixture", "test-token", GoogleFlightsStyle.SERPAPI, MeteredProviderHttp(fake, ledger))
+        val provider =
+            GoogleFlightsProvider(
+                "serpapi",
+                "fixture",
+                "test-token",
+                GoogleFlightsStyle.SERPAPI,
+                MeteredProviderHttp(fake, ledger),
+            )
         val query =
             SearchQuery(
                 origins = listOf("LHR"),
