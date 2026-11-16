@@ -65,3 +65,31 @@ test("returns platform authentication paths for Sites ingress and disallows unco
     templateHtml: "<html></html>", db, getVerifiedEmail: () => null, ownerKeySecret: secret,
   }), /snapshot marker/);
 });
+
+
+test("bundled sample is validated at startup, never read from visitor payload", () => {
+  const options = {
+    templateHtml,
+    db,
+    getVerifiedEmail: async () => "alice@example.com",
+    ownerKeySecret: secret,
+    cryptoApi: webcrypto,
+  };
+  const base = {
+    id: "florida-dec-2026",
+    title: "Kotlin fixture",
+    currency: "GBP",
+    itineraries: [{ id: "lh-1", source: "sample", sourceLabel: "sample", livePrice: false }],
+    addons: [],
+    vendors: [],
+  };
+  assert.equal(typeof createReadOnlySitesHandler({ ...options, bundledPublicSample: base }), "function");
+  assert.throws(() => createReadOnlySitesHandler({
+    ...options,
+    bundledPublicSample: { ...base, itineraries: [{ ...base.itineraries[0], livePrice: true }] },
+  }), /sample-only/);
+  assert.throws(() => createReadOnlySitesHandler({
+    ...options,
+    bundledPublicSample: { ...base, id: "private-user-trip" },
+  }), /bundled public Kotlin/);
+});
