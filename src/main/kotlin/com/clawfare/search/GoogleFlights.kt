@@ -139,8 +139,9 @@ private fun parseLeg(obj: JsonObject): Leg? {
     val number = obj.str("flight_number") ?: return null
     val airline = obj.str("airline") ?: ""
     val code = GoogleFlightsLink.splitFlight(number, "").first.ifBlank { airline.take(2).uppercase() }
-    // Missing plane/crew evidence does not prove the marketing carrier operated the leg.
-    val operating = obj.str("plane_and_crew_by").orEmpty()
+    // Keep the marketed name for display but never claim it proves the actual operator.
+    val operatingEvidence = obj.str("plane_and_crew_by")
+    val operating = operatingEvidence ?: airline
     return Leg(
         flightNumber = number,
         airline = airline.ifBlank { AIRLINE_NAMES[code] ?: code },
@@ -155,6 +156,7 @@ private fun parseLeg(obj: JsonObject): Leg? {
         durationMinutes = obj.int("duration"),
         cabin = obj.str("travel_class"),
         aircraft = obj.str("airplane"),
+        operatingCarrierVerified = !operatingEvidence.isNullOrBlank(),
     )
 }
 
