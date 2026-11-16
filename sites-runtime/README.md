@@ -120,6 +120,43 @@ D1 native binding tests, secure data migration/import, storage retention
 and deletion, consistent fare updates, and a Kotlin/JS request handler.
 This module is not a deployed Site.
 
+## Authenticated read-only HTTP adapter
+
+`src/read-only-api.mjs` contains a **library**, not a deployed
+Cloudflare Worker or Sites entrypoint. Once Sites provisions a trusted
+authentication gateway, call `handleReadOnlyApi(request, options)`
+from the platform's route adapter with:
+
+- `db`: the D1 binding;
+- `getVerifiedEmail(request)`: a trusted platform identity function, never
+  an unchecked caller-supplied email or ordinary request header;
+- `ownerKeySecret`: a private, random, stable server-side secret at least
+  32 bytes long; rotation requires migrating the pseudonymous owner keys;
+- `cryptoApi` (optional): the platform's WebCrypto API.
+
+Sites documents `oai-authenticated-user-email` as a forwarded identity header
+for signed-in visitors **when Sites controls request ingress**. A standalone
+Worker or a public proxy that accepts the same header unverified must never
+be treated as authenticated. This repository does not introduce that
+unchecked ingress path. A runtime integration test must prove that callers
+cannot spoof identity before the handler is exposed.
+
+The handler returns `null` for non-API paths so the Sites frontend can
+be served separately. Supported GET routes are `/api/status`,
+`/api/quota`, `/api/searches`, `/api/results/{slug}`,
+`/api/sample` (only after a verified account sample import),
+and `/api/history/{slug}/{itinerary}`. The original browser UI's
+remaining mutation routes (estimate, paid search, seller search, tracking,
+export POSTs) deliberately return HTTP 405 and **cannot spend quota**.
+Response headers disable caching of personal data; every query is scoped
+to an HMAC-derived owner key rather than storing raw user email addresses.
+
+Integration with the Kotlin/JS compiled business logic remains required
+before enabling new searches. The UI's existing static sample preview
+remains the immediate no-backend demonstration.
+
+Reference: https://learn.chatgpt.com/docs/sites/data-and-connections
+
 ## Remaining requirements
 
 - Authenticate and scope data to approved identities, including protection
