@@ -34,7 +34,9 @@ object OfferEligibility {
         ) {
             return "unverified_return_legs"
         }
-        if (query.strictOperatingCarrier && legs.any { it.operatingCarrier.isBlank() }) return "unknown_operator"
+        if (query.strictOperatingCarrier && legs.any { it.operatingCarrier.isBlank() || !it.operatingCarrierVerified }) {
+            return "unknown_operator"
+        }
 
         for (leg in legs) {
             val minimum = if (isShortHaul(leg)) query.cabinShortHaul else query.cabin
