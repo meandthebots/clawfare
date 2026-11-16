@@ -9,7 +9,6 @@ import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 import java.nio.file.attribute.PosixFilePermission
 import java.time.Clock
-import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -77,8 +76,9 @@ class ProviderHttpBudget(
             val consumed = events.filter { it.phase == "reserved" && it.provider == provider }
             val today = consumed.count { it.at.startsWith(day) }
             val monthly = consumed.count { it.at.startsWith(month) }
-            val dailyCap = dailyLimits[provider]
-                ?: error("Missing HTTP daily cap for $provider. Configure CLAWFARE_HTTP_DAILY_${provider.uppercase()}.")
+            val dailyCap =
+                dailyLimits[provider]
+                    ?: error("Missing HTTP daily cap for $provider. Configure CLAWFARE_HTTP_DAILY_${provider.uppercase()}.")
             require(dailyCap >= 0) { "Daily cap must not be negative." }
             val monthlyCap = monthlyLimits[provider]
             require(monthlyCap == null || monthlyCap >= 0) { "Monthly cap must not be negative." }
@@ -100,8 +100,9 @@ class ProviderHttpBudget(
     ) {
         locked {
             val events = read()
-            val reservation = events.singleOrNull { it.id == id && it.phase == "reserved" }
-                ?: error("Missing request reservation. HTTP outcome not reconciled.")
+            val reservation =
+                events.singleOrNull { it.id == id && it.phase == "reserved" }
+                    ?: error("Missing request reservation. HTTP outcome not reconciled.")
             require(reservation.provider == provider && reservation.category == category) { "Mismatched HTTP reservation." }
             require(events.none { it.id == id && it.phase == "completed" }) { "Duplicate request completion." }
             append(
@@ -190,12 +191,15 @@ class ProviderHttpBudget(
             setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)
 
         fun fromEnvironment(): ProviderHttpBudget {
-            val dir = System.getenv("CLAWFARE_HTTP_BUDGET_DIR")
-                ?.takeIf { it.isNotBlank() }
-                ?.let(::File)
-                ?: File(System.getProperty("user.home"), ".clawfare")
+            val dir =
+                System.getenv("CLAWFARE_HTTP_BUDGET_DIR")
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(::File)
+                    ?: File(System.getProperty("user.home"), ".clawfare")
+
             fun readLimits(prefix: String): Map<String, Int> =
-                knownProviders.mapNotNull { provider ->
+                knownProviders
+                    .mapNotNull { provider ->
                     System.getenv(prefix + provider.uppercase())?.let { raw ->
                         provider to (raw.toIntOrNull() ?: error("Invalid integer for ${prefix + provider.uppercase()}"))
                     }
@@ -226,8 +230,9 @@ class MeteredProviderHttp(
         headers: Map<String, String>,
         body: String?,
     ): HttpResult {
-        val (provider, category) = classify(method, url)
-            ?: error("Unrecognized provider API route; no network request sent.")
+        val (provider, category) =
+            classify(method, url)
+                ?: error("Unrecognized provider API route; no network request sent.")
         val id = budget.reserve(provider, category)
         val result =
             try {
