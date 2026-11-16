@@ -52,6 +52,15 @@ function describeNamespace(root, path = "", depth = 0, out = []) {
   return out;
 }
 console.log("Kotlin/JS namespace tree:", JSON.stringify(describeNamespace(exports)));
+const exportedObject = exports?.["fare-core"]?.com?.clawfare?.search?.ClawfareJs;
+console.log("Kotlin/JS object shape:", JSON.stringify({
+  ownKeys: exportedObject ? Object.getOwnPropertyNames(exportedObject) : [],
+  protoKeys: exportedObject ? Object.getOwnPropertyNames(Object.getPrototypeOf(exportedObject) ?? {}) : [],
+  hasNormalizeInBundle: source.includes("normalizeSearchJson"),
+  hasPlanInBundle: source.includes("planSearchJson"),
+  hasBudgetInBundle: source.includes("projectBudgetJson"),
+  typeofNormalized: typeof exportedObject?.normalizeSearchJson,
+}));
 const bridge = locateBridge(exports);
 assert.ok(bridge, "Kotlin/JS ClawfareJs public exports missing from bundled module");
 const raw = JSON.stringify({
