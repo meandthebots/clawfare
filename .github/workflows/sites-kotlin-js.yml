@@ -5,6 +5,7 @@ on:
     paths:
       - 'fare-core/**'
       - 'scripts/verify-sites-js-bundle.mjs'
+      - 'sites-runtime/src/kotlin-engine.mjs'
       - '.github/workflows/sites-kotlin-js.yml'
   workflow_dispatch:
 
