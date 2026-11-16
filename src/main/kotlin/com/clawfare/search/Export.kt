@@ -32,6 +32,8 @@ object Export {
                 "source",
                 "source_label",
                 "live_price",
+                "verified_original_payment_cash",
+                "seller_proof_expires_at",
                 "fetched_at",
                 "google_flights",
             )
@@ -69,7 +71,8 @@ object Export {
                         it.euPremium.toString(),
                         it.source,
                         it.sourceLabel,
-                        it.livePrice.toString(),
+                        (it.refundEvidence?.isVerifiedFor(it) == true).toString(),
+                        it.refundEvidence?.sellerProof?.expiresAt.orEmpty(),
                         it.fetchedAt.orEmpty(),
                         link,
                     )
