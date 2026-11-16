@@ -244,6 +244,8 @@ data class Presentation(
     val suggestedFilters: FilterSpec = FilterSpec(),
     val warnings: List<String> = emptyList(),
     val fetchedAt: String? = null,
+    /** Frozen original FX reference used for this saved investigation, not live mutable FX. */
+    val fx: FxInfo? = null,
 )
 
 @Serializable
