@@ -15,6 +15,8 @@ repositories {
 }
 
 dependencies {
+    implementation(project(":fare-core"))
+
     // CLI
     implementation("info.picocli:picocli:4.7.6")
     annotationProcessor("info.picocli:picocli-codegen:4.7.6")

@@ -54,6 +54,19 @@ SerpApi and SearchAPI are Google Flights, including `departure_token` returns an
 
 `report html` is a self-contained snapshot. `report csv` follows the same filters as the grid (`--max-stops`, `--nonstop`, `--vendors`). `inv` and `flight` commands are unchanged.
 
+## Kotlin Multiplatform core
+
+The fare core is shared across JVM, Kotlin/JS and Kotlin/Wasm. The existing
+JVM CLI and localhost Ktor server still run as before. Compile and test
+the shared source across all targets with:
+
+```bash
+./gradlew :fare-core:jvmTest :fare-core:jsNodeTest :fare-core:wasmJsNodeTest
+```
+
+This is the first step toward a hosted ChatGPT Site, **not** a production
+Sites backend. See [architecture, security gates and remaining work](docs/KOTLIN-MULTIPLATFORM.md).
+
 ## Development
 
 ```bash

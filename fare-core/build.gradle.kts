@@ -1,0 +1,32 @@
+plugins {
+    kotlin("multiplatform")
+    kotlin("plugin.serialization")
+}
+
+repositories {
+    mavenCentral()
+}
+
+kotlin {
+    jvm {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_22)
+        }
+    }
+    js(IR) {
+        nodejs()
+        browser()
+    }
+    wasmJs {
+        nodejs()
+        browser()
+    }
+    sourceSets {
+        commonMain.dependencies {
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
+    }
+}

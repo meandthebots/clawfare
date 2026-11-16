@@ -117,8 +117,9 @@ interface FareProvider {
 fun datePairs(query: SearchQuery): List<Pair<String, String?>> {
     val outs = inclusiveDates(query.outboundFrom, query.outboundTo.ifBlank { query.outboundFrom })
     if (query.tripType == "one_way") return outs.map { it.toString() to null }
-    if (query.nights != null) {
-        return outs.map { it.toString() to it.plusDays(query.nights.toLong()).toString() }
+    val nights = query.nights
+    if (nights != null) {
+        return outs.map { it.toString() to it.plusDays(nights.toLong()).toString() }
     }
     val rets = inclusiveDates(query.returnFrom ?: return emptyList(), query.returnTo ?: query.returnFrom!!)
     return outs.flatMap { o -> rets.filter { it.isAfter(o) }.map { o.toString() to it.toString() } }
@@ -132,62 +133,6 @@ private fun inclusiveDates(
     val to = LocalDate.parse(toRaw)
     if (to.isBefore(from)) return emptyList()
     return generateSequence(from) { it.plusDays(1) }.takeWhile { !it.isAfter(to) }.toList()
-}
-
-fun airportsOf(raw: List<String>): List<String> =
-    raw
-        .flatMap { it.split(Regex("[,/\\s]+")) }
-        .map { it.trim().uppercase() }
-        .filter { code -> code.length == 3 && code.all { it.isLetter() } }
-        .distinct()
-
-fun normalizeQuery(q: SearchQuery): SearchQuery {
-    val nights = q.nights?.takeIf { it > 0 }
-    val trip = if (q.tripType == "one_way") "one_way" else "round_trip"
-    return q.copy(
-        origins = airportsOf(q.origins),
-        destinations = airportsOf(q.destinations),
-        outboundFrom = q.outboundFrom.trim(),
-        outboundTo = q.outboundTo.trim().ifBlank { q.outboundFrom.trim() },
-        returnFrom = q.returnFrom?.trim()?.ifBlank { null },
-        returnTo = q.returnTo?.trim()?.ifBlank { null },
-        nights = if (trip == "one_way") null else nights,
-        tripType = trip,
-        adults = q.adults.coerceIn(1, 9),
-        cabin = cabinKeyOf(q.cabin),
-        cabinShortHaul = cabinKeyOf(q.cabinShortHaul),
-        checkedBags = q.checkedBags.coerceIn(0, 4),
-        excludedAirlines =
-            q.excludedAirlines
-                .map { it.trim().uppercase() }
-                .filter { it.isNotBlank() }
-                .distinct(),
-        currency = q.currency.uppercase().ifBlank { "GBP" },
-        market =
-            q.market
-                .trim()
-                .lowercase()
-                .ifBlank { "uk" },
-        excludedTransitAirports = airportsOf(q.excludedTransitAirports),
-        excludedTransitCountries =
-            q.excludedTransitCountries
-                .map { it.trim().uppercase() }
-                .filter { it.isNotBlank() }
-                .distinct(),
-        maxLiveCalls = q.maxLiveCalls?.coerceAtLeast(0),
-        providers =
-            q.providers
-                .map { it.trim().lowercase() }
-                .filter { it.isNotEmpty() }
-                .distinct(),
-        returnChoices = q.returnChoices.coerceIn(1, 8),
-        investigation =
-            q.investigation
-                ?.lowercase()
-                ?.replace(Regex("[^a-z0-9-]+"), "-")
-                ?.trim('-')
-                ?.ifBlank { null },
-    )
 }
 
 fun validateQuery(q: SearchQuery): String? {
