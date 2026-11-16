@@ -65,6 +65,11 @@ const fakeD1 = { prepare() {
   } };
 } };
 const env = { DB: fakeD1, OWNER_KEY_SECRET: "long-unpredictable-secret-for-tests-only-not-deployment" };
+const rendered = await worker.fetch(new Request("https://example.com/"), env);
+assert.equal(rendered.status, 200);
+const renderedHtml = await rendered.text();
+assert.ok(renderedHtml.includes("window.__CLAWFARE_HOSTED_READ_ONLY__ = true"));
+assert.equal(renderedHtml.match(/window\.__CLAWFARE_HOSTED_READ_ONLY__ = true/g)?.length, 1);
 assert.equal((await worker.fetch(new Request("https://example.com/api/sample"), {})).status, 503);
 assert.equal((await worker.fetch(new Request("https://example.com/api/searches", {
   headers: { "oai-authenticated-user-email": "forged@example.com" },
