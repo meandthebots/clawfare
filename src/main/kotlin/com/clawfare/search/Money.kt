@@ -1,6 +1,5 @@
 package com.clawfare.search
 
-import kotlin.math.round
 
 /** Pounds sterling per 1 unit is not stored; [PER_GBP] is how many units of that currency buy £1. */
 object Fx {
@@ -52,9 +51,7 @@ object Fx {
         amount: Double,
         marketOrCode: String,
     ): Double? {
-        val per = PER_GBP[currencyOf(marketOrCode)]?.takeIf { it.isFinite() && it > 0.0 } ?: return null
-        if (!amount.isFinite() || amount < 0.0) return null
-        return round(amount / per)
+        return FareMath.toGbpOrNull(amount, PER_GBP[currencyOf(marketOrCode)])
     }
 
     /** Legacy strict numeric interface: never reinterpret an unconvertible price as GBP. */
