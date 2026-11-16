@@ -129,6 +129,12 @@ data class BatchCoverageRow(
     val eligible: Int?,
     val reasons: Map<String, Int>,
     val observedAt: String?,
+    val baseCallsExpected: Int? = null,
+    val baseCallsLoaded: Int? = null,
+    val returnLookupsExpected: Int? = null,
+    val returnLookupsLoaded: Int? = null,
+    val unresolvedReturns: Int? = null,
+    val malformedResponses: Int? = null,
 )
 
 /**
@@ -267,7 +273,7 @@ object BatchSweep {
                 val state =
                     when {
                         !response.ok -> "error"
-                        observations.any { it.state == "failed" || it.state == "unconfigured" } -> "incomplete"
+                        observations.any { it.state !in setOf("completed", "cache_only") } -> "incomplete"
                         observations.isEmpty() -> "unknown"
                         count > 0 -> "ok"
                         observations.any { it.returned > 0 } -> "filtered_all"
@@ -327,6 +333,9 @@ object BatchSweep {
                         latest == null -> "not_searched"
                         observation == null -> "legacy_unknown"
                         observation.state == "failed" -> "provider_failed"
+                        observation.state == "partial" -> "provider_partial"
+                        observation.state == "not_cached" -> "not_cached"
+                        observation.state == "unknown" -> "coverage_unknown"
                         observation.state == "unconfigured" -> "provider_unconfigured"
                         observation.state == "cache_only" -> "cache_only"
                         observation.returned == 0 -> "zero_returned"
@@ -346,6 +355,12 @@ object BatchSweep {
                     eligible = observation?.eligible,
                     reasons = observation?.excludedByReason.orEmpty(),
                     observedAt = latest?.observedAt,
+                    baseCallsExpected = observation?.baseCallsExpected,
+                    baseCallsLoaded = observation?.baseCallsLoaded,
+                    returnLookupsExpected = observation?.returnLookupsExpected,
+                    returnLookupsLoaded = observation?.returnLookupsLoaded,
+                    unresolvedReturns = observation?.unresolvedReturns,
+                    malformedResponses = observation?.malformedResponses,
                 )
             }
         }

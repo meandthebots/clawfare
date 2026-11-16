@@ -226,3 +226,28 @@ budget changes. Altering which components are selected changes the stored
 expense fingerprint, preventing a scope change from masquerading as an airfare
 price drop. The underlying air ticket may still include separately charged
 baggage, positioning, or issuance fees that were not captured.
+
+## Distinguish zero availability from incomplete searches
+
+Each provider observation now records expected and loaded base responses, return
+lookups (when applicable), unresolved return choices, and malformed response
+counts. The local `fare batch coverage ... --out path.csv` export includes these
+columns. The counts are **application-observed responses**, not proven provider
+billing data, nor evidence that all available airline fares were enumerated.
+
+Coverage results distinguish `not_searched`, `not_cached`,
+`provider_unconfigured`, `provider_failed`, `provider_partial`,
+`coverage_unknown`, `zero_returned`, `filtered_all`,
+`cache_only` and `eligible`. A cache-only query that missed cache is
+`not_cached`; a 429, transport failure, missing base response or malformed
+HTTP 200 is not `zero_returned`. A round-trip outbound with unresolved
+booking/return lookups remains partial, not a confirmed return itinerary.
+`zero_returned` only describes **parsed offers from completed requests**,
+not all possible fares from other providers or other search variants.
+
+A partially completed search is **not** eligible for `--resume` skipping.
+Only fully completed online provider observations can skip a repeated
+query. Legacy journal observations with no response-completeness metadata
+retain their prior status for compatibility; they cannot prove provider
+completeness or total market coverage. The budget cap and confirmation rules
+still apply, and no automated retries are introduced.

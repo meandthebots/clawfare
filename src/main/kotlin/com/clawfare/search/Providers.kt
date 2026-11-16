@@ -69,6 +69,13 @@ data class ProviderOutcome(
     val warnings: List<String> = emptyList(),
     val liveCalls: Int = 0,
     val cachedCalls: Int = 0,
+    /** Null on older/test adapters; a zero result is not a complete search without evidence. */
+    val baseCallsExpected: Int? = null,
+    val baseCallsLoaded: Int? = null,
+    val returnLookupsExpected: Int? = null,
+    val returnLookupsLoaded: Int? = null,
+    val unresolvedReturns: Int = 0,
+    val malformedResponses: Int = 0,
 )
 
 data class VendorFetch(
@@ -250,12 +257,34 @@ class TravelpayoutsProvider(
         var live = 0
         var cached = 0
         val wanted = datePairs(query).map { it.first to it.second }.toSet()
-        for (spec in baseCalls(query)) {
+        val specs = baseCalls(query)
+        var loadedBase = 0
+        var malformed = 0
+        for (spec in specs) {
             val loaded = read(cache, spec.params, allowNetwork, warnings) ?: continue
+            loadedBase++
             if (loaded.first) cached++ else live++
-            out += parse(loaded.second, query, wanted, loaded.third)
+            val valid =
+                runCatching {
+                    val obj = AppJson.parseToJsonElement(loaded.second) as? JsonObject
+                    obj?.get("data") is JsonArray
+                }.getOrDefault(false)
+            if (valid) {
+                out += parse(loaded.second, query, wanted, loaded.third)
+            } else {
+                malformed++
+                warnings += "Travelpayouts returned an unrecognized response; coverage incomplete."
+            }
         }
-        return ProviderOutcome(out, emptyMap(), warnings, live, cached)
+        return ProviderOutcome(
+            itineraries = out,
+            warnings = warnings,
+            liveCalls = live,
+            cachedCalls = cached,
+            baseCallsExpected = specs.size,
+            baseCallsLoaded = loadedBase,
+            malformedResponses = malformed,
+        )
     }
 
     private fun parse(
@@ -491,18 +520,39 @@ class DuffelProvider(
         if (!configured && allowNetwork) return ProviderOutcome(warnings = warnings + "Duffel is not configured (DUFFEL_ACCESS_TOKEN).")
         var live = 0
         var cached = 0
+        var loadedBase = 0
+        var malformed = 0
         val out = mutableListOf<Itinerary>()
         for ((outDate, ret) in datePairs(query)) {
             for (origin in query.origins) {
                 for (dest in query.destinations) {
                     val params = requestParams(query, origin, dest, outDate, ret)
                     val loaded = read(cache, params, query, origin, dest, outDate, ret, allowNetwork, warnings) ?: continue
+                    loadedBase++
                     if (loaded.first) cached++ else live++
-                    out += parseOffers(loaded.second, query, loaded.third, fromCache = loaded.first)
+                    val valid =
+                        runCatching {
+                            val obj = AppJson.parseToJsonElement(loaded.second) as? JsonObject
+                            (obj?.get("data") as? JsonObject)?.get("offers") is JsonArray
+                        }.getOrDefault(false)
+                    if (valid) {
+                        out += parseOffers(loaded.second, query, loaded.third, fromCache = loaded.first)
+                    } else {
+                        malformed++
+                        warnings += "Duffel returned an unrecognized offer response; coverage incomplete."
+                    }
                 }
             }
         }
-        return ProviderOutcome(out, emptyMap(), warnings, live, cached)
+        return ProviderOutcome(
+            itineraries = out,
+            warnings = warnings,
+            liveCalls = live,
+            cachedCalls = cached,
+            baseCallsExpected = baseCalls(query).size,
+            baseCallsLoaded = loadedBase,
+            malformedResponses = malformed,
+        )
     }
 
     /**
