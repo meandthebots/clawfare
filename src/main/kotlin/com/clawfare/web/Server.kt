@@ -5,7 +5,6 @@ import com.clawfare.search.AppJson
 import com.clawfare.search.Export
 import com.clawfare.search.FareStore
 import com.clawfare.search.FilterSpec
-import com.clawfare.search.Estimate
 import com.clawfare.search.ResultSet
 import com.clawfare.search.SampleSeeder
 import com.clawfare.search.SearchQuery
