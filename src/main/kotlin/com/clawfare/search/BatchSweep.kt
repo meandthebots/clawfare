@@ -430,9 +430,17 @@ object BatchSweep {
                             },
                         ).joinToString("|")
                     val assumptions =
-                        (listOf(scope) + knownCosts.map { it.toString() } +
-                            listOf(scenario.ticketUsePlan?.let { AppJson.encodeToString(TicketUsePlan.serializer(), it) }))
-                            .joinToString("|")
+                        buildList {
+                            add(scope)
+                            knownCosts.forEach { add(it.toString()) }
+                            add(scenario.ticketUsePlan?.let { AppJson.encodeToString(TicketUsePlan.serializer(), it) }.orEmpty())
+                        }.joinToString("|")
+                    val costSummary =
+                        if (complete) {
+                            "Comparison basis: $scope; excluded components are not assumed free"
+                        } else {
+                            "Incomplete or invalid cost inputs for $scope; no comparable total"
+                        }
                     BatchRow(
                         signature = entry.signature,
                         origin = itinerary.origin,
@@ -443,12 +451,7 @@ object BatchSweep {
                         pricePerPersonGbp = itinerary.pricePerPerson,
                         partyFareGbp = fare,
                         allInGbp = finalPrice,
-                        expenseEvidence =
-                            (if (complete) {
-                                "Comparison basis: $scope; excluded components are not assumed free"
-                            } else {
-                                "Incomplete or invalid cost inputs for $scope; no comparable total"
-                            }) + (useOutcome?.let { "; ${it.note}" } ?: ""),
+                        expenseEvidence = costSummary + (useOutcome?.let { "; ${it.note}" } ?: ""),
                         costScope = scope,
                         retrievedAt = itinerary.fetchedAt,
                         journeyType = if (itinerary.returning == null) "one_way" else "round_trip",
