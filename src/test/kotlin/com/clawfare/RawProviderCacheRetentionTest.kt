@@ -57,7 +57,12 @@ class RawProviderCacheRetentionTest {
         assertTrue(file.isFile)
         assertTrue(file.readText().contains("[REDACTED]"))
         assertFalse(file.readText().contains("SECRET_TOKEN"))
-        assertEquals(0, root.resolve("serpapi").listFiles().orEmpty().count { it.name.endsWith(".tmp") })
+        val tempFiles =
+            root.resolve("serpapi")
+                .listFiles()
+                .orEmpty()
+                .count { it.name.endsWith(".tmp") }
+        assertEquals(0, tempFiles)
         val mode =
             runCatching { Files.getPosixFilePermissions(file.toPath()) }.getOrNull()
         if (mode != null) {
