@@ -191,19 +191,22 @@ class ProviderHttpBudget(
             setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)
 
         fun fromEnvironment(): ProviderHttpBudget {
+            val configuredPath = System.getenv("CLAWFARE_HTTP_BUDGET_DIR")
             val dir =
-                System.getenv("CLAWFARE_HTTP_BUDGET_DIR")
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let(::File)
-                    ?: File(System.getProperty("user.home"), ".clawfare")
+                if (configuredPath.isNullOrBlank()) {
+                    File(System.getProperty("user.home"), ".clawfare")
+                } else {
+                    File(configuredPath)
+                }
 
             fun readLimits(prefix: String): Map<String, Int> =
                 knownProviders
                     .mapNotNull { provider ->
-                    System.getenv(prefix + provider.uppercase())?.let { raw ->
-                        provider to (raw.toIntOrNull() ?: error("Invalid integer for ${prefix + provider.uppercase()}"))
-                    }
-                }.toMap()
+                        val key = prefix + provider.uppercase()
+                        val raw = System.getenv(key) ?: return@mapNotNull null
+                        provider to (raw.toIntOrNull() ?: error("Invalid integer for $key"))
+                    }.toMap()
+
             return ProviderHttpBudget(
                 directory = dir,
                 dailyLimits = readLimits("CLAWFARE_HTTP_DAILY_"),
