@@ -1,6 +1,7 @@
-/** Browser DTOs are generated from api/openapi.json, not redefined here. */
-export type * from "./generated/openapi-types.ts";
+/** Browser DTOs are generated from api/openapi.json, not declared twice here. */
 import type { Estimate, QuotaView, ResultSet, SavedInvestigation } from "./generated/openapi-types.ts";
+
+export type * from "./generated/openapi-types.ts";
 
 /** Deliberately structural at the network boundary, not a false full-schema proof. */
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -33,14 +34,22 @@ export function isEstimate(value: unknown): value is Estimate {
   );
 }
 export function isQuotaList(value: unknown): value is QuotaView[] {
-  return Array.isArray(value) && value.every(
-    (entry: unknown) => isRecord(entry) && typeof entry.provider === "string" &&
-      typeof entry.configured === "boolean",
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry: unknown) =>
+        isRecord(entry) &&
+        typeof entry.provider === "string" &&
+        typeof entry.configured === "boolean",
+    )
   );
 }
 export function isSavedList(value: unknown): value is SavedInvestigation[] {
-  return Array.isArray(value) && value.every(
-    (entry: unknown) => isRecord(entry) && typeof entry.id === "string" &&
-      typeof entry.title === "string",
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry: unknown) =>
+        isRecord(entry) && typeof entry.id === "string" && typeof entry.title === "string",
+    )
   );
 }

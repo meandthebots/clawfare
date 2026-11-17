@@ -26,7 +26,13 @@ Gradle `processResources` automatically builds a *self-contained* HTML at
 `web/index.html`. This is also the HTML bundled into private Sites and
 portable report exports. No external JS/CSS URLs or third-party CDNs are required.
 
-The imperative fare-grid controller in `web/src/controller.ts` is transitional:
-it is extracted from the original HTML with behavior unchanged and currently
-excluded from TS semantic checking and lint until it is broken into typed
-React view components. The React TSX shell and StyleX styling are checked now.
+All browser UI state now lives in typed React controls and hooks; the former
+`web/src/controller.ts` has been removed. React owns the desktop/mobile grid,
+itinerary/matrix/vendor tables, summaries, and details. The same-origin
+`web/src/api.ts` client distinguishes JVM loopback sessions from Sites' trusted
+identity gateway, blocks paid/POST routes when hosted, and permits only the
+explicit zero-cost estimate exception. `npm run check` includes TypeScript,
+whole-tree Oxlint, tests and Oxfmt checks. Run `npm run format` before pushing
+source changes. A shrinking `web/src/legacy.css` still supports complex table,
+timeline and responsive selectors alongside compiled StyleX styling.
+Do not deploy updates to the existing private Site merely by merging a UI PR.
