@@ -98,29 +98,6 @@ body {
   font-size: 14px;
   line-height: 1.45;
 }
-.notes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 10px;
-  margin-top: 12px;
-  max-width: 1400px;
-}
-.note {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 10px;
-  padding: 9px 12px;
-  font-size: 13px;
-}
-.note .nt {
-  display: block;
-  font-weight: 700;
-  margin-bottom: 2px;
-}
-.warn {
-  background: rgba(250, 204, 21, 0.18);
-  border-color: rgba(250, 204, 21, 0.5);
-}
 .card {
   background: var(--card);
   border: 1px solid var(--line);
@@ -194,77 +171,16 @@ button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.banner {
-  background: var(--notice-bg);
-  border: 1px solid var(--notice-border);
-  color: var(--notice-ink);
-  border-radius: 10px;
-  padding: 8px 12px;
-  margin-bottom: 10px;
-  font-size: 13px;
-}
-.banner.bad {
-  background: var(--red-bg);
-  border-color: var(--red-border);
-  color: var(--red-ink);
-}
-.banner.ok {
-  background: var(--green-bg);
-  border-color: var(--green-border);
-  color: var(--green-ink);
-}
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 12px 16px;
   align-items: flex-end;
 }
-.sumcard {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 12px 16px;
-  cursor: pointer;
-}
-.sumcard:hover {
-  border-color: var(--accent);
-}
-.sumcard .k {
-  font-size: 12px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-weight: 600;
-}
-.sumcard .v {
-  font-size: 22px;
-  font-weight: 700;
-  margin: 2px 0;
-}
-.sumcard .d {
-  color: var(--muted);
-  font-size: 13px;
-}
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  align-items: center;
-  margin: 0 0 10px;
-  font-size: 13px;
-  color: var(--muted);
-}
 .legend span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-.sw {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  display: inline-block;
-  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 .wrap {
   overflow: auto;

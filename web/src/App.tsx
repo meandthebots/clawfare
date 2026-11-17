@@ -68,6 +68,22 @@ const styles = stylex.create({
     paddingLeft: { default: "28px", "@media (max-width: 760px)": "14px" },
     paddingRight: { default: "28px", "@media (max-width: 760px)": "14px" },
   },
+  notes: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))",
+    gap: "10px",
+    marginTop: "12px",
+    maxWidth: "1400px",
+  },
+  legend: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "14px",
+    alignItems: "center",
+    margin: "0 0 10px",
+    fontSize: "13px",
+    color: "var(--muted)",
+  },
   results: { minWidth: 0 },
   summary: {
     display: "grid",
@@ -678,7 +694,7 @@ export function App() {
             access, provider searches or bookings.
           </p>
         )}
-        <div className="notes" id="notes" />
+        <div className={"notes " + stylex.props(styles.notes).className} id="notes" />
       </header>
       <main {...stylex.props(styles.main)}>
         <SearchControls
@@ -725,7 +741,7 @@ export function App() {
             />
           )}
         </div>
-        <div className="legend" id="legend" />
+        <div className={"legend " + stylex.props(styles.legend).className} id="legend" />
         <div className={"tabs " + stylex.props(styles.tabs).className} id="tabs">
           {(["grid", "itineraries", "matrix", "vendors"] as const).map((choice) => (
             <button

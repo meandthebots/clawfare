@@ -30,6 +30,56 @@ const styles = stylex.create({
     padding: 0,
   },
   staticCard: { cursor: "default" },
+  summaryCard: {
+    backgroundColor: "var(--card)",
+    border: "1px solid var(--line)",
+    borderRadius: "12px",
+    padding: "12px 16px",
+    cursor: "pointer",
+    borderColor: { default: "var(--line)", ":hover": "var(--accent)" },
+  },
+  summaryLabel: {
+    fontSize: "12px",
+    color: "var(--muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    fontWeight: 600,
+  },
+  summaryValue: { fontSize: "22px", fontWeight: 700, margin: "2px 0" },
+  summaryDescription: { color: "var(--muted)", fontSize: "13px" },
+  note: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    border: "1px solid rgba(255,255,255,0.22)",
+    borderRadius: "10px",
+    padding: "9px 12px",
+    fontSize: "13px",
+  },
+  noteWarning: {
+    backgroundColor: "rgba(250,204,21,0.18)",
+    borderColor: "rgba(250,204,21,0.5)",
+  },
+  noteTitle: { display: "block", fontWeight: 700, marginBottom: "2px" },
+  banner: {
+    backgroundColor: "var(--notice-bg)",
+    border: "1px solid var(--notice-border)",
+    color: "var(--notice-ink)",
+    borderRadius: "10px",
+    padding: "8px 12px",
+    marginBottom: "10px",
+    fontSize: "13px",
+  },
+  bannerBad: {
+    backgroundColor: "var(--red-bg)",
+    borderColor: "var(--red-border)",
+    color: "var(--red-ink)",
+  },
+  swatch: {
+    width: "16px",
+    height: "16px",
+    borderRadius: "4px",
+    display: "inline-block",
+    border: "1px solid rgba(0,0,0,0.08)",
+  },
   legendGreen: { backgroundColor: "var(--green-bg)", borderColor: "var(--green)" },
   legendAmber: { backgroundColor: "var(--amber-bg)", borderColor: "var(--amber)" },
   legendNo: { backgroundColor: "var(--neutral-bg)" },
@@ -85,10 +135,12 @@ function SummaryCard({
 }) {
   if (!hit)
     return (
-      <div className={"sumcard " + stylex.props(styles.staticCard).className}>
-        <div className="k">{label}</div>
-        <div className="v">—</div>
-        <div className="d">None in the current filters</div>
+      <div className={"sumcard " + stylex.props(styles.summaryCard, styles.staticCard).className}>
+        <div className={"k " + stylex.props(styles.summaryLabel).className}>{label}</div>
+        <div className={"v " + stylex.props(styles.summaryValue).className}>—</div>
+        <div className={"d " + stylex.props(styles.summaryDescription).className}>
+          None in the current filters
+        </div>
       </div>
     );
   const title =
@@ -100,16 +152,20 @@ function SummaryCard({
     fmtRange(hit.it.outboundDate, hit.it.returnDate) +
     (hit.addon ? " + Mexico " + hit.addon.id : "");
   return (
-    <div className="sumcard" data-p={hit.it.id} data-a={hit.addon?.id ?? "LH"}>
+    <div
+      className={"sumcard " + stylex.props(styles.summaryCard).className}
+      data-p={hit.it.id}
+      data-a={hit.addon?.id ?? "LH"}
+    >
       <button
         type="button"
         {...stylex.props(styles.cardButton)}
         aria-label={label + ": " + gbp(hit.total) + ". View " + title}
         onClick={() => onSelect(hit.it.id, hit.addon?.id ?? "LH")}
       >
-        <div className="k">{label}</div>
-        <div className="v">{gbp(hit.total)}</div>
-        <div className="d">{title}</div>
+        <div className={"k " + stylex.props(styles.summaryLabel).className}>{label}</div>
+        <div className={"v " + stylex.props(styles.summaryValue).className}>{gbp(hit.total)}</div>
+        <div className={"d " + stylex.props(styles.summaryDescription).className}>{title}</div>
       </button>
     </div>
   );
@@ -118,8 +174,15 @@ function Notes({ notes }: { notes: NoteCard[] }) {
   return (
     <>
       {notes.map((note, index) => (
-        <div key={index} className={"note" + (note.warn ? " warn" : "")}>
-          <span className="nt">{note.title}</span>
+        <div
+          key={index}
+          className={
+            "note" +
+            (note.warn ? " warn " : " ") +
+            stylex.props(styles.note, note.warn && styles.noteWarning).className
+          }
+        >
+          <span className={"nt " + stylex.props(styles.noteTitle).className}>{note.title}</span>
           {note.body}
         </div>
       ))}
@@ -131,27 +194,32 @@ function Warnings({ result }: { result: ResultSet }) {
     <>
       {(result.scenarioLabel === "sample" ||
         result.itineraries.some((it) => it.sourceLabel === "sample")) && (
-        <div className="banner">
+        <div className={"banner " + stylex.props(styles.banner).className}>
           Sample saved from Google Flights. Long-haul fares 11 Oct 2026, seller table 15 Oct 2026.
           This is not a live search.
         </div>
       )}
       {result.warnings.map((warning, index) => (
         <div
-          className={"banner" + (/mock|fail|credit|error/i.test(warning) ? " bad" : "")}
+          className={
+            "banner " +
+            (/mock|fail|credit|error/i.test(warning) ? "bad " : "") +
+            stylex.props(styles.banner, /mock|fail|credit|error/i.test(warning) && styles.bannerBad)
+              .className
+          }
           key={index}
         >
           {warning}
         </div>
       ))}
       {result.itineraries.some((it) => it.sourceLabel === "mock") && (
-        <div className="banner bad">
+        <div className={"banner bad " + stylex.props(styles.banner, styles.bannerBad).className}>
           Duffel rows are test-mode mocks. They are hidden from the cheapest highlight and, with
           “Hide mocks” on, from the tables.
         </div>
       )}
       {result.itineraries.some((it) => it.sourceLabel === "cached") && (
-        <div className="banner">
+        <div className={"banner " + stylex.props(styles.banner).className}>
           Cached fares (including historic Duffel live quotes and Travelpayouts) are not verified
           bookable at the displayed price.
         </div>
@@ -164,23 +232,23 @@ function Legend({ result, tab }: Pick<SnapshotOverviewProps, "result" | "tab">) 
     return (
       <>
         <span>
-          <i className="sw" {...stylex.props(styles.legendGreen)} />
+          <i className={"sw " + stylex.props(styles.swatch, styles.legendGreen).className} />
           Works
         </span>
         <span>
-          <i className="sw" {...stylex.props(styles.legendAmber)} />
+          <i className={"sw " + stylex.props(styles.swatch, styles.legendAmber).className} />
           Works with a catch
         </span>
         <span>
-          <i className="sw" {...stylex.props(styles.legendNo)} />
+          <i className={"sw " + stylex.props(styles.swatch, styles.legendNo).className} />
           Doesn’t work
         </span>
         <span>
-          <i className="sw" {...stylex.props(styles.legendFeasible)} />
+          <i className={"sw " + stylex.props(styles.swatch, styles.legendFeasible).className} />
           Cheapest feasible
         </span>
         <span>
-          <i className="sw" {...stylex.props(styles.legendWorks)} />
+          <i className={"sw " + stylex.props(styles.swatch, styles.legendWorks).className} />
           Cheapest that fully works
         </span>
         <span>Cell = 2 × long-haul + 1 × Mexico. 🔗 opens the booking link.</span>
@@ -190,7 +258,7 @@ function Legend({ result, tab }: Pick<SnapshotOverviewProps, "result" | "tab">) 
     return (
       <>
         <span>
-          <i className="sw" {...stylex.props(styles.legendVendor)} />
+          <i className={"sw " + stylex.props(styles.swatch, styles.legendVendor).className} />
           Cheapest all-in in this market filter
         </span>
         <span className="trust risky">Risky</span>
