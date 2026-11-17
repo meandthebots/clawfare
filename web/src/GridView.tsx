@@ -55,7 +55,7 @@ function layText(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   return (hours ? hours + "h " : "") + (minutes % 60) + "m";
 }
-function directionLine(direction?: Direction | null): string {
+export function directionLine(direction?: Direction | null): string {
   return (direction?.legs ?? []).map((leg, i) => {
     const lay = direction?.layovers?.[i];
     const operating = leg.operatingCarrier && leg.operatingCarrier !== leg.airline
@@ -65,13 +65,13 @@ function directionLine(direction?: Direction | null): string {
       (lay ? " · " + layText(lay.minutes) + " " + lay.airport : "");
   }).join(" · ");
 }
-function stopsLabel(it: Itinerary): string {
+export function stopsLabel(it: Itinerary): string {
   const text = (n: number) => n === 0 ? "Nonstop" : n + " stop" + (n > 1 ? "s" : "");
   if (it.stopsRet == null) return text(it.stopsOut) + (it.returnMissing ? " (out)" : "");
   if (it.stopsRet === it.stopsOut) return text(it.stopsOut);
   return text(it.stopsOut) + " out · " + text(it.stopsRet) + " back";
 }
-function quoteable(it: Itinerary, now = Date.now()): boolean {
+export function quoteable(it: Itinerary, now = Date.now()): boolean {
   if (it.sourceLabel !== "live" || !it.livePrice) return false;
   const observed = Date.parse(it.fetchedAt ?? "");
   if (!Number.isFinite(observed) || observed > now || now - observed > 7200000) return false;
@@ -79,7 +79,7 @@ function quoteable(it: Itinerary, now = Date.now()): boolean {
   const expiry = Date.parse(it.refundEvidence.expiresAt ?? "");
   return Number.isFinite(expiry) && expiry > now;
 }
-function bookingUrl(link?: BookLink): string | undefined {
+export function bookingUrl(link?: BookLink): string | undefined {
   if (!link) return undefined;
   try {
     const url = new URL(link.url);
@@ -104,7 +104,7 @@ function Change({ current, previous }: { current?: number | null; previous?: num
     {delta === 0 ? "= previous" : (delta > 0 ? "▲ " : "▼ ") + gbp(Math.abs(delta))}
   </span>;
 }
-function SourceTag({ it }: { it: Itinerary }) {
+export function SourceTag({ it }: { it: Itinerary }) {
   let label = it.sourceLabel;
   if (label === "live" && !quoteable(it)) label = "cached";
   const cls = label === "mock" ? "mock" : label === "live" ? "live" : "cached";

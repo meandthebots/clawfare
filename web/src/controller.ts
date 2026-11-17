@@ -3,6 +3,7 @@ import { createClawfareClient } from "./api";
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { GridView } from "./GridView";
+import { ItineraryView, MatrixView } from "./ItineraryViews";
 // TODO: Migrate the imperative fare-grid renderer to typed React components.
 // Extracted from the former monolithic JVM HTML. This transitional controller
 // retains all existing search, filtering, export, mobile touch and Sites rules.
@@ -383,12 +384,9 @@ export function initializeClawfare(): void {
     $("fresh").textContent = result.fetchedAt ? ("Data " + result.fetchedAt) : "";
     $("view").classList.remove("mobile-grid-view");
     if (tab === "grid") renderGrid();
-    else {
-      unmountGrid();
-      if (tab === "itineraries") renderTable();
-      else if (tab === "matrix") renderMatrix();
-      else renderVendors();
-    }
+    else if (tab === "itineraries") renderTable();
+    else if (tab === "matrix") renderMatrix();
+    else { unmountGrid(); renderVendors(); }
     Array.prototype.forEach.call($("tabs").querySelectorAll("button"), function (b) {
       b.classList.toggle("on", b.getAttribute("data-tab") === tab);
     });
@@ -497,56 +495,25 @@ export function initializeClawfare(): void {
 
   function renderTable() {
     var rows = visibleRows().slice();
-    var key = state.sort === "price" ? "price" : "date";
-    rows.sort(function (a, b) {
-      if (key === "price") return (a.pricePerPerson || 1e12) - (b.pricePerPerson || 1e12);
-      return a.outboundDate.localeCompare(b.outboundDate) || String(a.returnDate || "").localeCompare(b.returnDate || "");
-    });
-    var html = "<table class='data' id='itineraries'><thead><tr>" +
-      "<th>Itinerary</th><th>Flights</th><th>Stops</th><th>Layover</th><th class='num'>pp</th><th class='num'>Total</th><th>Source</th><th></th></tr></thead><tbody>";
-    if (!rows.length) html += "<tr><td class='empty' colspan='8'>No itineraries match these filters.</td></tr>";
-    rows.forEach(function (it) {
-      var lay = (it.maxLayoverMinutes != null) ? layText(it.maxLayoverMinutes) : "—";
-      html += "<tr data-p='" + esc(it.id) + "' data-a='LH' style='cursor:pointer'><td><b>" + esc(fmtRange(it.outboundDate, it.returnDate)) + "</b><div class='muted'>" + esc(it.origin) + " → " + esc(it.destination) + (it.nights != null ? " · " + it.nights + "n" : "") + " · " + esc(it.cabin) + "</div><div>" + esc(it.airlineSummary) + (it.euPremium ? " · European premium" : "") + "</div></td>" +
-        "<td><div>" + esc(dirLine(it.outbound)) + "</div>" + (it.returning ? "<div class='muted'>↩ " + esc(dirLine(it.returning)) + "</div>" : "") + "</td>" +
-        "<td>" + esc(stopsLabel(it)) + "</td><td>" + esc(lay) + "</td>" +
-        "<td class='num'>" + gbp(it.pricePerPerson) + "</td><td class='num'>" + gbp(totalOf(it)) + "</td>" +
-        "<td>" + sourceTag(it) + "<div class='muted'>" + esc(it.fetchedAt || "") + "</div></td>" +
-        "<td>" + ((it.links && it.links[0]) ? "<a class='lbtn primary' href='" + esc(it.links[0].url) + "' target='_blank' rel='noopener noreferrer' onclick='event.stopPropagation()'>Book</a>" : "") + "</td></tr>";
-    });
-    html += "</tbody></table>";
-    $("view").innerHTML = html;
+    if (state.sort === "price") {
+      rows.sort(function (a, b) {
+        return (a.pricePerPerson == null ? Infinity : a.pricePerPerson) -
+          (b.pricePerPerson == null ? Infinity : b.pricePerPerson);
+      });
+    } else {
+      rows.sort(function (a, b) {
+        return a.outboundDate.localeCompare(b.outboundDate) ||
+          String(a.returnDate || "").localeCompare(String(b.returnDate || "");
+      });
+    }
+    if (!gridRoot) gridRoot = createRoot($("view"));
+    gridRoot.render(createElement(ItineraryView, { rows: rows, onSelect: openPanel }));
   }
 
   function renderMatrix() {
     var rows = visibleRows().filter(quoteable);
-    var outs = [], rets = [], outSeen = {}, retSeen = {};
-    rows.forEach(function (it) {
-      if (!outSeen[it.outboundDate]) { outSeen[it.outboundDate] = true; outs.push(it.outboundDate); }
-      var r = it.returnDate || "—";
-      if (!retSeen[r]) { retSeen[r] = true; rets.push(r); }
-    });
-    outs.sort(); rets.sort();
-    var best = {};
-    rows.forEach(function (it) {
-      var k = it.outboundDate + "|" + (it.returnDate || "—");
-      if (!best[k] || (it.pricePerPerson != null && it.pricePerPerson < best[k].pricePerPerson)) best[k] = it;
-    });
-    var html = "<table class='data' id='matrix'><thead><tr><th>Outbound \\ return</th>";
-    rets.forEach(function (r) { html += "<th>" + esc(r === "—" ? "one way" : fmtDate(r)) + "</th>"; });
-    html += "</tr></thead><tbody>";
-    if (!outs.length) html += "<tr><td class='empty'>No dated itineraries in the current filters.</td></tr>";
-    outs.forEach(function (o) {
-      html += "<tr><th>" + esc(fmtDate(o)) + "</th>";
-      rets.forEach(function (r) {
-        var it = best[o + "|" + r];
-        if (!it) { html += "<td class='muted'>—</td>"; return; }
-        html += "<td class='mxcell' data-p='" + esc(it.id) + "' data-a='LH'>" + gbp(it.pricePerPerson) + "<div class='muted' style='font-weight:400'>" + esc(it.airlineSummary) + "</div></td>";
-      });
-      html += "</tr>";
-    });
-    html += "</tbody></table>";
-    $("view").innerHTML = html;
+    if (!gridRoot) gridRoot = createRoot($("view"));
+    gridRoot.render(createElement(MatrixView, { rows: rows, onSelect: openPanel }));
   }
 
   function vendorRows() {
@@ -984,7 +951,7 @@ export function initializeClawfare(): void {
     render();
   });
   $("view").addEventListener("click", function (e) {
-    if (gridRoot) return; // React grid buttons own their interactions.
+    if (gridRoot) return; // React result tables own their interactions.
     var cell = e.target.closest("[data-p]");
     if (!cell || !result) return;
     // Mobile combinations are semantic buttons; other interactive controls
