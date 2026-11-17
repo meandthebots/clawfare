@@ -69,6 +69,34 @@ class ServerTest {
             assertTrue(quota.bodyAsText().contains("serpapi"))
             assertFalse(quota.bodyAsText().contains("api_key"))
 
+            // DNS rebinding is a read-path threat too: a third-party page
+            // could otherwise access our API under an attacker-owned hostname.
+            // Supplying a trusted X-Forwarded-Host must not override the Host gate.
+            for (
+                path in
+                listOf(
+                    "/",
+                    "/api/status",
+                    "/api/quota",
+                    "/api/sample",
+                    "/api/searches",
+                    "/api/results/florida-dec-2026",
+                    "/api/sample/export.html",
+                    "/api/session",
+                    "/favicon.ico",
+                )
+            ) {
+                for (host in listOf("attacker.example:8080", "127.0.0.1.attacker.example:8080")) {
+                    val rebound =
+                        client.get(path) {
+                            header("Host", host)
+                            header("X-Forwarded-Host", "127.0.0.1:8080")
+                        }
+                    assertEquals(HttpStatusCode.Forbidden, rebound.status, "Host $host must not read $path")
+                    assertTrue(rebound.bodyAsText().contains("Invalid local host."))
+                }
+            }
+
             val session =
                 client.get("/api/session") {
                     header("Host", "127.0.0.1:8080")
