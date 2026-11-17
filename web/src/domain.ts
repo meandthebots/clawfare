@@ -1,5 +1,10 @@
 /** Browser DTOs are generated from api/openapi.json, not declared twice here. */
-import type { Estimate, QuotaView, ResultSet, SavedInvestigation } from "./generated/openapi-types.ts";
+import type {
+  Estimate,
+  QuotaView,
+  ResultSet,
+  SavedInvestigation,
+} from "./generated/openapi-types.ts";
 
 export type * from "./generated/openapi-types.ts";
 
