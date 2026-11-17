@@ -1,5 +1,8 @@
 // @ts-nocheck
 import { createClawfareClient } from "./api";
+import { createElement } from "react";
+import { createRoot } from "react-dom/client";
+import { GridView } from "./GridView";
 // TODO: Migrate the imperative fare-grid renderer to typed React components.
 // Extracted from the former monolithic JVM HTML. This transitional controller
 // retains all existing search, filtering, export, mobile touch and Sites rules.
@@ -10,6 +13,10 @@ export function initializeClawfare(): void {
   var tab = "grid";
   var state = blankState();
   var pendingQuery = null;
+  var gridRoot = null;
+  function unmountGrid() {
+    if (gridRoot) { gridRoot.unmount(); gridRoot = null; }
+  }
 
   function blankState() {
     return {
@@ -361,6 +368,7 @@ export function initializeClawfare(): void {
 
   function render() {
     if (!result) {
+      unmountGrid();
       $("view").innerHTML = "<div class='empty'>Load the Florida sample, or estimate a search. Live providers are not called until you confirm.</div>";
       $("summary").innerHTML = "";
       $("legend").innerHTML = "";
@@ -375,9 +383,12 @@ export function initializeClawfare(): void {
     $("fresh").textContent = result.fetchedAt ? ("Data " + result.fetchedAt) : "";
     $("view").classList.remove("mobile-grid-view");
     if (tab === "grid") renderGrid();
-    else if (tab === "itineraries") renderTable();
-    else if (tab === "matrix") renderMatrix();
-    else renderVendors();
+    else {
+      unmountGrid();
+      if (tab === "itineraries") renderTable();
+      else if (tab === "matrix") renderMatrix();
+      else renderVendors();
+    }
     Array.prototype.forEach.call($("tabs").querySelectorAll("button"), function (b) {
       b.classList.toggle("on", b.getAttribute("data-tab") === tab);
     });
@@ -450,6 +461,7 @@ export function initializeClawfare(): void {
 
   function renderGrid() {
     if (!(result.addons || []).length || !(result.cells || []).length) {
+      unmountGrid();
       renderTable();
       return;
     }
@@ -472,98 +484,15 @@ export function initializeClawfare(): void {
         return a.outboundDate.localeCompare(b.outboundDate) || String(a.returnDate || "").localeCompare(String(b.returnDate || "")) || (a.pricePerPerson || 0) - (b.pricePerPerson || 0);
       });
     }
-    var vAny = [], vGreen = [], minAny = Infinity, minGreen = Infinity;
-    rows.forEach(function (it) {
-      if (!quoteable(it)) return;
-      (result.addons || []).forEach(function (mx) {
-        var c = cells[cellKey(it.id, mx.id)];
-        if (!c) return;
-        var k = cellKey(it.id, mx.id);
-        if (c.status !== "no" && c.total < minAny) { minAny = c.total; vAny = [k]; }
-        else if (c.status !== "no" && c.total === minAny) vAny.push(k);
-        if (c.status === "ok" && c.total < minGreen) { minGreen = c.total; vGreen = [k]; }
-        else if (c.status === "ok" && c.total === minGreen) vGreen.push(k);
-      });
-    });
-    var html = "<table id='grid'><thead><tr><th class='rowh'>Long-haul option<span class='sub'>flights, per person, couple total</span></th>";
-    (result.addons || []).forEach(function (mx) {
-      html += "<th>Mexico " + esc(mx.id) + linkIcon(mx.links) + "<span class='sub'>" + esc(fmtRange(mx.outboundDate, mx.returnDate)) + " · " + (mx.nights || "") + "n</span><span class='sub'>" + gbp(mx.pricePerPerson) + "</span></th>";
-    });
-    html += "<th class='lhonly'>Long-haul only<span class='sub'>couple, no add-on</span></th></tr></thead><tbody>";
-    if (!rows.length) html += "<tr><td class='empty' colspan='" + ((result.addons || []).length + 2) + "'>No itineraries match these filters.</td></tr>";
-    var last = null;
-    var labels = { ok: "Works", catch: "Works with a catch", no: "Doesn’t work" };
-    rows.forEach(function (it) {
-      var g = it.outboundDate + "|" + (it.returnDate || "");
-      if (state.sort === "date" && g !== last) {
-        last = g;
-        html += "<tr class='group'><td class='gh' colspan='" + ((result.addons || []).length + 2) + "'>" + esc(fmtRange(it.outboundDate, it.returnDate)) + (it.nights != null ? " · " + it.nights + " nights" : "") + "</td></tr>";
-      }
-      var cabinCls = it.cabinKey === "business" ? "biz" : (it.cabinKey === "premium_economy" ? "pe" : "");
-      var tags = "<span class='tag " + cabinCls + "'>" + esc(it.cabin || it.cabinKey) + "</span>" +
-        "<span class='tag " + (it.stopsOut === 0 && it.stopsRet === 0 ? "ns" : "") + "'>" + esc(stopsLabel(it)) + "</span>" +
-        "<span class='tag " + (it.origin === "LGW" ? "lgw" : "") + "'>" + esc(it.origin) + (it.destination ? "→" + esc(it.destination) : "") + "</span>" +
-        (it.euPremium ? "<span class='tag eu'>European-operated</span>" : "") + sourceTag(it);
-      html += "<tr><th><div class='lhTop'><span class='lhDates'>#" + esc(it.id) + " · " + esc(fmtRange(it.outboundDate, it.returnDate)) + linkIcon(it.links) + "</span><span class='lhPrice'>" + gbp(it.pricePerPerson) + " pp " + (it.prevPrice != null ? delta(it.pricePerPerson, it.prevPrice) : "") + "</span></div>" +
-        "<div class='lhTop lhMeta'><span>" + esc(it.airlineSummary) + "</span><span>couple " + gbp(totalOf(it)) + "</span></div>" +
-        "<div class='flights'>" + esc(dirLine(it.outbound)) + "</div>" +
-        (it.returning ? "<div class='flights'>↩ " + esc(dirLine(it.returning)) + "</div>" : (it.returnMissing ? "<div class='flights'>Return not retrieved</div>" : "")) +
-        "<div>" + tags + "</div></th>";
-      (result.addons || []).concat([null]).forEach(function (mx) {
-        var c = cells[cellKey(it.id, mx ? mx.id : null)];
-        if (!c) { html += "<td></td>"; return; }
-        var k = cellKey(it.id, mx ? mx.id : null);
-        var hidden = state.hide && c.status === "no";
-        var cls = "cell s-" + c.status + (mx ? "" : " lhonly") + (hidden ? " s-hidden" : "");
-        if (mx && vAny.indexOf(k) >= 0) cls += " best-any";
-        if (mx && vGreen.indexOf(k) >= 0) cls += " best-green";
-        if (state.sel === k) cls += " sel";
-        var badges = "";
-        if (mx && vAny.indexOf(k) >= 0) badges += "<span class='badge ba'>Cheapest feasible</span>";
-        if (mx && vGreen.indexOf(k) >= 0) badges += "<span class='badge bg'>Cheapest works</span>";
-        var tip = (labels[c.status] || c.status) + ((c.reasonsNo || []).length ? ": " + c.reasonsNo.join(" ") : "") + ((c.catches || []).length && !(c.reasonsNo || []).length ? ": " + c.catches.join(" ") : "");
-        html += "<td class='" + cls + "' data-p='" + esc(it.id) + "' data-a='" + esc(mx ? mx.id : "LH") + "' title='" + esc(hidden ? "" : tip) + "'><div class='in'>" +
-          (hidden ? "" : "<span class='tot'>" + gbp(c.total) + "</span><span class='st'>" + esc(labels[c.status] || c.status) + "</span>" + badges) +
-          "</div></td>";
-      });
-      html += "</tr>";
-    });
-    html += "</tbody></table>";
-    // A 1250px table with a sticky 340px first column hides every price
-    // combination on a phone. Keep the full grid on desktop, but render
-    // usable, keyboard-accessible flight cards on narrow viewports.
-    html += "<div class='mobile-grid' id='mobileGrid' aria-label='Flight combinations'>";
-    rows.forEach(function (it) {
-      var title = esc(it.origin + " → " + it.destination + " " + fmtRange(it.outboundDate, it.returnDate));
-      html += "<article class='mobile-flight'><button type='button' class='mobile-flight-main' data-p='" + esc(it.id) +
-        "' data-a='LH' aria-label='Open long-haul details for " + title + "'>" +
-        "<span class='mobile-title'>" + title + "</span>" +
-        "<span class='lhMeta'>" + esc(it.airlineSummary) + " · " + esc(it.cabin || it.cabinKey) + "</span>" +
-        "<span class='mobile-price'>" + gbp(it.pricePerPerson) + " pp · " + gbp(totalOf(it)) + " total</span>" +
-        "<span class='mobile-details'>View long-haul details</span></button>" +
-        "<div class='mobile-addon-list' aria-label='Add-on combinations'>";
-      (result.addons || []).forEach(function (mx) {
-        var c = cells[cellKey(it.id, mx.id)];
-        if (!c) return;
-        var key = cellKey(it.id, mx.id);
-        var status = labels[c.status] || c.status;
-        html += "<button type='button' class='mobile-addon s-" + esc(c.status) +
-          (state.sel === key ? " sel" : "") + "' data-p='" + esc(it.id) +
-          "' data-a='" + esc(mx.id) + "' aria-label='Open Mexico " + esc(mx.id) +
-          " combination details: " + esc(status) + ", " + gbp(c.total) + "'>" +
-          "<span class='mobile-addon-label'>Mexico " + esc(mx.id) +
-          "<small>" + esc(fmtRange(mx.outboundDate, mx.returnDate)) + "</small></span>" +
-          "<span class='mobile-addon-total'>" + gbp(c.total) + "</span>" +
-          "<span class='mobile-addon-status'>" + esc(status) +
-          ((vAny.indexOf(key) >= 0) ? " · Cheapest feasible" : "") +
-          ((vGreen.indexOf(key) >= 0) ? " · Cheapest works" : "") +
-          "</span></button>";
-      });
-      html += "</div></article>";
-    });
-    html += "</div>";
+    // Rendering and native button semantics are owned by React. The legacy
+    // controller still owns the filters, sorting and detail-panel transition.
+    if (!gridRoot) gridRoot = createRoot($("view"));
     $("view").classList.add("mobile-grid-view");
-    $("view").innerHTML = html;
+    gridRoot.render(createElement(GridView, {
+      rows: rows, addons: result.addons, cells: result.cells,
+      sort: state.sort, hideInfeasible: state.hide, selectedKey: state.sel,
+      onSelect: openPanel,
+    }));
   }
 
   function renderTable() {
@@ -1055,6 +984,7 @@ export function initializeClawfare(): void {
     render();
   });
   $("view").addEventListener("click", function (e) {
+    if (gridRoot) return; // React grid buttons own their interactions.
     var cell = e.target.closest("[data-p]");
     if (!cell || !result) return;
     // Mobile combinations are semantic buttons; other interactive controls
