@@ -21,11 +21,6 @@ jobs:
           node-version: '22'
       - run: npm install --no-audit --no-fund
         working-directory: web
-      - name: Preview issue 79 canonical format diff
-        working-directory: web
-        run: |
-          npm exec -- oxfmt src/api.ts src/domain.ts src/openapi.test.ts
-          git diff -- src/api.ts src/domain.ts src/openapi.test.ts
       - run: npm run check
         working-directory: web
       - run: npm run test
