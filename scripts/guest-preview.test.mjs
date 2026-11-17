@@ -100,14 +100,56 @@ test("estimate requires same-query, unexpired and single-use confirmation", asyn
     "refresh/new guest session must not expose previous in-memory searches");
 });
 
-test("guest exports are local and clearly marked synthetic", async () => {
+test("guest exports follow the selected result, export kind and itinerary filters", async () => {
   const window = guest();
-  const csv = await call(window, "/api/export/csv", { method: "POST", body: {} });
+  const request = { result: GUEST_SAMPLE, filters: {}, kind: "itineraries" };
+  const csv = await call(window, "/api/export/csv", { method: "POST", body: request });
   assert.equal(csv.status, 200);
-  assert.match(await csv.text(), /synthetic_price_gbp/);
-  const html = await call(window, "/api/export/html", { method: "POST", body: {} });
+  const allFlights = await csv.text();
+  assert.match(allFlights, /synthetic_price_gbp/);
+  assert.match(allFlights, /guest-lh-1/);
+  assert.match(allFlights, /guest-lh-2/);
+
+  const filtered = await call(window, "/api/export/csv", {
+    method: "POST", body: { ...request, filters: { origin: "LHR" } },
+  });
+  assert.equal(filtered.status, 200);
+  const lhrOnly = await filtered.text();
+  assert.match(lhrOnly, /guest-lh-1/);
+  assert.doesNotMatch(lhrOnly, /guest-lh-2/);
+
+  const nonstop = await call(window, "/api/export/csv", {
+    method: "POST", body: { ...request, filters: { nonstopOnly: true } },
+  });
+  assert.match(await nonstop.text(), /guest-lh-1/);
+  const verified = await call(window, "/api/export/csv", {
+    method: "POST", body: { ...request, filters: { verifiedCashRefundOnly: true } },
+  });
+  assert.doesNotMatch(await verified.text(), /guest-lh-/);
+
+  const edited = structuredClone(GUEST_SAMPLE);
+  edited.vendors[0].note = "Edited offline";
+  const vendors = { result: edited, filters: {}, kind: "vendors" };
+  const vendorCsv = await call(window, "/api/export/csv", { method: "POST", body: vendors });
+  assert.equal(vendorCsv.status, 200);
+  const vendorBody = await vendorCsv.text();
+  assert.match(vendorBody, /Guest Air Direct/);
+  assert.match(vendorBody, /Edited offline/);
+  assert.doesNotMatch(vendorBody, /guest-lh-1/);
+  assert.match(vendorCsv.headers.get("Content-Disposition"), /guest-vendors.csv/);
+
+  const html = await call(window, "/api/export/html", { method: "POST", body: vendors });
   assert.equal(html.status, 200);
-  assert.match(await html.text(), /No real flights/);
+  const rendered = await html.text();
+  assert.match(rendered, /No real flights/);
+  assert.match(rendered, /Guest Air Direct/);
+  assert.doesNotMatch(rendered, /guest-lh-1/);
+  assert.equal((await call(window, "/api/export/csv", { method: "POST", body: {} })).status, 400);
+  const nonGuest = structuredClone(GUEST_SAMPLE);
+  nonGuest.itineraries[0].livePrice = true;
+  assert.equal((await call(window, "/api/export/html", {
+    method: "POST", body: { ...request, result: nonGuest },
+  })).status, 400);
   assert.equal((await call(window, "/api/provider/live", { method: "POST", body: {} })).status, 405);
 });
 

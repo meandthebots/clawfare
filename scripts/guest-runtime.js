@@ -25,6 +25,80 @@
   const escapeHtml = (value) => String(value ?? "").replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 
+  // Keep the guest export consistent with the FilterSpec the real React
+  // application passes. No server, provider, or alternative client path.
+  const hasCarrier = (leg, token) => {
+    const needle = String(token).toLowerCase();
+    return [leg.airlineCode, leg.airline, leg.operatingCarrier]
+      .some((name) => typeof name === "string" &&
+        (name.toLowerCase() === needle ||
+          (needle.length > 2 && name.toLowerCase().includes(needle))));
+  };
+  const matchesExportFilters = (it, filters = {}) => {
+    if (filters.hideMock && it.sourceLabel === "mock") return false;
+    if (filters.verifiedCashRefundOnly && !it.cashRefundProofVerified) return false;
+    const stops = it.stopsRet == null ? it.stopsOut : Math.max(it.stopsOut, it.stopsRet);
+    if (filters.nonstopOnly && (it.stopsOut !== 0 || it.returnMissing || it.stopsRet !== 0)) return false;
+    if (filters.maxStops != null && stops > filters.maxStops) return false;
+    if (filters.maxLayoverMinutes != null &&
+        it.layoverMinutes?.some((minutes) => minutes > filters.maxLayoverMinutes)) return false;
+    if (filters.excludeOutboundDates?.includes(it.outboundDate)) return false;
+    if (it.returnDate && filters.excludeReturnDates?.includes(it.returnDate)) return false;
+    if (filters.europeanPremiumOnly && !it.euPremium) return false;
+    if (filters.maxTravelMinutes != null &&
+        (it.travelMinutes == null || it.travelMinutes > filters.maxTravelMinutes)) return false;
+    const before = (raw) => raw ? raw.trim().slice(0, 5) : "";
+    if (filters.outboundDepartAfter && it.outboundDepart &&
+        it.outboundDepart < before(filters.outboundDepartAfter)) return false;
+    if (filters.outboundDepartBefore && it.outboundDepart &&
+        it.outboundDepart > before(filters.outboundDepartBefore)) return false;
+    if (filters.returnDepartAfter && it.returnDepart &&
+        it.returnDepart < before(filters.returnDepartAfter)) return false;
+    if (filters.cabin && filters.cabin !== "all") {
+      const cabin = filters.cabin.toLowerCase();
+      const key = cabin.includes("prem") ? "premium_economy" :
+        cabin.includes("bus") ? "business" : cabin.includes("first") ? "first" : "economy";
+      if (key !== it.cabinKey) return false;
+    }
+    if (filters.nights != null && it.nights !== filters.nights) return false;
+    if (filters.origin && it.origin !== filters.origin.toUpperCase()) return false;
+    const legs = [...(it.outbound?.legs ?? []), ...(it.returning?.legs ?? [])];
+    if (filters.airlineAllow?.length &&
+        !legs.every((leg) => filters.airlineAllow.some((token) => hasCarrier(leg, token)))) return false;
+    if (filters.airlineBlock?.length &&
+        legs.some((leg) => filters.airlineBlock.some((token) => hasCarrier(leg, token)))) return false;
+    return true;
+  };
+  function exportTable(body) {
+    if (!body || !snapshots.has(body.result?.id) ||
+        !["itineraries", "vendors", "seller_options"].includes(body.kind)) return null;
+    const result = body.result;
+    if (!Array.isArray(result.itineraries) || !Array.isArray(result.vendors) ||
+        !Array.isArray(result.sellerOptions) ||
+        [...result.itineraries, ...(result.addons ?? [])].some((it) =>
+          it.sourceLabel !== "guest" || it.livePrice !== false || it.links?.length !== 0)) {
+      return null;
+    }
+    if (body.kind === "vendors") return {
+      columns: ["vendor", "market", "trust", "note", "synthetic_price_gbp"],
+      rows: result.vendors.map((v) => [
+        v.vendor, v.market, v.trust, v.note, v.allInGbp,
+      ]),
+    };
+    if (body.kind === "seller_options") return {
+      columns: ["seller", "market", "refund_status", "synthetic_price_gbp"],
+      rows: result.sellerOptions.map((v) => [
+        v.seller, v.market, v.refundStatus, v.priceTotal,
+      ]),
+    };
+    return {
+      columns: ["id", "origin", "destination", "date", "synthetic_price_gbp"],
+      rows: result.itineraries.filter((it) =>
+        matchesExportFilters(it, body.filters ?? {})).map((it) => [
+        it.id, it.origin, it.destination, it.outboundDate, it.pricePerPerson,
+      ]),
+    };
+  }
   window.__CLAWFARE_GUEST__ = true;
   window.fetch = async (input, init = {}) => {
     // No fallback to native fetch: a guest preview is never allowed to
@@ -105,30 +179,30 @@
       // Synthetic acknowledgment, never persisted to disk or D1.
       return json({ slug: "guest-only-" + trackPath[1] });
     }
-    if (path === "/api/export/csv") {
-      const rows = [ "id,origin,destination,date,synthetic_price_gbp",
-        ...sample.itineraries.map((it) => [
-          it.id, it.origin, it.destination, it.outboundDate, it.pricePerPerson,
-        ].map(csvField).join(",")) ];
-      return new Response(rows.join("\n") + "\n", {
-        headers: {
-          "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": 'attachment; filename="guest-preview.csv"',
-        },
-      });
-    }
-    if (path === "/api/export/html") {
-      const rows = sample.itineraries.map((it) =>
-        "<tr><td>" + escapeHtml(it.id) + "</td><td>" +
-        escapeHtml(it.origin + " → " + it.destination) + "</td><td>" +
-        escapeHtml(it.pricePerPerson) + "</td></tr>").join("");
-      const html = "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\">" +
+    if (path === "/api/export/csv" || path === "/api/export/html") {
+      const table = exportTable(body);
+      if (!table) return problem("Only in-memory synthetic guest results can be exported.", 400);
+      if (path === "/api/export/csv") {
+        const rows = [table.columns, ...table.rows].map((row) => row.map(csvField).join(","));
+        return new Response(rows.join("\n") + "\n", {
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition": 'attachment; filename="guest-' + body.kind + '.csv"',
+          },
+        });
+      }
+      const headings = table.columns.map((item) => "<th>" + escapeHtml(item) + "</th>").join("");
+      const rows = table.rows.map((row) => "<tr>" +
+        row.map((item) => "<td>" + escapeHtml(item) + "</td>").join("") +
+        "</tr>").join("");
+      const html = '<!doctype html><html lang="en"><meta charset="utf-8">' +
         "<title>Synthetic guest export</title><h1>Guest export — synthetic only</h1>" +
-        "<p>No real flights, fares, refunds or booking offers.</p><table>" + rows + "</table></html>";
+        "<p>No real flights, fares, refunds or booking offers.</p><table><thead><tr>" +
+        headings + "</tr></thead><tbody>" + rows + "</tbody></table></html>";
       return new Response(html, {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
-          "Content-Disposition": 'attachment; filename="guest-preview.html"',
+          "Content-Disposition": 'attachment; filename="guest-' + body.kind + '.html"',
         },
       });
     }
