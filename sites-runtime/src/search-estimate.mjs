@@ -64,6 +64,51 @@ async function limitedBody(request) {
   return { parsed };
 }
 
+function isValidDate(value) {
+  if (typeof value !== "string" || !/^20[2-9][0-9]-[0-9]{2}-[0-9]{2}$/.test(value)) return false;
+  const when = new Date(value + "T00:00:00Z");
+  return Number.isFinite(when.getTime()) && when.toISOString().slice(0, 10) === value;
+}
+
+function requestBoundaryProblem(query) {
+  const isAirports = list => Array.isArray(list) && list.length <= 8 &&
+    list.every(s => typeof s === "string" && s.length <= 64);
+  if (!isAirports(query.origins) || !isAirports(query.destinations)) {
+    return "Provide at most eight bounded origin and destination codes.";
+  }
+  if (!Array.isArray(query.providers) || query.providers.length > 4 ||
+      query.providers.some(id => typeof id !== "string" || !ALLOWED_PROVIDERS.has(id.toLowerCase()))) {
+    return "Select at most four supported providers.";
+  }
+  if (!isValidDate(query.outboundFrom) ||
+      !isValidDate(query.outboundTo || query.outboundFrom)) {
+    return "Provide a valid outbound date range from 2020 through 2099.";
+  }
+  const outboundTo = query.outboundTo || query.outboundFrom;
+  const outSpan = (Date.parse(outboundTo + "T00:00:00Z") -
+    Date.parse(query.outboundFrom + "T00:00:00Z")) / 86400000;
+  if (outSpan < 0 || outSpan > 30) return "Outbound date range must be at most 31 days.";
+  if (query.returnFrom != null && query.returnFrom !== "") {
+    if (!isValidDate(query.returnFrom) || !isValidDate(query.returnTo || query.returnFrom)) {
+      return "Provide a valid return date range from 2020 through 2099.";
+    }
+    const retSpan = (Date.parse((query.returnTo || query.returnFrom) + "T00:00:00Z") -
+      Date.parse(query.returnFrom + "T00:00:00Z")) / 86400000;
+    if (retSpan < 0 || retSpan > 30) return "Return date range must be at most 31 days.";
+  }
+  if (query.nights != null && (!Number.isInteger(query.nights) || query.nights < 1 || query.nights > 60)) {
+    return "Trip length must be between 1 and 60 nights.";
+  }
+  if (query.returnChoices != null && (!Number.isInteger(query.returnChoices) ||
+      query.returnChoices < 1 || query.returnChoices > 8)) {
+    return "Return choices must be between 1 and 8.";
+  }
+  if (query.tripType != null && !["one_way", "round_trip"].includes(query.tripType)) {
+    return "Unsupported trip type.";
+  }
+  return null;
+}
+
 /**
  * Only call this after getVerifiedEmail has authenticated the request.
  * A successful response is informative, NOT a reusable approval token.
@@ -82,6 +127,10 @@ export async function estimateHostedSearch(request, kotlinEngine) {
   }
   const supplied = await limitedBody(request);
   if (supplied.error) return json({ error: supplied.error }, supplied.status);
+  // Bound the input *before* invoking Kotlin's date-range planner, so an
+  // authenticated visitor cannot allocate huge intermediate date sequences.
+  const problem = requestBoundaryProblem(supplied.parsed);
+  if (problem) return json({ error: problem }, 400);
   let plan;
   try {
     plan = JSON.parse(kotlinEngine.planSearchJson(JSON.stringify(supplied.parsed)));
