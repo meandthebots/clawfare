@@ -11,6 +11,7 @@ import type {
   TrackRequest,
 } from "./domain.ts";
 import { isEstimate, isQuotaList, isRecord, isResultSet, isSavedList } from "./domain.ts";
+import { GUEST_SAMPLE } from "./guest-sample.ts";
 import {
   createGeneratedClient,
   type ApiRoute,
@@ -25,6 +26,8 @@ import {
 export interface ApiMode {
   readonly hostedReadOnly: boolean;
   readonly hostedEstimateOnly: boolean;
+  /** Browser-only fixture mode: never authenticates, reads D1 or sends HTTP requests. */
+  readonly guest?: boolean;
 }
 export type { ApiRoute, ExportRoute } from "./generated/openapi-client.ts";
 export interface ApiResponse<T> {
@@ -81,8 +84,38 @@ export interface ClawfareClient {
   download(path: ExportRoute, request: ExportRequest, fallback: string): Promise<void>;
 }
 export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch): ClawfareClient {
-  const hosted = mode.hostedReadOnly;
-  const allowEstimate = hosted && mode.hostedEstimateOnly;
+  const guest = mode.guest === true;
+  const hosted = mode.hostedReadOnly || guest;
+  const allowEstimate = hosted && !guest && mode.hostedEstimateOnly;
+
+  // Never consult the network, cookies, credentials or local-session endpoint
+  // in guest mode. These are only in-memory, public fixture responses.
+  function guestResponse(path: ApiRoute, body?: unknown): ApiResponse<unknown> {
+    const response = (status: number, value: unknown): ApiResponse<unknown> => ({
+      status,
+      body: value,
+      text: JSON.stringify(value),
+      consent: null,
+    });
+    if (body !== undefined)
+      return response(405, {
+        error: "Guest mode: all API mutations and provider estimates are disabled.",
+      });
+    if (path === "/api/sample" || path === "/api/results/" + GUEST_SAMPLE.id)
+      return response(200, GUEST_SAMPLE);
+    if (path === "/api/searches")
+      return response(200, [
+        {
+          id: GUEST_SAMPLE.id,
+          title: GUEST_SAMPLE.title,
+          subtitle: "Built-in guest fixture",
+        },
+      ]);
+    if (path === "/api/status")
+      return response(200, { cacheDir: "none", searchesDir: "memory", providers: [] });
+    if (path === "/api/quota") return response(200, []);
+    return response(404, { error: "Guest mode does not access hosted or local storage." });
+  }
   let session: Promise<string | null> | null = null;
 
   function localSession(): Promise<string | null> {
@@ -106,6 +139,7 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
   ): Promise<ApiResponse<unknown>> {
     // Defense in depth: only same-origin, explicitly known API routes.
     if (!allowedRoute(path)) throw new Error("Unsupported Clawfare API route.");
+    if (guest) return guestResponse(path, body);
     if (hosted && body !== undefined && !(allowEstimate && path === "/api/estimate")) {
       return {
         status: 405,
@@ -140,6 +174,7 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     };
   }
   async function download(path: ExportRoute, body: ExportRequest, fallback: string): Promise<void> {
+    if (guest) throw new Error("Guest exports are disabled");
     if (hosted) throw new Error("Hosted exports are disabled");
     const token = await localSession();
     const headers: Record<string, string> = { "Content-Type": "application/json" };

@@ -23,7 +23,7 @@ class ServerTest {
         ClawfareDatabase.connectInMemory()
         testApplication {
             application { clawfareModule() }
-            val sample = client.get("/api/sample")
+            val sample = client.get("/api/sample") { header("Host", "127.0.0.1:8080") }
             assertEquals(HttpStatusCode.OK, sample.status)
             val body = sample.bodyAsText()
             assertTrue(body.contains("BA 211"))
@@ -31,18 +31,18 @@ class ServerTest {
             assertFalse(body.contains("api_key"))
             assertFalse(body.contains("SERPAPI"))
 
-            val status = client.get("/api/status")
+            val status = client.get("/api/status") { header("Host", "127.0.0.1:8080") }
             assertEquals(HttpStatusCode.OK, status.status)
             val statusBody = status.bodyAsText()
             assertTrue(statusBody.contains("serpapi"))
             assertTrue(statusBody.contains("duffel"))
             assertFalse(statusBody.contains("api_key="))
 
-            val page = client.get("/")
+            val page = client.get("/") { header("Host", "127.0.0.1:8080") }
             assertEquals(HttpStatusCode.OK, page.status)
             assertTrue(page.bodyAsText().contains("window.__SNAPSHOT__ = null"))
 
-            val snapshot = client.get("/api/sample/export.html")
+            val snapshot = client.get("/api/sample/export.html") { header("Host", "127.0.0.1:8080") }
             assertEquals(HttpStatusCode.OK, snapshot.status)
             val html = snapshot.bodyAsText()
             assertTrue(html.contains("BA 211"))
@@ -50,24 +50,51 @@ class ServerTest {
             assertFalse(html.contains("window.__SNAPSHOT__ = null"))
             assertFalse(html.contains("api_key"))
 
-            val searches = client.get("/api/searches")
+            val searches = client.get("/api/searches") { header("Host", "127.0.0.1:8080") }
             assertEquals(HttpStatusCode.OK, searches.status)
             assertTrue(searches.bodyAsText().contains("florida-dec-2026"))
 
-            val result = client.get("/api/results/florida-dec-2026")
+            val result = client.get("/api/results/florida-dec-2026") { header("Host", "127.0.0.1:8080") }
             assertEquals(HttpStatusCode.OK, result.status)
             assertTrue(result.bodyAsText().contains("\"id\":\"11\"") || result.bodyAsText().contains("BA 211"))
 
-            val missing = client.get("/api/results/no-such-trip")
+            val missing = client.get("/api/results/no-such-trip") { header("Host", "127.0.0.1:8080") }
             assertEquals(HttpStatusCode.NotFound, missing.status)
 
-            val favicon = client.get("/favicon.ico")
+            val favicon = client.get("/favicon.ico") { header("Host", "127.0.0.1:8080") }
             assertEquals(HttpStatusCode.NoContent, favicon.status)
 
-            val quota = client.get("/api/quota")
+            val quota = client.get("/api/quota") { header("Host", "127.0.0.1:8080") }
             assertEquals(HttpStatusCode.OK, quota.status)
             assertTrue(quota.bodyAsText().contains("serpapi"))
             assertFalse(quota.bodyAsText().contains("api_key"))
+
+            // DNS rebinding is a read-path threat too: a third-party page
+            // could otherwise access our API under an attacker-owned hostname.
+            // Supplying a trusted X-Forwarded-Host must not override the Host gate.
+            val readPaths =
+                listOf(
+                    "/",
+                    "/api/status",
+                    "/api/quota",
+                    "/api/sample",
+                    "/api/searches",
+                    "/api/results/florida-dec-2026",
+                    "/api/sample/export.html",
+                    "/api/session",
+                    "/favicon.ico",
+                )
+            for (path in readPaths) {
+                for (host in listOf("attacker.example:8080", "127.0.0.1.attacker.example:8080")) {
+                    val rebound =
+                        client.get(path) {
+                            header("Host", host)
+                            header("X-Forwarded-Host", "127.0.0.1:8080")
+                        }
+                    assertEquals(HttpStatusCode.Forbidden, rebound.status, "Host $host must not read $path")
+                    assertTrue(rebound.bodyAsText().contains("Invalid local host."))
+                }
+            }
 
             val session =
                 client.get("/api/session") {

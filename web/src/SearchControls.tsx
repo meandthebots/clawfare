@@ -27,6 +27,7 @@ export interface SearchControlsProps {
   runEnabled: boolean;
   hostedReadOnly: boolean;
   hostedEstimateOnly: boolean;
+  guest: boolean;
   estimate: Estimate | null;
   estimateError: string;
   statusLines: string[];
@@ -46,6 +47,7 @@ export function SearchControls({
   runEnabled,
   hostedReadOnly,
   hostedEstimateOnly,
+  guest,
   estimate,
   estimateError,
   statusLines,
@@ -177,7 +179,12 @@ export function SearchControls({
           type="button"
           id="btnStorage"
           onClick={onStorage}
-          title="Check the persisted public sample row in hosted D1"
+          disabled={guest}
+          title={
+            guest
+              ? "Guest mode has no D1 storage"
+              : "Check the persisted public sample row in hosted D1"
+          }
         >
           Check storage
         </button>

@@ -281,8 +281,16 @@ export interface DetailsContentProps {
   cell: ComboCell | null;
   onVendors: () => void;
   onTrack: () => void;
+  canTrack?: boolean;
 }
-export function DetailsContent({ it, addon, cell, onVendors, onTrack }: DetailsContentProps) {
+export function DetailsContent({
+  it,
+  addon,
+  cell,
+  onVendors,
+  onTrack,
+  canTrack = true,
+}: DetailsContentProps) {
   const total = (flight: Itinerary) =>
     flight.pricePerPerson == null ? null : flight.pricePerPerson * flight.passengers;
   return (
@@ -358,7 +366,7 @@ export function DetailsContent({ it, addon, cell, onVendors, onTrack }: DetailsC
         <button type="button" id="btnVendorsFor" onClick={onVendors}>
           Seller comparison
         </button>
-        <button type="button" id="btnTrack" onClick={onTrack}>
+        <button type="button" id="btnTrack" disabled={!canTrack} onClick={onTrack}>
           Save to a trip
         </button>
       </div>

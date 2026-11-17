@@ -1,11 +1,18 @@
-# Credential-free, offline guest preview (issue #89)
+# Advanced offline guest QA harness (follow-up to PR #96)
+
+> **For ordinary no-login browsing, use the existing built-in guest mode**
+> introduced in [PR #96](https://github.com/meandthebots/clawfare/pull/96):
+> run Vite and visit `?guest=1`. That mode deliberately disables search,
+> estimate, export and mutations. This document describes an *additional*,
+> developer-only, isolated QA artifact for exercising those React flows with
+> synthetic state. It is not a second hosted guest entry point.
 
 This is a standalone copy of the **actual compiled React/TypeScript/StyleX UI**,
 with a synthetic flight investigation and an in-memory API simulator. It can be
 opened in a browser without ChatGPT login, Google credentials, a JVM server, D1,
 or real airline-provider credentials.
 
-## Build and use
+## Build and use (advanced QA only)
 
 ```sh
 cd web
