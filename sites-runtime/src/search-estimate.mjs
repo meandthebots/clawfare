@@ -72,7 +72,7 @@ function isValidDate(value) {
 
 function requestBoundaryProblem(query) {
   const isAirports = list => Array.isArray(list) && list.length <= 8 &&
-    list.every(s => typeof s === "string" && s.length <= 64);
+    list.every(s => typeof s === "string" && /^[A-Za-z]{3}$/.test(s));
   if (!isAirports(query.origins) || !isAirports(query.destinations)) {
     return "Provide at most eight bounded origin and destination codes.";
   }
