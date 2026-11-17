@@ -49,8 +49,6 @@ class LocalAccess(
         val host = call.request.headers[HttpHeaders.Host]
         if (!acceptsOrigin(host, call.request.headers[HttpHeaders.Origin])) return false
         if (!call.request.contentType().match(ContentType.Application.Json)) return false
-        val declaredLength = call.request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
-        if (declaredLength != null && declaredLength > MAX_BODY_BYTES) return false
         val supplied = call.request.headers["X-Clawfare-Session"] ?: return false
         return MessageDigest.isEqual(
             supplied.toByteArray(Charsets.UTF_8),
@@ -90,8 +88,4 @@ class LocalAccess(
         ByteArray(32).also { SecureRandom().nextBytes(it) }.let {
             Base64.getUrlEncoder().withoutPadding().encodeToString(it)
         }
-
-    companion object {
-        private const val MAX_BODY_BYTES: Long = 2L * 1024 * 1024
-    }
 }

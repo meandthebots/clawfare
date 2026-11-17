@@ -14,7 +14,6 @@ import com.clawfare.search.StatusResponse
 import com.clawfare.search.TrackRequest
 import com.clawfare.search.VendorRequest
 import com.clawfare.search.providersFromEnv
-import com.clawfare.search.redact
 import com.clawfare.web.generated.GetEndpoints
 import com.clawfare.web.generated.KtorClawfareApiRoutes
 import com.clawfare.web.generated.PostEndpoints
@@ -23,6 +22,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.ApplicationCallPipeline
 import io.ktor.server.application.call
 import io.ktor.server.application.install
@@ -30,7 +30,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.statuspages.StatusPages
-import io.ktor.server.request.receive
+import io.ktor.server.request.receiveChannel
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
@@ -39,8 +39,61 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.Serializable
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.Semaphore
+
+private const val MAX_QUERY_JSON_BYTES = 64 * 1024
+private const val MAX_EXPORT_JSON_BYTES = 2 * 1024 * 1024
+
+/**
+ * Read raw bytes up to a route-specific bound instead of trusting the optional
+ * Content-Length header. This also covers chunked/streaming requests and guards
+ * JSON parsing before any search, quota reservation, or database mutation.
+ */
+private suspend fun <T> ApplicationCall.receiveBoundedJson(
+    serializer: DeserializationStrategy<T>,
+    maxBytes: Int,
+): T? {
+    // Content-Length can reject oversized requests early, but an absent or
+    // forged value never substitutes for counting received bytes below.
+    val declaredLength = request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
+    if (declaredLength != null && declaredLength > maxBytes) {
+        respondText(
+            """{"error":"Request body too large."}""",
+            ContentType.Application.Json,
+            HttpStatusCode.PayloadTooLarge,
+        )
+        return null
+    }
+    val channel = receiveChannel()
+    val bytes = ByteArrayOutputStream(minOf(maxBytes, 8192))
+    val chunk = ByteArray(8192)
+    while (true) {
+        val count = channel.readAvailable(chunk, 0, chunk.size)
+        if (count < 0) break
+        if (bytes.size() + count > maxBytes) {
+            respondText(
+                """{"error":"Request body too large."}""",
+                ContentType.Application.Json,
+                HttpStatusCode.PayloadTooLarge,
+            )
+            return null
+        }
+        bytes.write(chunk, 0, count)
+    }
+    return try {
+        AppJson.decodeFromString(serializer, bytes.toString(Charsets.UTF_8))
+    } catch (_: Exception) {
+        respondText(
+            """{"error":"Invalid JSON request body."}""",
+            ContentType.Application.Json,
+            HttpStatusCode.BadRequest,
+        )
+        null
+    }
+}
 
 @Serializable
 data class ExportRequest(
@@ -112,9 +165,11 @@ fun Application.clawfareModule() {
 
     install(ContentNegotiation) { json(AppJson) }
     install(StatusPages) {
-        exception<Throwable> { call, cause ->
+        // Arbitrary exception messages may contain provider payloads, trip
+        // details or opaque tokens that are not covered by known-secret redaction.
+        exception<Throwable> { call, _ ->
             call.respondText(
-                """{"error":"${redact(cause.message ?: "Something went wrong", serverSecrets()).replace("\"", "'")}"}""",
+                """{"error":"Internal server error."}""",
                 ContentType.Application.Json,
                 HttpStatusCode.InternalServerError,
             )
@@ -169,7 +224,7 @@ fun Application.clawfareModule() {
         }
         api.post(PostEndpoints.estimate) {
             if (!authorized(call)) return@post
-            val query = call.receive<SearchQuery>()
+            val query = call.receiveBoundedJson(SearchQuery.serializer(), MAX_QUERY_JSON_BYTES) ?: return@post
             // Estimation must never trigger provider quota HTTP calls before consent.
             val estimate = withContext(Dispatchers.IO) { service.estimate(query, includeQuota = false) }
             val upper = estimate.liveCalls + estimate.returnLookupsUpperBound
@@ -190,7 +245,7 @@ fun Application.clawfareModule() {
         }
         api.post(PostEndpoints.search) {
             if (!authorized(call)) return@post
-            val query = call.receive<SearchQuery>()
+            val query = call.receiveBoundedJson(SearchQuery.serializer(), MAX_QUERY_JSON_BYTES) ?: return@post
             val estimate = service.estimate(query)
             val upper = estimate.liveCalls + estimate.returnLookupsUpperBound
             if (upper > maxWebCalls) {
@@ -229,7 +284,7 @@ fun Application.clawfareModule() {
         api.post(PostEndpoints.vendors) {
             if (!authorized(call)) return@post
             val id = call.parameters["id"] ?: ""
-            val body = call.receive<VendorRequest>()
+            val body = call.receiveBoundedJson(VendorRequest.serializer(), MAX_QUERY_JSON_BYTES) ?: return@post
             if (body.markets.size > 2 || body.markets.size * 7 > maxWebCalls) {
                 call.respondText(
                     """{"error":"Seller-market request exceeds the configured web call cap."}""",
@@ -268,21 +323,21 @@ fun Application.clawfareModule() {
         api.post(PostEndpoints.track) {
             if (!authorized(call)) return@post
             val id = call.parameters["id"] ?: ""
-            val body = call.receive<TrackRequest>()
+            val body = call.receiveBoundedJson(TrackRequest.serializer(), MAX_QUERY_JSON_BYTES) ?: return@post
             val slug =
-                runCatching { FareStore.track(id, body.itineraryId, body.tripSlug) }.getOrElse { error ->
+                runCatching { FareStore.track(id, body.itineraryId, body.tripSlug) }.getOrElse {
                     call.respondText(
-                        """{"error":"${redact(error.message ?: "Could not save", serverSecrets()).replace("\"", "'")}"}""",
+                        """{"error":"Could not save."}""",
                         ContentType.Application.Json,
                         HttpStatusCode.BadRequest,
                     )
                     return@post
                 }
-            call.respondText("""{"slug":"$slug"}""", ContentType.Application.Json)
+            call.respond(mapOf("slug" to slug))
         }
         api.post(PostEndpoints.exportHtml) {
             if (!authorized(call)) return@post
-            val body = call.receive<ExportRequest>()
+            val body = call.receiveBoundedJson(ExportRequest.serializer(), MAX_EXPORT_JSON_BYTES) ?: return@post
             val snapshot = body.result.copy(suggestedFilters = body.filters)
             val html = Export.html(Server.page(), snapshot)
             call.response.header("Content-Disposition", "attachment; filename=\"clawfare-${safeName(body.result.id)}.html\"")
@@ -290,7 +345,7 @@ fun Application.clawfareModule() {
         }
         api.post(PostEndpoints.exportCsv) {
             if (!authorized(call)) return@post
-            val body = call.receive<ExportRequest>()
+            val body = call.receiveBoundedJson(ExportRequest.serializer(), MAX_EXPORT_JSON_BYTES) ?: return@post
             val csv =
                 when (body.kind) {
                     "vendors" -> Export.vendorCsv(body.result)
@@ -305,15 +360,6 @@ fun Application.clawfareModule() {
         }
     }
 }
-
-/** Redact actual configured credentials even when exception text lacks a recognizable key prefix. */
-private fun serverSecrets(): List<String> =
-    listOfNotNull(
-        System.getenv("SERPAPI_API_KEY"),
-        System.getenv("SEARCHAPI_API_KEY"),
-        System.getenv("TRAVELPAYOUTS_API_TOKEN"),
-        System.getenv("DUFFEL_ACCESS_TOKEN"),
-    ).filter { it.isNotBlank() }
 
 private fun idleNote(provider: com.clawfare.search.FareProvider): String =
     when {
