@@ -37,6 +37,18 @@ for (const [path, methods] of Object.entries(spec.paths)) for (const [method, op
   type(response); if (body) type(body);
   ops.push({ id, path, method, params, body, response, runtime: op["x-runtime"], ktRequest: op["x-kotlin-request"], ktResponse: op["x-kotlin-response"] });
 }
+// Fail codegen if a JVM route is absent or a hosted literal endpoint drifts.
+const server = readFileSync(resolve(root, "src/main/kotlin/com/clawfare/web/Server.kt"), "utf8");
+const hosted = readFileSync(resolve(root, "sites-runtime/src/read-only-api.mjs"), "utf8");
+for (const op of ops) {
+  if (op.runtime !== "hosted") {
+    const declaration = "api." + op.method + "(" + (op.method === "get" ? "GetEndpoints." : "PostEndpoints.") + op.id + ")";
+    if (!server.includes(declaration)) throw Error("Missing Ktor route registration: " + declaration);
+  }
+  if (op.runtime !== "jvm" && op.params.length === 0 && !hosted.includes(JSON.stringify(op.path))) {
+    throw Error("Missing hosted operation: " + op.path);
+  }
+}
 const banner = "// Generated from api/openapi.json by scripts/generate-openapi.mjs. DO NOT EDIT.";
 const types = [banner, "export type Nullable<T> = T | null | undefined;"];
 for (const [name, schema] of Object.entries(schemas)) {
