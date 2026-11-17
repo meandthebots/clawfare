@@ -202,7 +202,7 @@ class FareBatchCoverageCommand : Callable<Int> {
                     )
                 }
             }
-        File(out).writeText(csv)
+        PrivateReportFiles.writeText(out, csv)
         println(
             "Coverage: ${rows.size} provider/route/date cells; ${rows.count { it.status == "not_searched" }} not searched, " +
                 "${rows.count { it.status == "eligible" }} with eligible results. Private report: $out",
@@ -277,7 +277,7 @@ class FareBatchReportCommand : Callable<Int> {
                     )
                 }
             }
-        File(out).writeText(csv)
+        PrivateReportFiles.writeText(out, csv)
         println("Exported ${rows.size} scoped fare comparisons to $out. Unknown required costs stay blank.")
         return 0
     }
@@ -739,7 +739,7 @@ class ReportSampleJsonCommand : Callable<Int> {
 
     override fun call(): Int {
         val snapshot = SampleData.florida()
-        File(out).writeText(AppJson.encodeToString(ResultSet.serializer(), snapshot))
+        PrivateReportFiles.writeText(out, AppJson.encodeToString(ResultSet.serializer(), snapshot))
         println("Wrote $out")
         return 0
     }
@@ -787,7 +787,7 @@ class ReportHtmlCommand : Callable<Int> {
         if (privateDiagnostic) warnPrivateDiagnosticExport()
         val privacy = if (privateDiagnostic) ExportPrivacy.PRIVATE_DIAGNOSTIC else ExportPrivacy.SHARE_SAFE
         val html = Export.html(Server.page(), result.copy(suggestedFilters = result.suggestedFilters), privacy)
-        File(out).writeText(html)
+        PrivateReportFiles.writeText(out, html)
         println("Wrote $out")
         return 0
     }
@@ -831,7 +831,7 @@ class ReportCsvCommand : Callable<Int> {
         if (privateDiagnostic) warnPrivateDiagnosticExport()
         val privacy = if (privateDiagnostic) ExportPrivacy.PRIVATE_DIAGNOSTIC else ExportPrivacy.SHARE_SAFE
         val csv = if (vendors) Export.vendorCsv(result, privacy) else Export.itineraryCsv(result, filters, privacy)
-        File(out).writeText(csv)
+        PrivateReportFiles.writeText(out, csv)
         println("Wrote $out")
         return 0
     }
