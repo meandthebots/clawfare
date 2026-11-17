@@ -28,20 +28,63 @@ private fun inclusiveDates(fromRaw: String, toRaw: String): List<LocalDate> {
     return generateSequence(from) { it.plus(1, DateTimeUnit.DAY) }.takeWhile { it <= to }.toList()
 }
 
+/**
+ * Count date pairs without creating them. An untrusted 10,000-year range must
+ * fail the route cap before `datePairs` allocates millions of combinations.
+ * For an explicit return range, only return dates strictly after departure
+ * count; the arithmetic-series calculation is exact, even for overlapping
+ * outbound and return windows.
+ */
+private fun countDatePairs(query: SearchQuery): Long {
+    val firstOutbound = LocalDate.parse(query.outboundFrom)
+    val lastOutbound = LocalDate.parse(query.outboundTo.ifBlank { query.outboundFrom })
+    val firstOutDay = firstOutbound.toEpochDays().toLong()
+    val lastOutDay = lastOutbound.toEpochDays().toLong()
+    val outboundDays = (lastOutDay - firstOutDay + 1L).coerceAtLeast(0L)
+
+    if (query.tripType == "one_way") return outboundDays
+    if (query.nights != null) {
+        // Preserve datePairs' validation of a day offset that would overflow
+        // the calendar, without generating one result for every outbound day.
+        if (outboundDays > 0L) lastOutbound.plus(query.nights, DateTimeUnit.DAY)
+        return outboundDays
+    }
+    val returnFrom = query.returnFrom ?: return 0L
+    val firstRetDay = LocalDate.parse(returnFrom).toEpochDays().toLong()
+    val lastRetDay = LocalDate.parse(query.returnTo ?: returnFrom).toEpochDays().toLong()
+    val returnDays = (lastRetDay - firstRetDay + 1L).coerceAtLeast(0L)
+    if (outboundDays == 0L || returnDays == 0L) return 0L
+
+    // Earlier departures can use all return dates.
+    val beforeReturnEnd = minOf(lastOutDay, firstRetDay - 1L)
+    val earlierDays = (beforeReturnEnd - firstOutDay + 1L).coerceAtLeast(0L)
+    val allReturns = earlierDays * returnDays
+
+    // Once departure falls inside the return range, each successive
+    // departure has exactly one fewer eligible later return date.
+    val overlapStart = maxOf(firstOutDay, firstRetDay)
+    val overlapEnd = minOf(lastOutDay, lastRetDay - 1L)
+    val overlappingDays = (overlapEnd - overlapStart + 1L).coerceAtLeast(0L)
+    val laterReturns =
+        overlappingDays * (lastRetDay - overlapStart) -
+            overlappingDays * (overlappingDays - 1L) / 2L
+    return allReturns + laterReturns
+}
+
 fun validateQuery(q: SearchQuery): String? {
     if (q.origins.isEmpty() || q.destinations.isEmpty()) return "Enter at least one origin and one destination airport code."
-    try {
-        datePairs(q)
-    } catch (_: Exception) {
-        return "Check the dates. Use a return range, or a number of nights."
-    }
+    val pairs =
+        try {
+            countDatePairs(q)
+        } catch (_: Exception) {
+            return "Check the dates. Use a return range, or a number of nights."
+        }
     if (q.tripType != "one_way" && q.nights == null && q.returnFrom.isNullOrBlank()) {
         return "Set a return date range or a trip length in nights."
     }
-    val pairs = datePairs(q)
-    if (pairs.isEmpty()) return "No outbound/return pairs. The return has to be after the outbound."
-    val routes = pairs.size * q.origins.size * q.destinations.size
-    if (routes > 500) {
+    if (pairs == 0L) return "No outbound/return pairs. The return has to be after the outbound."
+    val routes = pairs * q.origins.size * q.destinations.size
+    if (routes > 500L) {
         return "That is $routes route searches before return lookups. Narrow the airports or the dates."
     }
     return null
