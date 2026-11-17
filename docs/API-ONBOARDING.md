@@ -138,8 +138,10 @@ over the route cap return HTTP 413 regardless of whether the client supplies
 a Content-Length header. Malformed JSON returns a generic HTTP 400 without
 echoing untrusted input; unexpected errors return generic HTTP 500 and do
 not include exception messages or provider payloads. Avoid relying on
-error-response strings for client diagnostics. These protections stop remote web pages from silently using a
-victim's browser to read investigations or spend provider quota.
+error-response strings for client diagnostics.
+
+These protections stop remote web pages from silently using a victim's
+browser to read investigations or spend provider quota.
 
 **Not in the trust boundary:** other local processes, privileged browser
 extensions and other users of the same OS account. Do not expose the JVM
