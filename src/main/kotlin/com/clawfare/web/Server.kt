@@ -138,6 +138,12 @@ fun Application.clawfareModule() {
     val paidRequestLock = Semaphore(1)
     // Web requests are deliberately smaller than offline CLI batches.
     val maxWebCalls = System.getenv("CLAWFARE_WEB_MAX_NETWORK_CALLS")?.toIntOrNull()?.coerceIn(0, 100) ?: 16
+    val maxHourlyWebCalls =
+        System.getenv("CLAWFARE_WEB_MAX_HOURLY_NETWORK_CALLS")?.let { raw ->
+            raw.toIntOrNull()?.takeIf { it in 0..1000 }
+                ?: error("CLAWFARE_WEB_MAX_HOURLY_NETWORK_CALLS must be an integer from 0 to 1000.")
+        } ?: 64
+    val hourlyWebBudget = HourlyWebCallBudget(maxHourlyWebCalls)
 
     suspend fun authorized(call: io.ktor.server.application.ApplicationCall): Boolean {
         if (local.acceptsWrite(call)) return true
@@ -163,6 +169,23 @@ fun Application.clawfareModule() {
     fun searchFingerprint(q: SearchQuery): String = AppJson.encodeToString(SearchQuery.serializer(), q.copy(confirmed = false))
 
     fun vendorFingerprint(req: VendorRequest): String = AppJson.encodeToString(VendorRequest.serializer(), req.copy(confirmed = false))
+
+    suspend fun reserveWebCalls(
+        call: ApplicationCall,
+        upperBound: Int,
+    ): Boolean =
+        when (val admission = hourlyWebBudget.reserve(upperBound)) {
+            WebCallAdmission.Granted -> true
+            is WebCallAdmission.Throttled -> {
+                call.response.header(HttpHeaders.RetryAfter, admission.retryAfterSeconds.toString())
+                call.respondText(
+                    """{"error":"Hourly web network-call limit exceeded; try again later."}""",
+                    ContentType.Application.Json,
+                    HttpStatusCode.TooManyRequests,
+                )
+                false
+            }
+        }
 
     install(ContentNegotiation) { json(AppJson) }
     install(StatusPages) {
@@ -292,6 +315,9 @@ fun Application.clawfareModule() {
                 return@post
             }
             try {
+                // One-use consent alone does not prevent repeated new estimates
+                // from spending a large cumulative amount in the same session.
+                if (!reserveWebCalls(call, upper)) return@post
                 val bounded = query.copy(maxLiveCalls = minOf(query.maxLiveCalls ?: maxWebCalls, maxWebCalls))
                 val response = withContext(Dispatchers.IO) { service.search(bounded) }
                 call.respond(response)
@@ -333,6 +359,10 @@ fun Application.clawfareModule() {
                 return@post
             }
             try {
+                // Non-confirmed lookups only estimate, and cache-only lookups
+                // never dispatch paid calls; they reserve zero hourly budget.
+                val liveUpperBound = if (!body.cacheOnly && body.confirmed) plan.networkCallsUpperBound else 0
+                if (!reserveWebCalls(call, liveUpperBound)) return@post
                 val response = withContext(Dispatchers.IO) { service.vendors(id, body) }
                 if (!body.cacheOnly && !body.confirmed && response.needsConfirmation) {
                     call.response.header("X-Clawfare-Consent", local.issueConsent(action, vendorFingerprint(body)))
