@@ -180,7 +180,11 @@ export function SearchControls({
           id="btnStorage"
           onClick={onStorage}
           disabled={guest}
-          title={guest ? "Guest mode has no D1 storage" : "Check the persisted public sample row in hosted D1"}
+          title={
+            guest
+              ? "Guest mode has no D1 storage"
+              : "Check the persisted public sample row in hosted D1"
+          }
         >
           Check storage
         </button>

@@ -172,8 +172,11 @@ test("guest mode uses only synthetic in-memory fixtures, without credentials or 
   assert.equal(sample.data.id, "guest-florida-demo");
   assert.equal(sample.data.itineraries.length, 3);
   assert.equal(sample.data.cells.length, 6);
-  assert.ok(sample.data.itineraries.every((it) =>
-    it.sourceLabel === "sample" && it.livePrice === false && it.links.length === 0));
+  assert.ok(
+    sample.data.itineraries.every(
+      (it) => it.sourceLabel === "sample" && it.livePrice === false && it.links.length === 0,
+    ),
+  );
   const searches = await client.searches();
   assert.equal(searches.ok, true);
   if (!searches.ok) throw new Error("Guest investigation missing");
@@ -184,16 +187,26 @@ test("guest mode uses only synthetic in-memory fixtures, without credentials or 
   assert.equal((await client.status()).ok, true);
   assert.equal((await client.quota()).ok, true);
   assert.equal((await client.storage()).ok, false);
-  assert.equal((await client.estimate({
-    ...sampleQuery, origins: [...sampleQuery.origins],
-    destinations: [...sampleQuery.destinations], providers: [...sampleQuery.providers],
-  })).ok, false);
+  assert.equal(
+    (
+      await client.estimate({
+        ...sampleQuery,
+        origins: [...sampleQuery.origins],
+        destinations: [...sampleQuery.destinations],
+        providers: [...sampleQuery.providers],
+      })
+    ).ok,
+    false,
+  );
   assert.equal((await client.request("/api/search", {})).status, 405);
   assert.equal((await client.request("/api/results/guest-florida-demo/vendors", {})).status, 405);
   assert.equal((await client.request("/api/results/guest-florida-demo/track", {})).status, 405);
   await assert.rejects(
-    client.download("/api/export/csv",
-      { result: sample.data, filters: {}, kind: "itineraries" }, "test.csv"),
+    client.download(
+      "/api/export/csv",
+      { result: sample.data, filters: {}, kind: "itineraries" },
+      "test.csv",
+    ),
     /Guest exports are disabled/,
   );
   await assert.rejects(client.request("/api/results/..%2Fprivate" as never), /Unsupported/);

@@ -32,8 +32,8 @@ import type {
 // access: every guest API response comes from a bundled synthetic fixture.
 const GUEST_MODE = new URLSearchParams(window.location.search).get("guest") === "1";
 const HOSTED_READ_ONLY = GUEST_MODE || window.__CLAWFARE_HOSTED_READ_ONLY__ === true;
-const HOSTED_ESTIMATE_ONLY = !GUEST_MODE && HOSTED_READ_ONLY &&
-  window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ === true;
+const HOSTED_ESTIMATE_ONLY =
+  !GUEST_MODE && HOSTED_READ_ONLY && window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ === true;
 const client = createClawfareClient({
   hostedReadOnly: HOSTED_READ_ONLY,
   hostedEstimateOnly: HOSTED_ESTIMATE_ONLY,
@@ -674,8 +674,8 @@ export function App() {
         </p>
         {GUEST_MODE && (
           <p id="guestMode" role="status" {...stylex.props(styles.subtitle)}>
-            Guest mode — illustrative flights, no account or credentials. No API
-            requests, D1 access, provider searches or bookings.
+            Guest mode — illustrative flights, no account or credentials. No API requests, D1
+            access, provider searches or bookings.
           </p>
         )}
         <div className="notes" id="notes" />

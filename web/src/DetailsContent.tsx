@@ -283,7 +283,14 @@ export interface DetailsContentProps {
   onTrack: () => void;
   canTrack?: boolean;
 }
-export function DetailsContent({ it, addon, cell, onVendors, onTrack, canTrack = true }: DetailsContentProps) {
+export function DetailsContent({
+  it,
+  addon,
+  cell,
+  onVendors,
+  onTrack,
+  canTrack = true,
+}: DetailsContentProps) {
   const total = (flight: Itinerary) =>
     flight.pricePerPerson == null ? null : flight.pricePerPerson * flight.passengers;
   return (

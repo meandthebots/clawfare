@@ -92,16 +92,25 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
   // in guest mode. These are only in-memory, public fixture responses.
   function guestResponse(path: ApiRoute, body?: unknown): ApiResponse<unknown> {
     const response = (status: number, value: unknown): ApiResponse<unknown> => ({
-      status, body: value, text: JSON.stringify(value), consent: null,
+      status,
+      body: value,
+      text: JSON.stringify(value),
+      consent: null,
     });
     if (body !== undefined)
-      return response(405, { error: "Guest mode: all API mutations and provider estimates are disabled." });
+      return response(405, {
+        error: "Guest mode: all API mutations and provider estimates are disabled.",
+      });
     if (path === "/api/sample" || path === "/api/results/" + GUEST_SAMPLE.id)
       return response(200, GUEST_SAMPLE);
     if (path === "/api/searches")
-      return response(200, [{
-        id: GUEST_SAMPLE.id, title: GUEST_SAMPLE.title, subtitle: "Built-in guest fixture",
-      }]);
+      return response(200, [
+        {
+          id: GUEST_SAMPLE.id,
+          title: GUEST_SAMPLE.title,
+          subtitle: "Built-in guest fixture",
+        },
+      ]);
     if (path === "/api/status")
       return response(200, { cacheDir: "none", searchesDir: "memory", providers: [] });
     if (path === "/api/quota") return response(200, []);
