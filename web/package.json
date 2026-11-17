@@ -1,0 +1,32 @@
+{
+  "name": "clawfare-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build && node ../scripts/verify-web-bundle.mjs",
+    "lint": "oxlint src/App.tsx src/main.tsx vite.config.ts",
+    "format": "oxfmt src/App.tsx src/main.tsx vite.config.ts",
+    "format:check": "oxfmt --check src/App.tsx src/main.tsx vite.config.ts",
+    "check": "npm run typecheck && npm run lint"
+  },
+  "dependencies": {
+    "@stylexjs/stylex": "0.19.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@stylexjs/unplugin": "0.19.1",
+    "@types/node": "22.19.0",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "6.1.2",
+    "oxfmt": "0.78.0",
+    "oxlint": "1.93.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.8",
+    "vite-plugin-singlefile": "2.3.4"
+  }
+}

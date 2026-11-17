@@ -20,7 +20,7 @@ if (!output.startsWith(base + sep)) {
   throw new Error("Source package destination must be inside build/");
 }
 const fixtureSource = "build/sites/clawfare-sample.json";
-const htmlSource = "src/main/resources/web/index.html";
+const htmlSource = "build/frontend/web/index.html";
 const webpackDir = "fare-core/build/kotlin-webpack/js/productionExecutable";
 const expectedModules = [
   "hosted-page.mjs", "site-handler.mjs", "read-only-api.mjs",

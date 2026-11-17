@@ -149,7 +149,7 @@ bash scripts/build-sites-preview.sh build/sites/clawfare-sample.html
 node --experimental-sqlite sites-runtime/tests/real-sqlite-integration.mjs \
   build/sites/clawfare-sample.json \
   fare-core/build/kotlin-webpack/js/productionExecutable \
-  src/main/resources/web/index.html
+  build/frontend/web/index.html
 node scripts/package-sites-readonly.mjs build/sites-readonly-package
 node scripts/verify-sites-readonly-package.mjs build/sites-readonly-package
 ```

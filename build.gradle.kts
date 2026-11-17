@@ -151,3 +151,26 @@ graalvmNative {
     }
     toolchainDetection.set(false)
 }
+
+// Build the React/TypeScript frontend before putting the HTML in the JVM
+// classpath; do not distribute the former handwritten HTML template.
+val installWebDependencies by tasks.registering(Exec::class) {
+    workingDir = file("web")
+    commandLine("npm", "install", "--no-audit", "--no-fund")
+    inputs.file("web/package.json")
+    outputs.dir("web/node_modules")
+}
+val buildWebUi by tasks.registering(Exec::class) {
+    dependsOn(installWebDependencies)
+    workingDir = file("web")
+    commandLine("npm", "run", "build")
+    inputs.dir("web/src")
+    inputs.file("web/index.html")
+    inputs.file("web/vite.config.ts")
+    inputs.file("web/package.json")
+    outputs.file("build/frontend/web/index.html")
+}
+tasks.named<org.gradle.language.jvm.tasks.ProcessResources>("processResources") {
+    dependsOn(buildWebUi)
+    from("build/frontend")
+}

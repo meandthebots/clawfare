@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 
-const htmlPath = process.argv[2] || "src/main/resources/web/index.html";
+const htmlPath = process.argv[2] || "build/frontend/web/index.html";
 const samplePath = process.argv[3] || "build/sites/clawfare-sample.json";
 const original = readFileSync(htmlPath, "utf8");
 const sample = JSON.parse(readFileSync(samplePath, "utf8"));

@@ -1,0 +1,24 @@
+name: React frontend
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'scripts/verify-web-bundle.mjs'
+      - 'build.gradle.kts'
+      - '.github/workflows/frontend.yml'
+  push:
+    branches: [master]
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+        working-directory: web
+      - run: npm run check
+        working-directory: web
+      - run: npm run build
+        working-directory: web
