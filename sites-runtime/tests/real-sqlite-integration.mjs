@@ -118,7 +118,8 @@ assert.equal(homepage.status, 200);
 assert.ok(homepageHtml.includes("window.__CLAWFARE_HOSTED_READ_ONLY__ = true"));
 assert.ok(homepageHtml.includes("window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ = true"));
 assert.ok(homepageHtml.includes("Hosted read-only preview:"));
-assert.ok(homepageHtml.includes("loadSample().then(refreshSaved)"));
+assert.ok(homepageHtml.includes("/api/sample"));
+assert.ok(homepageHtml.includes("/api/searches"));
 
 // The storage diagnostic must read genuine SQLite D1 rows and never seed
 // data when empty. It is authenticated and contains no tenant information.
