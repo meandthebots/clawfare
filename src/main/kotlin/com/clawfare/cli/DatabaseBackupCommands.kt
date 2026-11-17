@@ -17,7 +17,7 @@ import java.util.concurrent.Callable
     name = "db",
     description = ["Create encrypted SQLite backups or restore into a new offline database"],
     mixinStandardHelpOptions = true,
-    subcommands = [DbBackupCommand::class, DbRestoreCommand::class],
+    subcommands = [DbBackupCommand::class, DbRestoreCommand::class, DbRekeyCommand::class],
 )
 class DbCommand : Callable<Int> {
     @ParentCommand
@@ -78,6 +78,39 @@ class DbRestoreCommand : Callable<Int> {
             0
         } catch (failure: Exception) {
             System.err.println("Encrypted database restore failed: ${failure.message}")
+            2
+        }
+}
+
+@Command(name = "rekey", description = ["Re-encrypt an existing archive with a new passphrase into a new path"])
+class DbRekeyCommand : Callable<Int> {
+    @ParentCommand
+    lateinit var parent: DbCommand
+
+    @Option(names = ["--from"], required = true, description = ["Existing encrypted SQLite archive"])
+    lateinit var from: String
+
+    @Option(names = ["--out"], required = true, description = ["New encrypted archive path (must not exist)"])
+    lateinit var out: String
+
+    @Option(names = ["--old-passphrase-file"], required = true, description = ["Owner-only existing key file"])
+    lateinit var oldPassphraseFile: String
+
+    @Option(names = ["--new-passphrase-file"], required = true, description = ["Owner-only replacement key file"])
+    lateinit var newPassphraseFile: String
+
+    override fun call(): Int =
+        try {
+            withBackupPassphrase(oldPassphraseFile) { oldPassword ->
+                withBackupPassphrase(newPassphraseFile) { newPassword ->
+                    EncryptedSqliteBackups.rekey(Path.of(from), Path.of(out), oldPassword, newPassword)
+                }
+            }
+            println("New encrypted archive created: $out")
+            println("The source archive remains unchanged; existing copies still require the old passphrase.")
+            0
+        } catch (failure: Exception) {
+            System.err.println("Encrypted archive rekey failed: ${failure.message}")
             2
         }
 }

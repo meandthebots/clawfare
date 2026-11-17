@@ -45,6 +45,38 @@ using a recovered database. Only after stopping all writers should an
 operator consider replacing the active DB, following
 [SCHEMA-MIGRATION.md](SCHEMA-MIGRATION.md). Recovery is not activation.
 
+## Rotate a backup passphrase without touching a live database
+
+Use `db rekey` to decrypt and authenticate an existing archive and
+re-encrypt the verified SQLite contents with a **different** passphrase:
+
+```sh
+# Keep old and new passphrase files separate, private (0600), and off Git.
+clawfare db rekey \
+  --from ~/private/clawfare-2026-11-17.clwdb \
+  --out ~/private/clawfare-rotated.clwdb \
+  --old-passphrase-file ~/private/clawfare-backup-passphrase \
+  --new-passphrase-file ~/private/clawfare-new-passphrase
+```
+
+The new archive must not already exist; it is published with **0600**
+permissions only after every old AES-GCM record authenticates and the
+decrypted SQLite image passes an integrity check. The command never opens
+the active database, contacts a provider, overwrites a previous archive,
+or activates a recovered database. If the old passphrase is incorrect, an
+archive is corrupted/truncated, or the output path already exists, the
+command does not publish a new archive.
+
+**Rotation does not revoke an existing archive.** Previously distributed
+copies remain decryptable with their original passphrase, and securely
+disposing of old archives, their key material, snapshots and SSD backups
+requires an operator-controlled retention/key-management policy. Verify a
+test restore with the new key and arrange a protected, separate copy of
+the new key *before* retiring the old one. The old and new keys must differ;
+passwords are read from owner-only, non-symlink local files and wiped from
+the working `CharArray` after command execution. Plaintext exists
+temporarily inside a 0700 staging directory; deletion is not secure erasure.
+
 ## Archive format, privacy and limitations
 
 Version `CLWDB002` consists of an eight-byte magic/version identifier,
@@ -87,8 +119,9 @@ budget, attempt, price-alert and audit journals, plus external disk-cache
 files, are NOT included. Full disaster recovery also requires separately
 secured copies of those files, consistent with the financial budget ledger.
 Historical token replay data in the restored DB must not be considered
-current offers. Archive retention, key rotation and off-host recovery
-automation remain open under issue #25.
+current offers. Archive key re-encryption is available, but **revocation**,
+retention, off-host recovery automation and full key-management policy remain
+open under issue #25.
 
 ## Verification
 
@@ -96,5 +129,6 @@ Synthetic unit/integration tests exercise: active WAL containing committed
 records; encrypted round-trip into a standalone DB; integrity checks and
 owner-only permissions; incorrect passphrase and ciphertext tampering;
 refusal to overwrite existing archives, DBs or WAL sidecars; safe handling
-of symlinks and permissive passphrase files; and no leftover temporary
-staging directories. No real credentials or travel plans are used.
+of symlinks and permissive passphrase files; new-key rotation, wrong-key
+and tampered-source refusal, source archive preservation, and no leftover
+temporary staging directories. No real credentials or travel plans are used.

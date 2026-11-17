@@ -114,6 +114,45 @@ object EncryptedSqliteBackups {
         }
     }
 
+    /**
+     * Rotate the passphrase on an existing CLWDB002 archive without touching
+     * the live database or modifying the source archive. Decryption, SQLite
+     * integrity validation and re-encryption all happen inside a private
+     * temporary directory. Publication is exclusive and requires a new path.
+     *
+     * This does not revoke previous archives or securely erase their keys.
+     */
+    fun rekey(
+        archive: Path,
+        newArchive: Path,
+        oldPassphrase: CharArray,
+        newPassphrase: CharArray,
+    ) {
+        requireStrongPassphrase(oldPassphrase)
+        requireStrongPassphrase(newPassphrase)
+        if (oldPassphrase.contentEquals(newPassphrase)) {
+            throw IOException("New archive passphrase must differ from the previous passphrase.")
+        }
+        requireRegularFile(archive, "Encrypted archive")
+        val output = normalize(newArchive)
+        val parent = requirePrivateOutputParent(output)
+        ensureAbsent(output, "New encrypted archive")
+        withPrivateStaging(parent) { staging ->
+            val plaintext = staging.resolve("rekey.sqlite")
+            val encrypted = staging.resolve("rekey.clwdb")
+            AuthenticatedSqliteArchiveCodec.decrypt(archive, plaintext, oldPassphrase)
+            Files.setPosixFilePermissions(plaintext, privateFilePermissions)
+            verifyDatabase(plaintext)
+            AuthenticatedSqliteArchiveCodec.encrypt(plaintext, encrypted, newPassphrase)
+            Files.setPosixFilePermissions(encrypted, privateFilePermissions)
+            forceToDisk(encrypted)
+            ensureAbsent(output, "New encrypted archive")
+            // A hard link publishes the already verified encrypted bytes without
+            // clobbering any archive installed by another process in the meantime.
+            Files.createLink(output, encrypted)
+        }
+    }
+
     private fun verifyDatabase(path: Path) {
         DriverManager.getConnection("jdbc:sqlite:${normalize(path)}").use { connection ->
             connection.createStatement().use { statement ->
