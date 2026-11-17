@@ -105,11 +105,52 @@ Merge rules:
 - Flights: upsert by ID (static data)
 - Price history: INSERT all, dedupe by (flight_id, checked_at, source)
 
-## Backup
-Before migration:
-```bash
-cp ~/.clawfare/data.db ~/.clawfare/data.db.backup-$(date +%Y%m%d-%H%M%S)
-```
+## Backup and offline recovery
+
+**Do not back up an active SQLite WAL database using `cp data.db` alone.**
+Committed rows may still live in `data.db-wal`, so copying only the main
+file can produce a stale or incomplete backup.
+
+Clawfare automatically creates a **transaction-consistent** `VACUUM INTO`
+snapshot before a schema-version upgrade. The snapshot is created inside a
+random private directory (mode **0700**) next to the source database; the
+completed SQLite file is verified with `PRAGMA integrity_check`, set to
+**0600**, flushed and then published to
+`data.db.backup-<epoch>-<random>.sqlite` without replacing prior backups.
+Temporary staging files are removed even when snapshot generation fails;
+migration aborts rather than proceeding without a verified recovery point.
+A snapshot includes committed WAL changes but not uncommitted transactions.
+
+This mechanism currently requires a POSIX filesystem supporting private
+permissions and hard links. On unsupported filesystems, migrations fail
+closed instead of leaving potentially world-readable snapshots; a Windows
+ACL-based equivalent is future work. Existing database, backup and journal
+paths should reside in a restricted user-owned directory. These files are
+**not encrypted** and their deletion is not secure erasure.
+
+### Recovery rehearsal (offline)
+
+1. Stop Clawfare and every other process writing the database, including
+   scheduled collectors. Never replace an open SQLite database.
+2. Identify the desired `*.backup-*.sqlite` file; preserve it unchanged.
+   Check `PRAGMA integrity_check` returns `ok` and inspect the stored
+   `PRAGMA user_version` and investigation/price rows before restoring.
+3. Make a separate, private copy of the **current** database together with
+   its `-wal` and `-shm` sidecars (if present). Do not discard those files
+   or assume a plain copy of an active database represents a complete backup.
+4. Copy the verified snapshot to a new recovery file with owner-only
+   permissions (for POSIX, `install -m 0600 <backup> <recovery.db>`) and test
+   opening it with SQLite. It should open independently of the original WAL.
+5. After validation, move the original database and its sidecars aside as a
+   matched recovery set, install the verified snapshot at the intended
+   database path, then start Clawfare. An older schema will undergo migration
+   again, creating a **new** backup. Check investigations, price history and
+   error logs before considering recovery complete.
+
+There is **no automatic live restore** command yet, no encrypted backup
+format, and no tested disaster-recovery guarantee across operating systems.
+Store off-host copies securely; restoring a prior snapshot intentionally
+loses writes committed after its capture.
 
 ## Fare search columns (additive)
 
