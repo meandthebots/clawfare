@@ -34,6 +34,31 @@ need to opt in deliberately. This preserves JSON's lossless import contract
 instead of inventing fake share links that pass neither validation nor
 re-ingest.
 
+### Local report file permissions
+
+CLI report commands with `--out` (investigation HTML/CSV, saved public
+sample JSON, and batch comparison/coverage CSV) use the same private atomic
+writer. On POSIX filesystems they create a temporary file in the destination
+directory with **0600** (owner read/write), flush its contents to disk, then
+rename it over the destination. Overwriting a previously world-readable
+report replaces its inode with a new 0600 file; it does not write through an
+existing hard link. Symlink and non-regular destinations are rejected.
+
+The destination **parent directory must already exist**, must not itself be
+a symlink, and must support POSIX file permissions. On filesystems without
+POSIX permission support (for example, Windows ACL-only filesystems), the
+writer fails closed instead of generating a report with unknown access
+controls. A future Windows implementation should set an explicit owner-only
+ACL. The destination directory and its ancestor directories still require
+operator-controlled access; these protections are not encryption, and do
+not retroactively protect older report copies, backups, or shell redirects.
+
+`report json <slug> --private-diagnostic` deliberately writes to stdout,
+not to a managed output file. Shell redirection (for example `> private.json`)
+bypasses these file protections; redirect into a private directory with
+restrictive shell umask (such as `umask 077`) or use other approved local
+security controls.
+
 ### What a portable report **does not** protect
 
 It is **not anonymous**: trip dates, route combinations, party size, prices,
