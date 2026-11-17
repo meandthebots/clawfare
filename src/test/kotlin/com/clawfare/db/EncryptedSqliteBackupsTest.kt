@@ -142,6 +142,57 @@ class EncryptedSqliteBackupsTest {
     }
 
     @Test
+    fun truncationOrAppendedBytesInvalidateTheArchive() {
+        requirePosix()
+        val source = createDatabase()
+        val archive = directory.resolve("complete.clwdb")
+        EncryptedSqliteBackups.backup(source, archive, passphrase)
+        val bytes = Files.readAllBytes(archive)
+        val truncated = directory.resolve("truncated.clwdb")
+        Files.write(truncated, bytes.copyOf(bytes.size - 1))
+        val truncatedDestination = directory.resolve("truncated.sqlite")
+        assertFails { EncryptedSqliteBackups.restore(truncated, truncatedDestination, passphrase) }
+        assertFalse(Files.exists(truncatedDestination))
+
+        val appended = directory.resolve("extra.clwdb")
+        Files.write(appended, bytes + byteArrayOf(42))
+        val appendedDestination = directory.resolve("extra.sqlite")
+        assertFails { EncryptedSqliteBackups.restore(appended, appendedDestination, passphrase) }
+        assertFalse(Files.exists(appendedDestination))
+        assertNoStaging()
+    }
+
+    @Test
+    fun largeDatabaseCrossesMultipleAuthenticatedRecordBoundaries() {
+        requirePosix()
+        val source = createDatabase()
+        val payload = "MULTI_RECORD_SENTINEL".repeat(20_000)
+        DriverManager.getConnection("jdbc:sqlite:$source").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute("CREATE TABLE big_fixture (payload TEXT NOT NULL)")
+            }
+            connection.prepareStatement("INSERT INTO big_fixture VALUES (?)").use { statement ->
+                statement.setString(1, payload)
+                statement.executeUpdate()
+            }
+        }
+        val archive = directory.resolve("multirecord.clwdb")
+        val recovered = directory.resolve("multirecord.sqlite")
+        EncryptedSqliteBackups.backup(source, archive, passphrase)
+        assertTrue(Files.size(archive) > 64L * 1024L)
+        EncryptedSqliteBackups.restore(archive, recovered, passphrase)
+        DriverManager.getConnection("jdbc:sqlite:$recovered").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.executeQuery("SELECT payload FROM big_fixture").use { rows ->
+                    assertTrue(rows.next())
+                    assertEquals(payload, rows.getString(1))
+                }
+            }
+        }
+        assertNoStaging()
+    }
+
+    @Test
     fun symlinksAndInsecurePassphraseFilesAreRefused() {
         requirePosix()
         val source = createDatabase()
