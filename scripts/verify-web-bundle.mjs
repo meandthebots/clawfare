@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-const html = readFileSync("build/frontend/web/index.html", "utf8");
+const html = readFileSync(new URL("../build/frontend/web/index.html", import.meta.url), "utf8");
 const marker = "<script>window.__SNAPSHOT__ = null;</script>";
 assert.equal(html.split(marker).length, 2, "HTML export and Sites must have exactly one snapshot slot");
 assert.match(html, /__CLAWFARE_HOSTED_READ_ONLY__/, "hosted safety mode must survive compilation");
