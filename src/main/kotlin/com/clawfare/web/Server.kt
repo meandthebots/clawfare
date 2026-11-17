@@ -56,6 +56,17 @@ private suspend fun <T> ApplicationCall.receiveBoundedJson(
     serializer: DeserializationStrategy<T>,
     maxBytes: Int,
 ): T? {
+    // Content-Length can reject oversized requests early, but an absent or
+    // forged value never substitutes for counting received bytes below.
+    val declaredLength = request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
+    if (declaredLength != null && declaredLength > maxBytes) {
+        respondText(
+            """{"error":"Request body too large."}""",
+            ContentType.Application.Json,
+            HttpStatusCode.PayloadTooLarge,
+        )
+        return null
+    }
     val channel = receiveChannel()
     val bytes = ByteArrayOutputStream(minOf(maxBytes, 8192))
     val chunk = ByteArray(8192)
