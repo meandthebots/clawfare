@@ -31,7 +31,7 @@ function itinerary({ id, origin, destination, outboundDate, returnDate, outbound
     airlineSummary, outbound, returning, returnMissing: false,
     stopsOut: stops, stopsRet: returning.stops, layoverMinutes: outbound.layovers.map(l => l.minutes),
     maxLayoverMinutes: outbound.layovers.length ? Math.max(...outbound.layovers.map(l => l.minutes)) : 0,
-    airlineCodes: ["GX"], source: "sample", sourceLabel: "sample",
+    airlineCodes: ["GX"], source: "sample", sourceLabel: "guest",
     livePrice: false, cashRefundProofVerified: false,
     links: [], notes, assumedReturn: false,
   };

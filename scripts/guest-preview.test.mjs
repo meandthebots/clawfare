@@ -30,7 +30,7 @@ test("all guest fares are synthetic with no refund assertions or booking URLs", 
   assert.ok(GUEST_SAMPLE.itineraries.length >= 2);
   assert.deepEqual(new Set(GUEST_SAMPLE.cells.map((c) => c.status)), new Set(["ok", "catch", "no"]));
   for (const it of [...GUEST_SAMPLE.itineraries, ...GUEST_SAMPLE.addons]) {
-    assert.equal(it.sourceLabel, "sample");
+    assert.equal(it.sourceLabel, "guest");
     assert.equal(it.livePrice, false);
     assert.equal(it.cashRefundProofVerified, false);
     assert.deepEqual(it.links, []);
@@ -50,11 +50,7 @@ test("guest API starts without credentials, never delegates requests to the netw
   assert.equal((await call(window, "/api/storage")).status, 404);
   assert.equal((await call(window, "/api/search", { method: "POST", body: query })).status, 400);
   await assert.rejects(window.fetch("https://some-provider.example/search"), /blocks all/);
-  await assert.rejects(window.fetch("/api/../../../secrets"), /blocks all|guest/i).catch(async () => {
-    // URL path traversal remains confined to the guest stub and cannot reach a network.
-    const response = await call(window, "/api/../../../secrets");
-    assert.notEqual(response.status, 200);
-  });
+  assert.equal((await call(window, "/api/../../../secrets")).status, 404);
 });
 
 test("estimate requires same-query, unexpired and single-use confirmation", async () => {

@@ -18,7 +18,7 @@ function validateFixture(fixture) {
     throw new Error("Guest data must be a complete, synthetic ResultSet.");
   }
   for (const it of [...fixture.itineraries, ...fixture.addons]) {
-    if (it.source !== "sample" || it.sourceLabel !== "sample" ||
+    if (it.source !== "sample" || it.sourceLabel !== "guest" ||
         it.livePrice !== false || it.cashRefundProofVerified !== false ||
         it.links?.length !== 0 || it.refundEvidence != null) {
       throw new Error("Guest itineraries must not imply live prices, refunds or bookings.");
