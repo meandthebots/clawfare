@@ -3,6 +3,7 @@ import type {
   StatusResponse, StorageDiagnostic, VendorRequest, TrackRequest,
 } from "./domain.ts";
 import { isEstimate, isQuotaList, isRecord, isResultSet, isSavedList } from "./domain.ts";
+import { createGeneratedClient, type ApiRoute, type ExportRoute } from "./generated/openapi-client.ts";
 
 /**
  * Hosted Sites auth is handled by the trusted ingress. In hosted mode we must
@@ -13,11 +14,7 @@ export interface ApiMode {
   readonly hostedReadOnly: boolean;
   readonly hostedEstimateOnly: boolean;
 }
-export type ApiRoute =
-  | "/api/sample" | "/api/status" | "/api/searches" | "/api/quota"
-  | "/api/storage" | "/api/estimate" | "/api/search"
-  | `/api/results/${string}`;
-export type ExportRoute = "/api/export/html" | "/api/export/csv";
+export type { ApiRoute, ExportRoute } from "./generated/openapi-client.ts";
 export interface ApiResponse<T> {
   readonly status: number;
   readonly body: T;
@@ -128,6 +125,7 @@ export function createClawfareClient(
     // Leave time for the browser to process the click before revoking the URL.
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+  const generated = createGeneratedClient(request);
   const isStatus = (value: unknown): value is StatusResponse =>
     isRecord(value) && typeof value.cacheDir === "string" && typeof value.searchesDir === "string" &&
     isQuotaList(value.providers);
@@ -135,17 +133,17 @@ export function createClawfareClient(
     isRecord(value) && value.backend === "d1" && typeof value.sampleStored === "boolean";
   return Object.freeze({
     request,
-    async sample() { return decode(await request("/api/sample"), isResultSet); },
-    async searches() { return decode(await request("/api/searches"), isSavedList); },
-    async status() { return decode(await request("/api/status"), isStatus); },
-    async quota() { return decode(await request("/api/quota"), isQuotaList); },
-    async storage() { return decode(await request("/api/storage"), isStorage); },
-    async estimate(query: SearchQuery) { return decode(await request("/api/estimate", query), isEstimate); },
-    saveSearch: (query: SearchQuery, consent: string | null) => request("/api/search", query, consent),
+    async sample() { return decode(await generated.getSample(), isResultSet); },
+    async searches() { return decode(await generated.getSearches(), isSavedList); },
+    async status() { return decode(await generated.getStatus(), isStatus); },
+    async quota() { return decode(await generated.getQuota(), isQuotaList); },
+    async storage() { return decode(await generated.getStorage(), isStorage); },
+    async estimate(query: SearchQuery) { return decode(await generated.estimate(query), isEstimate); },
+    saveSearch: (query: SearchQuery, consent: string | null) => generated.search(query, consent),
     vendors: (id: string, payload: VendorRequest, consent?: string | null) =>
-      request(`/api/results/${encodeURIComponent(id)}/vendors`, payload, consent),
+      generated.vendors(id, payload, consent),
     track: (id: string, payload: TrackRequest) =>
-      request(`/api/results/${encodeURIComponent(id)}/track`, payload),
+      generated.track(id, payload),
     download,
   });
 }
