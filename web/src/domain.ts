@@ -80,14 +80,21 @@ export interface Leg {
   aircraft?: Nullable<string>;
   operatingCarrierVerified?: boolean;
 }
-export interface Layover { airport: string; minutes: number }
+export interface Layover {
+  airport: string;
+  minutes: number;
+}
 export interface Direction {
   legs: Leg[];
   layovers: Layover[];
   durationMinutes?: Nullable<number>;
   stops: number;
 }
-export interface BookLink { kind: string; label: string; url: string }
+export interface BookLink {
+  kind: string;
+  label: string;
+  url: string;
+}
 
 export interface SellerRefundProof {
   sellerId: string;
@@ -218,8 +225,15 @@ export interface SellerOption {
   bookingActionAvailable: boolean;
   refundStatus: string;
 }
-export interface NoteCard { title: string; body: string; warn: boolean }
-export interface FxInfo { perGbp: Record<string, number>; asOf: string }
+export interface NoteCard {
+  title: string;
+  body: string;
+  warn: boolean;
+}
+export interface FxInfo {
+  perGbp: Record<string, number>;
+  asOf: string;
+}
 export interface ResultSet {
   id: string;
   title: string;
@@ -292,7 +306,10 @@ export interface VendorRequest {
   cacheOnly: boolean;
   confirmed: boolean;
 }
-export interface TrackRequest { itineraryId: string; tripSlug: string }
+export interface TrackRequest {
+  itineraryId: string;
+  tripSlug: string;
+}
 export interface ExportRequest {
   result: ResultSet;
   filters: FilterSpec;
@@ -330,14 +347,22 @@ export function isEstimate(value: unknown): value is Estimate {
   );
 }
 export function isQuotaList(value: unknown): value is QuotaView[] {
-  return Array.isArray(value) && value.every(
-    (entry: unknown) => isRecord(entry) && typeof entry.provider === "string" &&
-      typeof entry.configured === "boolean",
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry: unknown) =>
+        isRecord(entry) &&
+        typeof entry.provider === "string" &&
+        typeof entry.configured === "boolean",
+    )
   );
 }
 export function isSavedList(value: unknown): value is SavedInvestigation[] {
-  return Array.isArray(value) && value.every(
-    (entry: unknown) => isRecord(entry) && typeof entry.id === "string" &&
-      typeof entry.title === "string",
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry: unknown) =>
+        isRecord(entry) && typeof entry.id === "string" && typeof entry.title === "string",
+    )
   );
 }

@@ -8,12 +8,28 @@ export interface FilterControlsState extends FilterUiState {
 }
 export function initialFilters(hideMock = true): FilterControlsState {
   return {
-    maxStops: "", maxLayoverHours: "", excludeReturn: "", excludeOut: "",
-    allow: "", block: "", maxTravelHours: "", departAfter: "",
-    departBefore: "", returnAfter: "", nonstop: false, eu: false,
-    hideMock, cashRefund: false, cabin: "all", nights: "all",
-    origin: "all", hide: false, lhr: false, sort: "date",
-    market: "all", vsort: "allin",
+    maxStops: "",
+    maxLayoverHours: "",
+    excludeReturn: "",
+    excludeOut: "",
+    allow: "",
+    block: "",
+    maxTravelHours: "",
+    departAfter: "",
+    departBefore: "",
+    returnAfter: "",
+    nonstop: false,
+    eu: false,
+    hideMock,
+    cashRefund: false,
+    cabin: "all",
+    nights: "all",
+    origin: "all",
+    hide: false,
+    lhr: false,
+    sort: "date",
+    market: "all",
+    vsort: "allin",
   };
 }
 export function suggestedFilters(spec: FilterSpec = {}): FilterControlsState {
@@ -39,10 +55,12 @@ export function suggestedFilters(spec: FilterSpec = {}): FilterControlsState {
   };
 }
 export function filterChoices(result: ResultSet | null): {
-  nights: string[]; origins: string[];
+  nights: string[];
+  origins: string[];
 } {
   if (!result) return { nights: ["all"], origins: ["all"] };
-  const nights = new Set<string>(), origins = new Set<string>();
+  const nights = new Set<string>(),
+    origins = new Set<string>();
   for (const it of result.itineraries) {
     if (it.nights != null) nights.add(String(it.nights));
     if (it.origin) origins.add(it.origin);

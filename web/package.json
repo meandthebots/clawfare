@@ -7,10 +7,10 @@
     "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build && node ../scripts/verify-web-bundle.mjs",
-    "lint": "oxlint src/App.tsx src/main.tsx src/api.ts src/domain.ts src/api.test.ts src/GridView.tsx src/ItineraryViews.tsx src/VendorView.tsx src/DetailsContent.tsx src/SnapshotOverview.tsx vite.config.ts src/filters.ts src/filters.test.ts src/SearchControls.tsx src/FilterControls.tsx src/searchForm.ts src/filterForm.ts src/searchForm.test.ts",
-    "format": "oxfmt src/App.tsx src/main.tsx src/api.ts src/domain.ts src/api.test.ts src/GridView.tsx src/ItineraryViews.tsx src/VendorView.tsx src/DetailsContent.tsx src/SnapshotOverview.tsx vite.config.ts src/filters.ts src/filters.test.ts src/SearchControls.tsx src/FilterControls.tsx src/searchForm.ts src/filterForm.ts src/searchForm.test.ts",
-    "format:check": "oxfmt --check src/App.tsx src/main.tsx src/api.ts src/domain.ts src/api.test.ts src/GridView.tsx src/ItineraryViews.tsx src/VendorView.tsx src/DetailsContent.tsx src/SnapshotOverview.tsx vite.config.ts src/filters.ts src/filters.test.ts src/SearchControls.tsx src/FilterControls.tsx src/searchForm.ts src/filterForm.ts src/searchForm.test.ts",
-    "check": "npm run typecheck && npm run lint && npm run test",
+    "lint": "oxlint src vite.config.ts",
+    "format": "oxfmt src vite.config.ts",
+    "format:check": "oxfmt --check src vite.config.ts",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run format:check",
     "test": "node --experimental-strip-types --test src/*.test.ts"
   },
   "dependencies": {

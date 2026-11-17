@@ -8,13 +8,24 @@ import { isCashRefundVerified } from "./DetailsContent.tsx";
 import { GridView, fmtRange, quoteable } from "./GridView.tsx";
 import { ItineraryView, MatrixView } from "./ItineraryViews.tsx";
 import { SearchControls } from "./SearchControls.tsx";
-import { INITIAL_SEARCH, buildSearchQuery, estimateIsRunnable, type SearchForm } from "./searchForm.ts";
+import {
+  INITIAL_SEARCH,
+  buildSearchQuery,
+  estimateIsRunnable,
+  type SearchForm,
+} from "./searchForm.ts";
 import { SnapshotOverview, type ResultsTab } from "./SnapshotOverview.tsx";
 import { VendorView } from "./VendorView.tsx";
 import { toFilterSpec, visibleItineraries } from "./filters.ts";
 import { isEstimate, isRecord, isResultSet } from "./domain.ts";
 import type {
-  ComboCell, Estimate, Itinerary, QuotaView, ResultSet, SavedInvestigation, SearchQuery,
+  ComboCell,
+  Estimate,
+  Itinerary,
+  QuotaView,
+  ResultSet,
+  SavedInvestigation,
+  SearchQuery,
 } from "./domain.ts";
 
 const HOSTED_READ_ONLY = window.__CLAWFARE_HOSTED_READ_ONLY__ === true;
@@ -55,8 +66,10 @@ function hydratedResult(data: ResultSet): ResultSet {
         const note = localStorage.getItem(key + ":note");
         const trust = localStorage.getItem(key + ":trust");
         const labels: Record<string, string> = {
-          airline: "Airline", trusted: "Trusted OTA",
-          caution: "OTA · caution", risky: "Risky OTA",
+          airline: "Airline",
+          trusted: "Trusted OTA",
+          caution: "OTA · caution",
+          risky: "Risky OTA",
         };
         return {
           ...vendor,
@@ -78,8 +91,9 @@ function sortVisible(rows: Itinerary[], result: ResultSet, sort: "date" | "price
   const sorted = [...rows];
   if (sort === "price") {
     if (result.addons.length && result.cells.length) {
-      const lookup = new Map(result.cells.map((cell) =>
-        [cell.primaryId + "\0" + (cell.addonId ?? ""), cell]));
+      const lookup = new Map(
+        result.cells.map((cell) => [cell.primaryId + "\0" + (cell.addonId ?? ""), cell]),
+      );
       const cheapest = (it: Itinerary) => {
         let best = Infinity;
         for (const addon of result.addons) {
@@ -88,19 +102,24 @@ function sortVisible(rows: Itinerary[], result: ResultSet, sort: "date" | "price
         }
         return best;
       };
-      sorted.sort((a, b) => cheapest(a) - cheapest(b) || a.outboundDate.localeCompare(b.outboundDate));
-    } else sorted.sort((a, b) =>
-      (a.pricePerPerson ?? Infinity) - (b.pricePerPerson ?? Infinity));
-  } else sorted.sort((a, b) =>
-    a.outboundDate.localeCompare(b.outboundDate) ||
-    (a.returnDate ?? "").localeCompare(b.returnDate ?? "") ||
-    (a.pricePerPerson ?? Infinity) - (b.pricePerPerson ?? Infinity));
+      sorted.sort(
+        (a, b) => cheapest(a) - cheapest(b) || a.outboundDate.localeCompare(b.outboundDate),
+      );
+    } else sorted.sort((a, b) => (a.pricePerPerson ?? Infinity) - (b.pricePerPerson ?? Infinity));
+  } else
+    sorted.sort(
+      (a, b) =>
+        a.outboundDate.localeCompare(b.outboundDate) ||
+        (a.returnDate ?? "").localeCompare(b.returnDate ?? "") ||
+        (a.pricePerPerson ?? Infinity) - (b.pricePerPerson ?? Infinity),
+    );
   return sorted;
 }
 function sortedVendors(result: ResultSet, market: string, sort: FilterControlsState["vsort"]) {
   const rows = result.vendors.filter((vendor) => market === "all" || vendor.market === market);
   return rows.sort((a, b) => {
-    const pa = a.allInGbp ?? Infinity, pb = b.allInGbp ?? Infinity;
+    const pa = a.allInGbp ?? Infinity,
+      pb = b.allInGbp ?? Infinity;
     if (sort === "vendor") return a.vendor.localeCompare(b.vendor);
     if (sort === "market") return a.market.localeCompare(b.market) || pa - pb;
     return pa - pb;
@@ -109,9 +128,12 @@ function sortedVendors(result: ResultSet, market: string, sort: FilterControlsSt
 
 export function App() {
   const snapshot = useMemo(initialResult, []);
-  const [result, setResult] = useState<ResultSet | null>(() => snapshot ? hydratedResult(snapshot) : null);
+  const [result, setResult] = useState<ResultSet | null>(() =>
+    snapshot ? hydratedResult(snapshot) : null,
+  );
   const [filter, setFilter] = useState<FilterControlsState>(() =>
-    snapshot ? suggestedFilters(snapshot.suggestedFilters) : initialFilters());
+    snapshot ? suggestedFilters(snapshot.suggestedFilters) : initialFilters(),
+  );
   const [form, setForm] = useState<SearchForm>({ ...INITIAL_SEARCH });
   const [tab, setTab] = useState<ResultsTab>(() => defaultTab(snapshot));
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -146,21 +168,36 @@ export function App() {
   useEffect(() => {
     if (snapshot) return;
     let active = true;
-    void client.status().then((response) => {
-      if (!active || !response.ok) return;
-      setStatusLines(response.data.providers.map((quota) =>
-        quota.provider + ": " + (quota.note || (quota.configured ? "configured" : "not configured"))));
-    }).catch(() => {});
-    void client.sample().then((response) => {
-      if (!active) return;
-      if (response.ok) acceptResult(response.data);
-      else setEstimateError(response.error);
-    }).catch(() => {
-      if (active) setEstimateError("Sample failed to load.");
-    }).finally(() => {
-      if (active) void refreshSaved().catch(() => {});
-    });
-    return () => { active = false; };
+    void client
+      .status()
+      .then((response) => {
+        if (!active || !response.ok) return;
+        setStatusLines(
+          response.data.providers.map(
+            (quota) =>
+              quota.provider +
+              ": " +
+              (quota.note || (quota.configured ? "configured" : "not configured")),
+          ),
+        );
+      })
+      .catch(() => {});
+    void client
+      .sample()
+      .then((response) => {
+        if (!active) return;
+        if (response.ok) acceptResult(response.data);
+        else setEstimateError(response.error);
+      })
+      .catch(() => {
+        if (active) setEstimateError("Sample failed to load.");
+      })
+      .finally(() => {
+        if (active) void refreshSaved().catch(() => {});
+      });
+    return () => {
+      active = false;
+    };
   }, [snapshot, acceptResult, refreshSaved]);
   useEffect(() => {
     if (selection) {
@@ -179,28 +216,39 @@ export function App() {
   }, []);
 
   const currentFilter = useMemo(() => toFilterSpec(filter), [filter]);
-  const visibleRows = useMemo(() => result
-    ? visibleItineraries(result, currentFilter, filter.hide, isCashRefundVerified) : [],
-  [result, currentFilter, filter.hide]);
-  const displayRows = useMemo(() => result
-    ? sortVisible(visibleRows, result, filter.sort) : [],
-  [visibleRows, result, filter.sort]);
+  const visibleRows = useMemo(
+    () =>
+      result ? visibleItineraries(result, currentFilter, filter.hide, isCashRefundVerified) : [],
+    [result, currentFilter, filter.hide],
+  );
+  const displayRows = useMemo(
+    () => (result ? sortVisible(visibleRows, result, filter.sort) : []),
+    [visibleRows, result, filter.sort],
+  );
   const openDetails = useCallback((primaryId: string, addonId: string) => {
-    formerFocus.current = document.activeElement instanceof HTMLElement
-      ? document.activeElement : null;
+    formerFocus.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setSelection({ primaryId, addonId });
   }, []);
-  const activeItinerary = selection && result
-    ? result.itineraries.find((item) => item.id === selection.primaryId) ?? null : null;
-  const activeAddon = selection?.addonId !== "LH" && result
-    ? result.addons.find((item) => item.id === selection?.addonId) ?? null : null;
-  const activeCell: ComboCell | null = selection && result
-    ? result.cells.find((item) => item.primaryId === selection.primaryId &&
-      (item.addonId ?? "") === (activeAddon?.id ?? "")) ??
-      result.cells.find((item) => item.primaryId === selection.primaryId && !item.addonId) ?? null
-    : null;
-  const selectedKey = selection
-    ? selection.primaryId + "\0" + (activeAddon?.id ?? "") : null;
+  const activeItinerary =
+    selection && result
+      ? (result.itineraries.find((item) => item.id === selection.primaryId) ?? null)
+      : null;
+  const activeAddon =
+    selection?.addonId !== "LH" && result
+      ? (result.addons.find((item) => item.id === selection?.addonId) ?? null)
+      : null;
+  const activeCell: ComboCell | null =
+    selection && result
+      ? (result.cells.find(
+          (item) =>
+            item.primaryId === selection.primaryId &&
+            (item.addonId ?? "") === (activeAddon?.id ?? ""),
+        ) ??
+        result.cells.find((item) => item.primaryId === selection.primaryId && !item.addonId) ??
+        null)
+      : null;
+  const selectedKey = selection ? selection.primaryId + "\0" + (activeAddon?.id ?? "") : null;
 
   const changeForm = (next: SearchForm) => {
     setForm(next);
@@ -223,9 +271,15 @@ export function App() {
         return;
       }
       setEstimate(response.data);
-      const canRun = !HOSTED_READ_ONLY && estimateIsRunnable(
-        response.data.warnings, response.data.liveCalls,
-        response.data.cachedCalls, response.data.returnLookupsUpperBound, query.cacheOnly);
+      const canRun =
+        !HOSTED_READ_ONLY &&
+        estimateIsRunnable(
+          response.data.warnings,
+          response.data.liveCalls,
+          response.data.cachedCalls,
+          response.data.returnLookupsUpperBound,
+          query.cacheOnly,
+        );
       if (canRun) {
         setPendingQuery(query);
         setSearchConsent(response.consent);
@@ -245,8 +299,7 @@ export function App() {
         acceptResult(body.result);
         setEstimateError("Search saved as " + body.result.id + ".");
         void refreshSaved().catch(() => {});
-      } else if (isRecord(body) && body.needsConfirmation === true &&
-        isEstimate(body.estimate)) {
+      } else if (isRecord(body) && body.needsConfirmation === true && isEstimate(body.estimate)) {
         setEstimate(body.estimate);
         setPendingQuery(query);
         setSearchConsent(response.consent);
@@ -285,13 +338,23 @@ export function App() {
         setStatusLines([response.error]);
         return;
       }
-      setStatusLines(response.data.map((quota: QuotaView) => {
-        const rem = quota.remaining == null ? "" :
-          " · " + quota.remaining + " left" +
-            (quota.limit != null ? " of " + quota.limit : "");
-        return quota.provider + (quota.configured ? " configured" : " not configured") +
-          rem + (quota.note ? " — " + quota.note : "");
-      }));
+      setStatusLines(
+        response.data.map((quota: QuotaView) => {
+          const rem =
+            quota.remaining == null
+              ? ""
+              : " · " +
+                quota.remaining +
+                " left" +
+                (quota.limit != null ? " of " + quota.limit : "");
+          return (
+            quota.provider +
+            (quota.configured ? " configured" : " not configured") +
+            rem +
+            (quota.note ? " — " + quota.note : "")
+          );
+        }),
+      );
     } catch {
       setStatusLines(["Quota check failed."]);
     }
@@ -305,17 +368,24 @@ export function App() {
         return;
       }
       const info = response.data;
-      setStatusLines([info.sampleStored
-        ? "D1 sample stored since " + info.firstImportedAt +
-          " · verified SHA-256 " + String(info.sha256 ?? "").slice(0, 16) +
-          "… (compare this timestamp after reloading)."
-        : "No sample row in D1 yet. Load the public Florida sample, then check again."]);
+      setStatusLines([
+        info.sampleStored
+          ? "D1 sample stored since " +
+            info.firstImportedAt +
+            " · verified SHA-256 " +
+            String(info.sha256 ?? "").slice(0, 16) +
+            "… (compare this timestamp after reloading)."
+          : "No sample row in D1 yet. Load the public Florida sample, then check again.",
+      ]);
     } catch {
       setStatusLines(["D1 storage check could not be completed."]);
     }
   };
-  const updateVendor = (market: string, vendor: string,
-    change: { note?: string; trust?: string }) => {
+  const updateVendor = (
+    market: string,
+    vendor: string,
+    change: { note?: string; trust?: string },
+  ) => {
     if (!result) return;
     const key = noteKey(result.id, market, vendor);
     try {
@@ -325,15 +395,29 @@ export function App() {
       // Local file snapshots can operate without Web Storage.
     }
     const labels: Record<string, string> = {
-      airline: "Airline", trusted: "Trusted OTA",
-      caution: "OTA · caution", risky: "Risky OTA",
+      airline: "Airline",
+      trusted: "Trusted OTA",
+      caution: "OTA · caution",
+      risky: "Risky OTA",
     };
-    setResult((current) => current ? ({
-      ...current,
-      vendors: current.vendors.map((v) => v.market === market && v.vendor === vendor
-        ? { ...v, ...change, trustLabel: change.trust
-          ? (labels[change.trust] ?? v.trustLabel) : v.trustLabel } : v),
-    }) : null);
+    setResult((current) =>
+      current
+        ? {
+            ...current,
+            vendors: current.vendors.map((v) =>
+              v.market === market && v.vendor === vendor
+                ? {
+                    ...v,
+                    ...change,
+                    trustLabel: change.trust
+                      ? (labels[change.trust] ?? v.trustLabel)
+                      : v.trustLabel,
+                  }
+                : v,
+            ),
+          }
+        : null,
+    );
   };
   const showVendors = async (it: Itinerary) => {
     if (!result) return;
@@ -342,16 +426,26 @@ export function App() {
       setTab("vendors");
       return;
     }
-    const vendorRequest = { itineraryId: it.id, markets: ["uk", "us"],
-      cacheOnly: form.cacheOnly, confirmed: false };
+    const vendorRequest = {
+      itineraryId: it.id,
+      markets: ["uk", "us"],
+      cacheOnly: form.cacheOnly,
+      confirmed: false,
+    };
     try {
       let response = await client.vendors(result.id, vendorRequest);
       const body = response.body;
       if (isRecord(body) && body.needsConfirmation === true) {
-        const estimate = isRecord(body.estimate) && Array.isArray(body.estimate.lines)
-          ? body.estimate.lines.filter((line): line is string => typeof line === "string") : [];
+        const estimate =
+          isRecord(body.estimate) && Array.isArray(body.estimate.lines)
+            ? body.estimate.lines.filter((line): line is string => typeof line === "string")
+            : [];
         if (!window.confirm(estimate.join("\n") + "\n\nFetch seller offers now?")) return;
-        response = await client.vendors(result.id, { ...vendorRequest, confirmed: true }, response.consent);
+        response = await client.vendors(
+          result.id,
+          { ...vendorRequest, confirmed: true },
+          response.consent,
+        );
       }
       const updated = response.body;
       if (isRecord(updated) && isResultSet(updated.result)) {
@@ -369,9 +463,13 @@ export function App() {
     try {
       const response = await client.track(result.id, { itineraryId: it.id, tripSlug: slug });
       const body = response.body;
-      if (isRecord(body) && typeof body.slug === "string") window.alert(
-        "Saved on investigation " + body.slug +
-        ". The CLI can show it with: clawfare flight list " + body.slug);
+      if (isRecord(body) && typeof body.slug === "string")
+        window.alert(
+          "Saved on investigation " +
+            body.slug +
+            ". The CLI can show it with: clawfare flight list " +
+            body.slug,
+        );
       else window.alert(responseError(body, "Could not save."));
     } catch {
       window.alert("Could not save.");
@@ -382,127 +480,234 @@ export function App() {
     const path = kind === "html" ? "/api/export/html" : "/api/export/csv";
     const exportKind = kind === "csv" && tab === "vendors" ? "vendors" : "itineraries";
     try {
-      await client.download(path, { result, filters: currentFilter, kind: exportKind },
-        kind === "html" ? "clawfare.html" : "clawfare.csv");
+      await client.download(
+        path,
+        { result, filters: currentFilter, kind: exportKind },
+        kind === "html" ? "clawfare.html" : "clawfare.csv",
+      );
     } catch {
       setEstimateError("Export rejected by local access controls.");
     }
   };
   const vendorMode = result && tab === "vendors" && result.scenarioLabel === "florida";
-  const title = result ? (vendorMode
-    ? "Tampa ⇄ Mexico City nonstop · Fri 25 Dec → Tue 29 Dec 2026 · 1 adult · 1 checked bag each way"
-    : result.title || "Clawfare") : "Clawfare flight search";
-  const subtitle = result ? (vendorMode
-    ? "Out AM 1741 TPA 09:23 → MEX 11:50 · Back AM 1740 MEX 15:40 → TPA 19:49. All-in prices include one checked bag. Round trip beside two one-ways. Sample seller check, not a new lookup."
-    : result.subtitle) :
-    "London, Tampa, Sarasota, and a Mexico City add-on. Prices in GBP. API keys stay on the server.";
+  const title = result
+    ? vendorMode
+      ? "Tampa ⇄ Mexico City nonstop · Fri 25 Dec → Tue 29 Dec 2026 · 1 adult · 1 checked bag each way"
+      : result.title || "Clawfare"
+    : "Clawfare flight search";
+  const subtitle = result
+    ? vendorMode
+      ? "Out AM 1741 TPA 09:23 → MEX 11:50 · Back AM 1740 MEX 15:40 → TPA 19:49. All-in prices include one checked bag. Round trip beside two one-ways. Sample seller check, not a new lookup."
+      : result.subtitle
+    : "London, Tampa, Sarasota, and a Mexico City add-on. Prices in GBP. API keys stay on the server.";
   const renderView = () => {
-    if (!result) return <div className="empty">
-      Load the Florida sample, or estimate a search. Live providers are not called until you confirm.
-    </div>;
+    if (!result)
+      return (
+        <div className="empty">
+          Load the Florida sample, or estimate a search. Live providers are not called until you
+          confirm.
+        </div>
+      );
     if (tab === "grid" && result.addons.length > 0 && result.cells.length > 0)
-      return <GridView rows={displayRows} addons={result.addons} cells={result.cells}
-        sort={filter.sort} hideInfeasible={filter.hide}
-        selectedKey={selectedKey} onSelect={openDetails}/>;
+      return (
+        <GridView
+          rows={displayRows}
+          addons={result.addons}
+          cells={result.cells}
+          sort={filter.sort}
+          hideInfeasible={filter.hide}
+          selectedKey={selectedKey}
+          onSelect={openDetails}
+        />
+      );
     if (tab === "grid" || tab === "itineraries")
-      return <ItineraryView rows={displayRows} onSelect={openDetails}/>;
+      return <ItineraryView rows={displayRows} onSelect={openDetails} />;
     if (tab === "matrix")
-      return <MatrixView rows={displayRows.filter((it) => quoteable(it))}
-        onSelect={openDetails}/>;
-    const markets = Object.fromEntries(result.vendors.map((v) =>
-      [v.market, v.marketLabel || v.market]));
-    return <VendorView rows={sortedVendors(result, filter.market, filter.vsort)}
-      markets={markets} market={filter.market}
-      options={result.sellerOptions.filter((option) =>
-        filter.market === "all" || option.market === filter.market)}
-      onMarketChange={(market) => setFilter((f) => ({ ...f, market }))}
-      onNoteChange={(v, note) => updateVendor(v.market, v.vendor, { note })}
-      onTrustChange={(v, trust) => updateVendor(v.market, v.vendor, { trust })}/>;
+      return <MatrixView rows={displayRows.filter((it) => quoteable(it))} onSelect={openDetails} />;
+    const markets = Object.fromEntries(
+      result.vendors.map((v) => [v.market, v.marketLabel || v.market]),
+    );
+    return (
+      <VendorView
+        rows={sortedVendors(result, filter.market, filter.vsort)}
+        markets={markets}
+        market={filter.market}
+        options={result.sellerOptions.filter(
+          (option) => filter.market === "all" || option.market === filter.market,
+        )}
+        onMarketChange={(market) => setFilter((f) => ({ ...f, market }))}
+        onNoteChange={(v, note) => updateVendor(v.market, v.vendor, { note })}
+        onTrustChange={(v, trust) => updateVendor(v.market, v.vendor, { trust })}
+      />
+    );
   };
 
-  return <>
-    <header {...stylex.props(styles.header)}>
-      <h1 id="title">{title}</h1>
-      <p id="subtitle">{subtitle}</p>
-      <div className="notes" id="notes"/>
-    </header>
-    <main {...stylex.props(styles.main)}>
-      <SearchControls form={form} onChange={changeForm}
-        saved={saved} selectedSaved={selectedSaved} onSavedChange={setSelectedSaved}
-        onOpen={(id) => void openSaved(id)} onEstimate={() => void estimateCalls()}
-        onSearch={() => void runSearch()} onSample={() => void loadSample()}
-        onQuota={() => void checkQuota()} onStorage={() => void checkStorage()}
-        runEnabled={pendingQuery !== null}
-        hostedReadOnly={HOSTED_READ_ONLY} hostedEstimateOnly={HOSTED_ESTIMATE_ONLY}
-        estimate={estimate} estimateError={estimateError ||
-          (HOSTED_READ_ONLY ? HOSTED_ESTIMATE_ONLY
-            ? "Search estimates are available at no cost. Run search and all paid provider calls are still disabled."
-            : "Hosted read-only preview: explore saved flights and filters; live searches and exports are disabled."
-          : "")}
-        statusLines={statusLines}/>
-      <div id="banners"/>
-      <FilterControls state={filter} onChange={setFilter} result={result}/>
-      <div className="summary" id="summary">
-        {result && portals && <SnapshotOverview result={result} rows={visibleRows}
-          tab={tab} notesTarget={portals.notes} bannersTarget={portals.banners}
-          legendTarget={portals.legend} onSelect={openDetails}/>}
-      </div>
-      <div className="legend" id="legend"/>
-      <div className="tabs" id="tabs">
-        {(["grid", "itineraries", "matrix", "vendors"] as const).map((choice) =>
-          <button type="button" key={choice} data-tab={choice}
-            className={choice === tab ? "on" : ""} aria-pressed={choice === tab}
-            onClick={() => setTab(choice)}>
-            {choice === "grid" ? "Grid" :
-              choice === "itineraries" ? "Itineraries" :
-              choice === "matrix" ? "Matrix" : "Vendors"}
-          </button>)}
-      </div>
-      <div className="actions" id="exportBar">
-        <button type="button" id="btnHtml" disabled={HOSTED_READ_ONLY}
-          onClick={() => void download("html")}>Export HTML</button>
-        <button type="button" id="btnCsv" disabled={HOSTED_READ_ONLY}
-          onClick={() => void download("csv")}>Export CSV</button>
-        <span className="muted" id="fresh">
-          {result?.fetchedAt ? "Data " + result.fetchedAt : ""}
-        </span>
-      </div>
-      <div className={"wrap " +
-        (tab === "grid" && result?.addons.length && result.cells.length ? "mobile-grid-view" : "")}
-        id="view" style={stylex.props(styles.results).style}>
-        {renderView()}
-      </div>
-    </main>
-    <footer {...stylex.props(styles.footer)} id="foot">
-      Fares move. Nothing here is a booking. Re-check the airline before paying.
-      Google Flights links open for one adult — set the passenger count on that page.
-    </footer>
-    <div id="overlay" className={activeItinerary ? "open" : ""}
-      onClick={() => setSelection(null)}/>
-    <aside id="panel" className={activeItinerary ? "open" : ""}
-      aria-hidden={!activeItinerary} aria-label="Itinerary details">
-      <div className="ph">
-        <div>
-          <h2 id="pTitle">{activeItinerary ?
-            activeItinerary.origin + " → " + activeItinerary.destination + " " +
-            fmtRange(activeItinerary.outboundDate, activeItinerary.returnDate) +
-            (activeAddon ? " + " + activeAddon.id : "") : "Details"}</h2>
-          <div id="pStatus">
-            {activeCell && <span className={"status s-" + activeCell.status}>
-              {activeCell.status === "ok" ? "Works" :
-                activeCell.status === "catch" ? "Works with a catch" : "Doesn’t work"}
-            </span>}
-          </div>
+  return (
+    <>
+      <header {...stylex.props(styles.header)}>
+        <h1 id="title">{title}</h1>
+        <p id="subtitle">{subtitle}</p>
+        <div className="notes" id="notes" />
+      </header>
+      <main {...stylex.props(styles.main)}>
+        <SearchControls
+          form={form}
+          onChange={changeForm}
+          saved={saved}
+          selectedSaved={selectedSaved}
+          onSavedChange={setSelectedSaved}
+          onOpen={(id) => void openSaved(id)}
+          onEstimate={() => void estimateCalls()}
+          onSearch={() => void runSearch()}
+          onSample={() => void loadSample()}
+          onQuota={() => void checkQuota()}
+          onStorage={() => void checkStorage()}
+          runEnabled={pendingQuery !== null}
+          hostedReadOnly={HOSTED_READ_ONLY}
+          hostedEstimateOnly={HOSTED_ESTIMATE_ONLY}
+          estimate={estimate}
+          estimateError={
+            estimateError ||
+            (HOSTED_READ_ONLY
+              ? HOSTED_ESTIMATE_ONLY
+                ? "Search estimates are available at no cost. Run search and all paid provider calls are still disabled."
+                : "Hosted read-only preview: explore saved flights and filters; live searches and exports are disabled."
+              : "")
+          }
+          statusLines={statusLines}
+        />
+        <div id="banners" />
+        <FilterControls state={filter} onChange={setFilter} result={result} />
+        <div className="summary" id="summary">
+          {result && portals && (
+            <SnapshotOverview
+              result={result}
+              rows={visibleRows}
+              tab={tab}
+              notesTarget={portals.notes}
+              bannersTarget={portals.banners}
+              legendTarget={portals.legend}
+              onSelect={openDetails}
+            />
+          )}
         </div>
-        <button className="close" id="pClose" type="button" aria-label="Close"
-          ref={closeButton} onClick={() => setSelection(null)}>×</button>
-      </div>
-      <div className="pb" id="pBody">
-        {activeItinerary && <DetailsContent it={activeItinerary}
-          addon={activeAddon} cell={activeCell}
-          onVendors={() => void showVendors(activeItinerary)}
-          onTrack={() => void trackItinerary(activeItinerary)}/>}
-      </div>
-    </aside>
-  </>;
+        <div className="legend" id="legend" />
+        <div className="tabs" id="tabs">
+          {(["grid", "itineraries", "matrix", "vendors"] as const).map((choice) => (
+            <button
+              type="button"
+              key={choice}
+              data-tab={choice}
+              className={choice === tab ? "on" : ""}
+              aria-pressed={choice === tab}
+              onClick={() => setTab(choice)}
+            >
+              {choice === "grid"
+                ? "Grid"
+                : choice === "itineraries"
+                  ? "Itineraries"
+                  : choice === "matrix"
+                    ? "Matrix"
+                    : "Vendors"}
+            </button>
+          ))}
+        </div>
+        <div className="actions" id="exportBar">
+          <button
+            type="button"
+            id="btnHtml"
+            disabled={HOSTED_READ_ONLY}
+            onClick={() => void download("html")}
+          >
+            Export HTML
+          </button>
+          <button
+            type="button"
+            id="btnCsv"
+            disabled={HOSTED_READ_ONLY}
+            onClick={() => void download("csv")}
+          >
+            Export CSV
+          </button>
+          <span className="muted" id="fresh">
+            {result?.fetchedAt ? "Data " + result.fetchedAt : ""}
+          </span>
+        </div>
+        <div
+          className={
+            "wrap " +
+            (tab === "grid" && result?.addons.length && result.cells.length
+              ? "mobile-grid-view"
+              : "")
+          }
+          id="view"
+          style={stylex.props(styles.results).style}
+        >
+          {renderView()}
+        </div>
+      </main>
+      <footer {...stylex.props(styles.footer)} id="foot">
+        Fares move. Nothing here is a booking. Re-check the airline before paying. Google Flights
+        links open for one adult — set the passenger count on that page.
+      </footer>
+      <div
+        id="overlay"
+        className={activeItinerary ? "open" : ""}
+        onClick={() => setSelection(null)}
+      />
+      <aside
+        id="panel"
+        className={activeItinerary ? "open" : ""}
+        aria-hidden={!activeItinerary}
+        aria-label="Itinerary details"
+      >
+        <div className="ph">
+          <div>
+            <h2 id="pTitle">
+              {activeItinerary
+                ? activeItinerary.origin +
+                  " → " +
+                  activeItinerary.destination +
+                  " " +
+                  fmtRange(activeItinerary.outboundDate, activeItinerary.returnDate) +
+                  (activeAddon ? " + " + activeAddon.id : "")
+                : "Details"}
+            </h2>
+            <div id="pStatus">
+              {activeCell && (
+                <span className={"status s-" + activeCell.status}>
+                  {activeCell.status === "ok"
+                    ? "Works"
+                    : activeCell.status === "catch"
+                      ? "Works with a catch"
+                      : "Doesn’t work"}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            className="close"
+            id="pClose"
+            type="button"
+            aria-label="Close"
+            ref={closeButton}
+            onClick={() => setSelection(null)}
+          >
+            ×
+          </button>
+        </div>
+        <div className="pb" id="pBody">
+          {activeItinerary && (
+            <DetailsContent
+              it={activeItinerary}
+              addon={activeAddon}
+              cell={activeCell}
+              onVendors={() => void showVendors(activeItinerary)}
+              onTrack={() => void trackItinerary(activeItinerary)}
+            />
+          )}
+        </div>
+      </aside>
+    </>
+  );
 }
