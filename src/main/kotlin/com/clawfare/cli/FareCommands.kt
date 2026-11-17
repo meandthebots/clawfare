@@ -8,6 +8,7 @@ import com.clawfare.search.BatchConfig
 import com.clawfare.search.BatchSweep
 import com.clawfare.search.DuffelProvider
 import com.clawfare.search.Export
+import com.clawfare.search.ExportPrivacy
 import com.clawfare.search.FareStore
 import com.clawfare.search.FareWatch
 import com.clawfare.search.FxRateStore
@@ -694,7 +695,7 @@ class ReportCommand : Callable<Int> {
     }
 }
 
-@Command(name = "json", description = ["Export flights as JSON"])
+@Command(name = "json", description = ["Private re-importable JSON export; requires explicit diagnostic opt-in"])
 class ReportJsonCommand : Callable<Int> {
     @ParentCommand
     lateinit var parent: ReportCommand
@@ -702,8 +703,16 @@ class ReportJsonCommand : Callable<Int> {
     @Parameters(index = "0")
     lateinit var slug: String
 
+    @Option(names = ["--private-diagnostic"], description = ["Explicitly include booking URLs, notes and refund evidence in private re-importable JSON"])
+    var privateDiagnostic: Boolean = false
+
     override fun call(): Int {
+        if (!privateDiagnostic) {
+            System.err.println("JSON flight exports are re-importable private diagnostics. Specify --private-diagnostic to proceed; never post this output publicly.")
+            return 2
+        }
         parent.parent.ensureDb()
+        warnPrivateDiagnosticExport()
         println(JsonExporter.exportByInvestigation(slug))
         return 0
     }
@@ -748,7 +757,7 @@ class ReportTopCommand : Callable<Int> {
     }
 }
 
-@Command(name = "html", description = ["Self-contained HTML snapshot of the filtered view"])
+@Command(name = "html", description = ["Token-safe standalone HTML snapshot by default"])
 class ReportHtmlCommand : Callable<Int> {
     @ParentCommand
     lateinit var parent: ReportCommand
@@ -759,6 +768,9 @@ class ReportHtmlCommand : Callable<Int> {
     @Option(names = ["--out"], required = true, description = ["Output file"])
     lateinit var out: String
 
+    @Option(names = ["--private-diagnostic"], description = ["Keep private booking links, notes and seller proof in local HTML"])
+    var privateDiagnostic: Boolean = false
+
     override fun call(): Int {
         parent.parent.ensureDb()
         val result = FareStore.project(slug)
@@ -766,7 +778,9 @@ class ReportHtmlCommand : Callable<Int> {
             Output.error("Investigation '$slug' was not found")
             return 1
         }
-        val html = Export.html(Server.page(), result.copy(suggestedFilters = result.suggestedFilters))
+        if (privateDiagnostic) warnPrivateDiagnosticExport()
+        val privacy = if (privateDiagnostic) ExportPrivacy.PRIVATE_DIAGNOSTIC else ExportPrivacy.SHARE_SAFE
+        val html = Export.html(Server.page(), result.copy(suggestedFilters = result.suggestedFilters), privacy)
         File(out).writeText(html)
         println("Wrote $out")
         return 0
@@ -793,6 +807,9 @@ class ReportCsvCommand : Callable<Int> {
     @Option(names = ["--nonstop"])
     var nonstop: Boolean = false
 
+    @Option(names = ["--private-diagnostic"], description = ["Keep private booking links and notes in local CSV"])
+    var privateDiagnostic: Boolean = false
+
     override fun call(): Int {
         parent.parent.ensureDb()
         val result = FareStore.project(slug)
@@ -805,11 +822,18 @@ class ReportCsvCommand : Callable<Int> {
                 maxStops = maxStops ?: result.suggestedFilters.maxStops,
                 nonstopOnly = nonstop || result.suggestedFilters.nonstopOnly,
             )
-        val csv = if (vendors) Export.vendorCsv(result) else Export.itineraryCsv(result, filters)
+        if (privateDiagnostic) warnPrivateDiagnosticExport()
+        val privacy = if (privateDiagnostic) ExportPrivacy.PRIVATE_DIAGNOSTIC else ExportPrivacy.SHARE_SAFE
+        val csv = if (vendors) Export.vendorCsv(result, privacy) else Export.itineraryCsv(result, filters, privacy)
         File(out).writeText(csv)
         println("Wrote $out")
         return 0
     }
+}
+
+/** Diagnostic exports may contain personal travel history and opaque replay tokens. */
+private fun warnPrivateDiagnosticExport() {
+    System.err.println("WARNING: private diagnostic export may contain personal trip data, provider tokens, booking URLs and seller evidence. Keep it on a private, access-controlled disk.")
 }
 
 private fun queryFrom(command: FareEstimateCommand): SearchQuery =
