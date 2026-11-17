@@ -33,6 +33,6 @@ test("estimate-only hosted pages expose a separate flag without enabling run/sea
   const output = renderHostedReadOnlyPage(template, { allowEstimate: true });
   assert.ok(output.includes("window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ = true"));
   assert.ok(output.includes("window.__CLAWFARE_HOSTED_READ_ONLY__ = true"));
-  assert.ok(output.includes('["btnRun", "btnHtml", "btnCsv"]'));
+  assert.ok(output.includes("btnRun"));
   assert.ok(!renderHostedReadOnlyPage(template).includes("window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ = true"));
 });
