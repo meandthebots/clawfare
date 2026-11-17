@@ -74,7 +74,7 @@
         },
         "x-runtime": "jvm",
         "x-kotlin-request": "Unit",
-        "x-kotlin-response": "com.clawfare.search.ResultSet"
+        "x-kotlin-response": "Map<String, String>"
       }
     },
     "/api/status": {
@@ -1037,7 +1037,7 @@
         },
         "x-runtime": "jvm",
         "x-kotlin-request": "com.clawfare.search.TrackRequest",
-        "x-kotlin-response": "Any"
+        "x-kotlin-response": "String"
       }
     },
     "/api/export/html": {
