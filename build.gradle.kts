@@ -61,7 +61,6 @@ kover {
                     "com.clawfare.cli.FlightDeleteCommand",
                     "com.clawfare.cli.FlightExportTasksCommand",
                     "com.clawfare.cli.FlightHistoryCommand",
-                    "com.clawfare.cli.FlightImportDbCommand",
                     "com.clawfare.cli.FlightImportResultsCommand",
                     "com.clawfare.cli.FlightListCommand",
                     "com.clawfare.cli.FlightMarkStaleCommand",

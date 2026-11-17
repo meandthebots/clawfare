@@ -23,6 +23,7 @@ import xml.etree.ElementTree as ET
 # They appear in BOTH XML reports, and no one may re-exempt them silently.
 RETIRED_CLI_EXEMPTIONS: tuple[str, ...] = (
     "com.clawfare.cli.FlightImportCommand",
+    "com.clawfare.cli.FlightImportDbCommand",
     "com.clawfare.cli.FlightPriceCommand",
 )
 MIN_RETIRED_COVERAGE_PERCENT = 80

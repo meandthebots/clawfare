@@ -52,20 +52,23 @@ metrics as the `legacy-cli-unfiltered-coverage` artifact.
 
 ## Retired CLI exemptions (issue #23 follow-up)
 
-The initial unfiltered audit from PR #104 identified two historical exceptions
-that already exceeded **80% in both LINE and BRANCH coverage**:
+The initial unfiltered audit in PR #104 identified two sufficiently covered
+commands. PR #118's new SQLite import regression tests subsequently brought
+a third command above the same **80% LINE and BRANCH** thresholds:
 
 | Command | Baseline lines | Baseline branches |
 | --- | ---: | ---: |
 | `FlightImportCommand` | 91.2% | 80.8% |
+| `FlightImportDbCommand` | 95.4% | 84.7% |
 | `FlightPriceCommand` | 86.7% | 81.0% |
 
-Their exact-class entries have been **removed** from Kover's exclusion list.
-The exclusion count decreases from 35 to 33. Both are now present in the
-ordinary gated XML and counted toward the existing aggregate 80% requirement.
+Their exact-class entries have been **removed** from Kover's exclusion list:
+PR #105 reduced the count from 35 to 33, and PR #118 reduces it further
+to **32**. All three are now present in the ordinary gated XML and counted
+toward the existing aggregate 80% requirement.
 The audit's `RETIRED_CLI_EXEMPTIONS` list additionally enforces a per-class
 minimum of **80% LINE and 80% BRANCH** for each retired command and fails if
-either class is missing from the gated report, relisted as excluded, or falls
+any retired class is missing from the gated report, relisted as excluded, or falls
 below either threshold. Percentage comparisons use integer counts to avoid
 rounding a 79.99% result up to 80%.
 
@@ -73,6 +76,42 @@ When another CLI exception becomes sufficiently covered, remove it from the
 Kover exclusions **and** append it to `RETIRED_CLI_EXEMPTIONS`; CI will enforce
 the resulting ratchet. These percentages come from synthetic JVM unit tests,
 not live-provider API calls.
+
+## Legacy CLI database-import regression suite
+
+`FlightImportDbRegressionTest` exercises `flight import-db` against **two
+disposable SQLite databases**. Its synthetic source deliberately resembles an
+older export: optional columns such as `flight_source` and price
+`source_url` may be absent. The tests cover:
+
+- `--dry-run` and an unmatched `--investigation` filter leaving the target
+  unchanged, and missing-source rejection before creating records.
+- Selective investigation import with complete flight and **historical price**
+  preservation, including EUR amount/currency, market, source and timestamp.
+- Re-imports that deduplicate existing price timestamps but add newly observed
+  prices, without duplicating flights or investigations.
+- `--skip-prices` on new and previously imported flights, a first-import
+  flight-price fallback when the source has no price-history rows, and both
+  legacy and renamed flight-source column forms.
+- Source URLs that fall back to the legacy booking link **only when** a
+  per-observation URL is missing.
+- Existing-flight dry runs, duplicate booking links with different flight IDs,
+  zero-price/no-history records, null legacy field defaults, and the blank
+  source-path rejection branch.
+
+Run the isolated suite with:
+
+```sh
+./gradlew test --tests "com.clawfare.cli.FlightImportDbRegressionTest"
+```
+
+No provider endpoints are contacted; every booking URL is under
+`example.invalid`. This raises `FlightImportDbCommand` to **95.4% LINE / 84.7% BRANCH**
+coverage (GitHub Actions, 2026-11-17). Its exclusion has been retired and
+is subject to the existing per-class 80% regression gate. These tests do
+not yet verify
+transactional rollback for a partially failing `import-db` command, which
+remains follow-up work under #23.
 
 This is a measured starting point, **not completion of issue #23**.
 Next: increase coverage of individual existing `Inv*`, `Flight*` and
