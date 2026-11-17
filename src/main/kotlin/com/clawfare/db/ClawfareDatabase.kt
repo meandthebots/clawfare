@@ -71,7 +71,7 @@ object ClawfareDatabase {
                 FileChannel.open(lockFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE).use { channel ->
                     channel.lock().use {
                         if (dbFile.exists() && dbFile.length() > 0 && schemaVersion(jdbcUrl) < SCHEMA_VERSION) {
-                            snapshotBeforeMigration(jdbcUrl, dbFile)
+                            SqliteMigrationSnapshots.beforeMigration(jdbcUrl, dbFile)
                         }
                         createTables()
                         runMigrations()
@@ -102,22 +102,6 @@ object ClawfareDatabase {
         }
     }
 
-    /**
-     * SQLite's online VACUUM INTO snapshot is consistent even for WAL databases.
-     * A previous-version backup is retained for recovery rather than overwritten.
-     */
-    private fun snapshotBeforeMigration(
-        jdbcUrl: String,
-        source: File,
-    ) {
-        val backup = File(source.absolutePath + ".backup-" + System.currentTimeMillis() + ".sqlite")
-        val safePath = backup.absolutePath.replace("'", "''")
-        DriverManager.getConnection(jdbcUrl).use { connection ->
-            connection.createStatement().use { statement ->
-                statement.execute("VACUUM INTO '$safePath'")
-            }
-        }
-    }
 
     /**
      * Connect to an in-memory SQLite database.
