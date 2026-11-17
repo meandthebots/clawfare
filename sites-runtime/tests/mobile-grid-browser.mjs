@@ -54,6 +54,9 @@ try {
   assert.ok((await mobile.locator("#pTitle").textContent()).includes(" + " + addonId),
     "Tapping a Mexico add-on must open the selected combination");
   assert.match(await mobile.locator("#pBody").textContent(), /Price/);
+  assert.match(await mobile.locator("#pBody").textContent(), /Cancellation \/ refund evidence/);
+  assert.ok(await mobile.locator("#btnVendorsFor").isVisible(),
+    "React details drawer must retain the seller comparison action");
   await mobile.close();
 
   const desktop = await browser.newPage({ viewport: { width: 1440, height: 900 } });
