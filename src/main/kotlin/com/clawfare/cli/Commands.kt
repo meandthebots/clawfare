@@ -3509,10 +3509,6 @@ class FlightImportResultsCommand : Callable<Int> {
     }
 }
 
-/**
- * Import data from another clawfare database file.
- * Merges investigations, flights, and price history.
- */
 // ============================================================================
 // Import Data Structure
 // ============================================================================
