@@ -83,9 +83,9 @@ function SummaryCard({
     <button type="button" {...stylex.props(styles.cardButton)}
       aria-label={label + ": " + gbp(hit.total) + ". View " + title}
       onClick={() => onSelect(hit.it.id, hit.addon?.id ?? "LH")}>
-      <span className="k">{label}</span>
-      <span className="v">{gbp(hit.total)}</span>
-      <span className="d">{title}</span>
+      <div className="k">{label}</div>
+      <div className="v">{gbp(hit.total)}</div>
+      <div className="d">{title}</div>
     </button>
   </div>;
 }
