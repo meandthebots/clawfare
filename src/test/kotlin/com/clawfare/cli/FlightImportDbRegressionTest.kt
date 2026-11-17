@@ -27,7 +27,9 @@ class FlightImportDbRegressionTest {
 
     private lateinit var target: Path
 
-    private enum class SourceFlightColumn(val sqlName: String) {
+    private enum class SourceFlightColumn(
+        val sqlName: String,
+    ) {
         Legacy("source"),
         Renamed("flight_source"),
     }
@@ -43,8 +45,7 @@ class FlightImportDbRegressionTest {
         ClawfareDatabase.dropTables()
     }
 
-    private fun execute(vararg args: String): Int =
-        CommandLine(ClawfareCommand()).execute("flight", "import-db", *args)
+    private fun execute(vararg args: String): Int = CommandLine(ClawfareCommand()).execute("flight", "import-db", *args)
 
     /**
      * Deliberately omit newer optional columns from the *source* tables.
@@ -98,8 +99,9 @@ class FlightImportDbRegressionTest {
                     """.trimIndent(),
                 )
                 for (slug in listOf("fixture-alpha", "fixture-beta")) {
-                    connection.prepareStatement(
-                        """
+                    connection
+                        .prepareStatement(
+                            """
                         INSERT INTO investigations (
                             slug, origin, destination, depart_start, depart_end,
                             cabin_class, max_stops, created_at, updated_at
@@ -115,8 +117,9 @@ class FlightImportDbRegressionTest {
                     Triple("flight-alpha", "fixture-alpha", 120.0),
                     Triple("flight-beta", "fixture-beta", 220.0),
                 )) {
-                    connection.prepareStatement(
-                        """
+                    connection
+                        .prepareStatement(
+                            """
                         INSERT INTO flights (
                             id, investigation_slug, share_link, ${sourceFlightColumn.sqlName},
                             trip_type, ticket_structure, price_amount,
@@ -259,10 +262,11 @@ class FlightImportDbRegressionTest {
 
     @Test
     fun renamedFlightSourceAndExplicitPriceUrlAreParsedWithoutLosingFallback() {
-        val source = source(
-            hasSourceUrl = true,
-            sourceFlightColumn = SourceFlightColumn.Renamed,
-        )
+        val source =
+            source(
+                hasSourceUrl = true,
+                sourceFlightColumn = SourceFlightColumn.Renamed,
+            )
         assertEquals(0, execute(source.toString(), "--investigation", "fixture-alpha"))
         val flight = assertNotNull(FlightQueries.getById("flight-alpha"))
         assertEquals("fixture-agent", flight.source)
