@@ -217,6 +217,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
       <button type="button" class="primary" id="btnRun" disabled>Run search</button>
       <button type="button" id="btnSample">Load Florida sample</button>
       <button type="button" id="btnQuota">Check quota</button>
+      <button type="button" id="btnStorage" title="Check the persisted public sample row in hosted D1">Check storage</button>
       <label class="muted">Investigations <select id="saved"><option value="">—</option></select></label>
       <button type="button" id="btnOpen">Open</button>
     </div>
@@ -1272,6 +1273,23 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
         var rem = q.remaining == null ? "" : (" · " + q.remaining + " left" + (q.limit != null ? " of " + q.limit : ""));
         return "<div><b>" + esc(q.provider) + "</b>" + (q.configured ? " configured" : " not configured") + esc(rem) + (q.note ? " — " + esc(q.note) : "") + "</div>";
       }).join("");
+    });
+  });
+  $("btnStorage").addEventListener("click", function () {
+    $("statusLine").textContent = "Checking D1 public sample record…";
+    api("/api/storage").then(function (res) {
+      if (res.status !== 200) {
+        $("statusLine").textContent = (res.body && res.body.error) || "D1 storage check failed.";
+        return;
+      }
+      var data = res.body || {};
+      $("statusLine").textContent = data.sampleStored
+        ? "D1 sample stored since " + data.firstImportedAt +
+          " · verified SHA-256 " + String(data.sha256 || "").slice(0, 16) +
+          "… (compare this timestamp after reloading)."
+        : "No sample row in D1 yet. Load the public Florida sample, then check again.";
+    }).catch(function () {
+      $("statusLine").textContent = "D1 storage check could not be completed.";
     });
   });
   var invList = $("invList");
