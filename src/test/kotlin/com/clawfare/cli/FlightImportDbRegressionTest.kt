@@ -283,4 +283,102 @@ class FlightImportDbRegressionTest {
         assertTrue(InvestigationQueries.listAll().isEmpty())
         assertTrue(FlightQueries.listByInvestigation("fixture-alpha").isEmpty())
     }
+    @Test
+    fun dryRunAgainstExistingFlightLeavesNewPriceUnwritten() {
+        val source = source()
+        assertEquals(0, execute(source.toString(), "--investigation", "fixture-alpha"))
+        addNewObservation(source)
+
+        assertEquals(0, execute(source.toString(), "--investigation", "fixture-alpha", "--dry-run"))
+        assertEquals(2, PriceHistoryQueries.getByFlightId("flight-alpha").size)
+        assertEquals(1, FlightQueries.listByInvestigation("fixture-alpha").size)
+
+        assertEquals(0, execute(source.toString(), "--investigation", "fixture-alpha"))
+        assertEquals(3, PriceHistoryQueries.getByFlightId("flight-alpha").size)
+    }
+
+    @Test
+    fun zeroPricedLegacyFlightWithoutHistoryDoesNotFabricateAQuote() {
+        val source = source()
+        DriverManager.getConnection("jdbc:sqlite:$source").use { connection ->
+            connection.createStatement().use { sql ->
+                sql.execute("DELETE FROM price_history WHERE flight_id = 'flight-alpha'")
+                sql.execute("UPDATE flights SET price_amount = 0 WHERE id = 'flight-alpha'")
+            }
+        }
+
+        assertEquals(0, execute(source.toString(), "--investigation", "fixture-alpha"))
+        assertNotNull(FlightQueries.getById("flight-alpha"))
+        assertTrue(PriceHistoryQueries.getByFlightId("flight-alpha").isEmpty())
+    }
+
+    @Test
+    fun duplicateBookingLinkWithDifferentFlightIdDoesNotImportAnotherFlight() {
+        val source = source()
+        assertEquals(0, execute(source.toString(), "--investigation", "fixture-alpha"))
+        DriverManager.getConnection("jdbc:sqlite:$source").use { connection ->
+            connection.createStatement().use { sql ->
+                sql.execute(
+                    """
+                    INSERT INTO flights (
+                        id, investigation_slug, share_link, source,
+                        trip_type, ticket_structure, price_amount, price_currency,
+                        price_market, price_checked_at, origin, destination,
+                        outbound_json, captured_at
+                    )
+                    SELECT 'flight-alias', investigation_slug, share_link, source,
+                           trip_type, ticket_structure, price_amount, price_currency,
+                           price_market, price_checked_at, origin, destination,
+                           outbound_json, captured_at
+                    FROM flights WHERE id = 'flight-alpha'
+                    """.trimIndent(),
+                )
+            }
+        }
+
+        assertEquals(0, execute(source.toString(), "--investigation", "fixture-alpha"))
+        assertNull(FlightQueries.getById("flight-alias"))
+        assertEquals(1, FlightQueries.listByInvestigation("fixture-alpha").size)
+        assertEquals(2, PriceHistoryQueries.getByFlightId("flight-alpha").size)
+    }
+
+    @Test
+    fun optionalLegacyFieldsAreReadWhenPresentInsteadOfDefaulted() {
+        val source =
+            source(
+                hasSourceUrl = true,
+                sourceFlightColumn = SourceFlightColumn.Renamed,
+            )
+        DriverManager.getConnection("jdbc:sqlite:$source").use { connection ->
+            connection.createStatement().use { sql ->
+                sql.execute("ALTER TABLE flights ADD COLUMN cabin_mixed INTEGER")
+                sql.execute("ALTER TABLE flights ADD COLUMN stale INTEGER")
+                sql.execute("ALTER TABLE flights ADD COLUMN booking_class TEXT")
+                sql.execute("ALTER TABLE flights ADD COLUMN fare_brand TEXT")
+                sql.execute("ALTER TABLE flights ADD COLUMN notes TEXT")
+                sql.execute("ALTER TABLE flights ADD COLUMN tags TEXT")
+                sql.execute(
+                    """
+                    UPDATE flights SET cabin_mixed = 1, stale = 1,
+                        booking_class = 'D', fare_brand = 'Synthetic Flex',
+                        notes = 'fixture note', tags = 'fixture tag'
+                    WHERE id = 'flight-alpha'
+                    """.trimIndent(),
+                )
+                sql.execute("ALTER TABLE price_history ADD COLUMN price_source TEXT")
+                sql.execute("UPDATE price_history SET price_source = 'price-source-field'")
+            }
+        }
+        assertEquals(0, execute(source.toString(), "--investigation", "fixture-alpha"))
+
+        val flight = assertNotNull(FlightQueries.getById("flight-alpha"))
+        assertTrue(flight.cabinMixed)
+        assertTrue(flight.stale)
+        assertEquals("D", flight.bookingClass)
+        assertEquals("Synthetic Flex", flight.fareBrand)
+        assertEquals("fixture note", flight.notes)
+        assertEquals("fixture tag", flight.tags)
+        assertTrue(PriceHistoryQueries.getByFlightId(flight.id).all { it.source == "price-source-field" })
+    }
+
 }
