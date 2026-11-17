@@ -6,7 +6,9 @@ on:
     paths:
       - 'sites-runtime/**'
       - 'fare-core/**'
-      - 'web/**'\n      - 'build.gradle.kts'\n      - 'scripts/verify-web-bundle.mjs'
+      - 'web/**'
+      - 'build.gradle.kts'
+      - 'scripts/verify-web-bundle.mjs'
       - 'src/main/kotlin/com/clawfare/search/**'
       - 'src/main/kotlin/com/clawfare/cli/FareCommands.kt'
       - 'scripts/build-sites-preview.sh'
