@@ -72,8 +72,7 @@ class ServerTest {
             // DNS rebinding is a read-path threat too: a third-party page
             // could otherwise access our API under an attacker-owned hostname.
             // Supplying a trusted X-Forwarded-Host must not override the Host gate.
-            for (
-                path in
+            val readPaths =
                 listOf(
                     "/",
                     "/api/status",
@@ -85,7 +84,7 @@ class ServerTest {
                     "/api/session",
                     "/favicon.ico",
                 )
-            ) {
+            for (path in readPaths) {
                 for (host in listOf("attacker.example:8080", "127.0.0.1.attacker.example:8080")) {
                     val rebound =
                         client.get(path) {
