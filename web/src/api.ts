@@ -11,7 +11,11 @@ import type {
   TrackRequest,
 } from "./domain.ts";
 import { isEstimate, isQuotaList, isRecord, isResultSet, isSavedList } from "./domain.ts";
-import { createGeneratedClient, type ApiRoute, type ExportRoute } from "./generated/openapi-client.ts";
+import {
+  createGeneratedClient,
+  type ApiRoute,
+  type ExportRoute,
+} from "./generated/openapi-client.ts";
 
 /**
  * Hosted Sites auth is handled by the trusted ingress. In hosted mode we must
@@ -183,12 +187,10 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     async estimate(query: SearchQuery) {
       return decode(await generated.estimate(query), isEstimate);
     },
-    saveSearch: (query: SearchQuery, consent: string | null) =>
-      generated.search(query, consent),
+    saveSearch: (query: SearchQuery, consent: string | null) => generated.search(query, consent),
     vendors: (id: string, payload: VendorRequest, consent?: string | null) =>
       generated.vendors(id, payload, consent),
-    track: (id: string, payload: TrackRequest) =>
-      generated.track(id, payload),
+    track: (id: string, payload: TrackRequest) => generated.track(id, payload),
     download,
   });
 }
