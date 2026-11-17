@@ -102,7 +102,6 @@ object ClawfareDatabase {
         }
     }
 
-
     /**
      * Connect to an in-memory SQLite database.
      * Uses a temp file to ensure tables persist across connections.
