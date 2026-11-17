@@ -37,7 +37,7 @@ const client = createClawfareClient({
 const styles = stylex.create({
   header: {
     boxShadow: "0 2px 12px rgba(16, 24, 40, 0.08)",
-    backgroundImage: "linear-gradient(135deg, #1e3a8a, #3e5bd8 60%, #0ea5e9)",
+    backgroundImage: "var(--header-gradient)",
     color: "#fff",
     paddingTop: "22px",
     paddingBottom: "18px",
@@ -87,7 +87,7 @@ const styles = stylex.create({
     height: "100%",
     width: { default: "min(580px, 100%)", "@media (max-width: 760px)": "100%" },
     maxWidth: "100%",
-    backgroundColor: "#fff",
+    backgroundColor: "var(--card)",
     zIndex: 21,
     boxShadow: "-8px 0 30px rgba(0,0,0,0.18)",
     transform: "translateX(105%)",
@@ -108,13 +108,13 @@ const styles = stylex.create({
     gap: "10px",
     position: "sticky",
     top: 0,
-    backgroundColor: "#fff",
+    backgroundColor: "var(--card)",
     zIndex: 2,
   },
   panelTitle: { margin: 0, fontSize: "18px" },
   panelClose: {
     border: 0,
-    backgroundColor: "#f2f4f7",
+    backgroundColor: "var(--neutral-bg)",
     width: "32px",
     height: "32px",
     fontSize: "18px",
@@ -222,6 +222,9 @@ export function App() {
   );
   const [form, setForm] = useState<SearchForm>({ ...INITIAL_SEARCH });
   const [tab, setTab] = useState<ResultsTab>(() => defaultTab(snapshot));
+  const [theme, setTheme] = useState<"dark" | "light">(() =>
+    document.documentElement.dataset.theme === "light" ? "light" : "dark",
+  );
   const [selection, setSelection] = useState<Selection | null>(null);
   const [saved, setSaved] = useState<SavedInvestigation[]>([]);
   const [selectedSaved, setSelectedSaved] = useState("");
@@ -233,6 +236,17 @@ export function App() {
   const [portals, setPortals] = useState<PortalTargets | null>(null);
   const closeButton = useRef<HTMLButtonElement | null>(null);
   const formerFocus = useRef<HTMLElement | null>(null);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    setTheme(next);
+    try {
+      localStorage.setItem("clawfare-theme", next);
+    } catch {
+      // Local storage is optional (e.g. browser privacy settings / file previews).
+    }
+  };
 
   const acceptResult = useCallback((data: ResultSet) => {
     setResult(hydratedResult(data));
@@ -633,9 +647,21 @@ export function App() {
   return (
     <>
       <header {...stylex.props(styles.header)}>
-        <h1 id="title" {...stylex.props(styles.heading)}>
-          {title}
-        </h1>
+        <div className="heading-row">
+          <h1 id="title" {...stylex.props(styles.heading)}>
+            {title}
+          </h1>
+          <button
+            id="themeToggle"
+            className="theme-toggle"
+            type="button"
+            aria-label="Dark mode"
+            aria-pressed={theme === "dark"}
+            onClick={toggleTheme}
+          >
+            {theme === "dark" ? "☾ Dark" : "☀ Light"}
+          </button>
+        </div>
         <p id="subtitle" {...stylex.props(styles.subtitle)}>
           {subtitle}
         </p>
