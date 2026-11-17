@@ -147,8 +147,12 @@ paths should reside in a restricted user-owned directory. These files are
    again, creating a **new** backup. Check investigations, price history and
    error logs before considering recovery complete.
 
-There is **no automatic live restore** command yet, no encrypted backup
-format, and no tested disaster-recovery guarantee across operating systems.
+There is **no automatic live restore** command and no complete
+disaster-recovery guarantee across operating systems. An opt-in,
+AES-GCM encrypted, WAL-consistent SQLite-only archive and
+restore-into-a-**new-file** workflow is available with `clawfare db backup`
+and `clawfare db restore`; see [ENCRYPTED-RECOVERY.md](ENCRYPTED-RECOVERY.md).
+It does not include budget/alert/audit journals or replace existing databases.
 Store off-host copies securely; restoring a prior snapshot intentionally
 loses writes committed after its capture.
 
