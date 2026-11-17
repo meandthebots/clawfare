@@ -66,10 +66,11 @@ class ServerTest {
             val favicon = client.get("/favicon.ico") { header("Host", "127.0.0.1:8080") }
             assertEquals(HttpStatusCode.NoContent, favicon.status)
 
-            val quota = client.get("/api/quota") { header("Host", "127.0.0.1:8080") }
-            assertEquals(HttpStatusCode.OK, quota.status)
-            assertTrue(quota.bodyAsText().contains("serpapi"))
-            assertFalse(quota.bodyAsText().contains("api_key"))
+            // The quota endpoint may contact providers, so it must not be
+            // triggerable by a cross-origin image/navigation GET.
+            val unauthenticatedQuota = client.get("/api/quota") { header("Host", "127.0.0.1:8080") }
+            assertEquals(HttpStatusCode.Forbidden, unauthenticatedQuota.status)
+            assertFalse(unauthenticatedQuota.bodyAsText().contains("serpapi"))
 
             // DNS rebinding is a read-path threat too: a third-party page
             // could otherwise access our API under an attacker-owned hostname.
@@ -106,6 +107,40 @@ class ServerTest {
             val sessionToken =
                 Regex(""""token":"([^"]+)"""").find(session.bodyAsText())?.groupValues?.get(1)
                     ?: error("No local session token")
+
+            val forgedQuota =
+                client.get("/api/quota") {
+                    header("Host", "127.0.0.1:8080")
+                    header("X-Clawfare-Session", "incorrect-token")
+                }
+            assertEquals(HttpStatusCode.Forbidden, forgedQuota.status)
+
+            val crossOriginQuota =
+                client.get("/api/quota") {
+                    header("Host", "127.0.0.1:8080")
+                    header("Origin", "https://outside.example")
+                    header("X-Clawfare-Session", sessionToken)
+                }
+            assertEquals(HttpStatusCode.Forbidden, crossOriginQuota.status)
+
+            val quota =
+                client.get("/api/quota") {
+                    header("Host", "127.0.0.1:8080")
+                    header("X-Clawfare-Session", sessionToken)
+                }
+            assertEquals(HttpStatusCode.OK, quota.status)
+            assertTrue(quota.bodyAsText().contains("serpapi"))
+            assertFalse(quota.bodyAsText().contains("api_key"))
+            assertEquals("no-store", quota.headers["Cache-Control"])
+
+            val repeatedQuota =
+                client.get("/api/quota") {
+                    header("Host", "127.0.0.1:8080")
+                    header("X-Clawfare-Session", sessionToken)
+                }
+            assertEquals(HttpStatusCode.TooManyRequests, repeatedQuota.status)
+            assertEquals("30", repeatedQuota.headers["Retry-After"])
+            assertEquals("no-store", repeatedQuota.headers["Cache-Control"])
 
             // Body enforcement must inspect actual bytes, not just the optional
             // Content-Length header. The query cap is lower than the export cap.

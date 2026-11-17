@@ -209,6 +209,23 @@ fun Application.clawfareModule() {
             )
         }
         api.get(GetEndpoints.getQuota) {
+            if (!local.acceptsSession(call)) {
+                denied(call, "A same-origin local session is required for quota inspection.")
+                return@get
+            }
+            // Quota introspection can contact external provider APIs. It must
+            // never be triggered by a cross-origin image/navigation GET, and
+            // repeated requests from a valid session are throttled.
+            call.response.header(HttpHeaders.CacheControl, "no-store")
+            if (!local.tryBeginQuotaCheck()) {
+                call.response.header(HttpHeaders.RetryAfter, LocalAccess.QUOTA_CHECK_COOLDOWN_SECONDS.toString())
+                call.respondText(
+                    """{"error":"Quota inspection rate limit exceeded."}""",
+                    ContentType.Application.Json,
+                    HttpStatusCode.TooManyRequests,
+                )
+                return@get
+            }
             val views = withContext(Dispatchers.IO) { providersFromEnv().map { it.quota() } }
             call.respond(views)
         }

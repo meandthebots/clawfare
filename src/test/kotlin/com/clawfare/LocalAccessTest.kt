@@ -3,6 +3,9 @@ package com.clawfare
 import com.clawfare.web.LocalAccess
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -33,5 +36,38 @@ class LocalAccessTest {
         val expired = access.issueConsent("search", "any")
         now = now.plusSeconds(601)
         assertFalse(access.consumeConsent(expired, "search", "any"))
+    }
+
+    @Test
+    fun quotaInspectionThrottleHonorsCooldown() {
+        var now = Instant.parse("2026-11-17T05:00:00Z")
+        val access = LocalAccess { now }
+
+        assertTrue(access.tryBeginQuotaCheck())
+        assertFalse(access.tryBeginQuotaCheck())
+        now = now.plusSeconds(LocalAccess.QUOTA_CHECK_COOLDOWN_SECONDS - 1)
+        assertFalse(access.tryBeginQuotaCheck())
+        now = now.plusSeconds(1)
+        assertTrue(access.tryBeginQuotaCheck())
+    }
+
+    @Test
+    fun concurrentQuotaChecksAllowOnlyOne() {
+        val access = LocalAccess { Instant.parse("2026-11-17T05:00:00Z") }
+        val start = CountDownLatch(1)
+        val pool = Executors.newFixedThreadPool(8)
+        try {
+            val attempts =
+                (1..16).map {
+                    pool.submit<Boolean> {
+                        start.await()
+                        access.tryBeginQuotaCheck()
+                    }
+                }
+            start.countDown()
+            assertEquals(1, attempts.count { it.get() })
+        } finally {
+            pool.shutdownNow()
+        }
     }
 }
