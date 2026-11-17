@@ -48,7 +48,28 @@ try {
   await page.locator("#tabs button[data-tab='vendors']").click();
   await page.waitForSelector("#vendors textarea.noteedit");
   await page.locator("#vendors textarea.noteedit").first().fill("Offline test note");
+  const vendorDownloadPromise = page.waitForEvent("download");
+  await page.locator("#btnCsv").click();
+  const vendorDownload = await vendorDownloadPromise;
+  assert.equal(vendorDownload.suggestedFilename(), "guest-vendors.csv");
+  const vendorChunks = [];
+  for await (const chunk of await vendorDownload.createReadStream()) vendorChunks.push(Buffer.from(chunk));
+  const vendorCsv = Buffer.concat(vendorChunks).toString("utf8");
+  assert.match(vendorCsv, /Guest Air Direct/);
+  assert.match(vendorCsv, /Offline test note/);
+  assert.doesNotMatch(vendorCsv, /guest-lh-1/);
+
   await page.locator("#tabs button[data-tab='itineraries']").click();
+  await page.locator("#originSeg button").filter({ hasText: /^LHR$/ }).click();
+  const flightDownloadPromise = page.waitForEvent("download");
+  await page.locator("#btnCsv").click();
+  const flightDownload = await flightDownloadPromise;
+  assert.equal(flightDownload.suggestedFilename(), "guest-itineraries.csv");
+  const flightChunks = [];
+  for await (const chunk of await flightDownload.createReadStream()) flightChunks.push(Buffer.from(chunk));
+  const flightCsv = Buffer.concat(flightChunks).toString("utf8");
+  assert.match(flightCsv, /guest-lh-1/);
+  assert.doesNotMatch(flightCsv, /guest-lh-2/);
   await page.waitForSelector("#itineraries button[aria-label^='View details']");
   await page.locator("#itineraries button[aria-label^='View details']").first().click();
   assert.equal(await page.locator("#panel").getAttribute("aria-hidden"), "false");
