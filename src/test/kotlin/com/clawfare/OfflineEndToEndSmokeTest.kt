@@ -20,6 +20,7 @@ import com.clawfare.search.SearchService
 import com.clawfare.web.Server
 import com.clawfare.web.clawfareModule
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
@@ -190,11 +191,11 @@ class OfflineEndToEndSmokeTest {
 
         testApplication {
             application { clawfareModule() }
-            val result = client.get("/api/results/synthetic-e2e")
+            val result = client.get("/api/results/synthetic-e2e") { header("Host", "127.0.0.1:8080") }
             assertEquals(HttpStatusCode.OK, result.status)
             assertTrue(result.bodyAsText().contains("synthetic-e2e"))
             assertFalse(result.bodyAsText().contains("SYNTHETIC_DO_NOT_BOOK"))
-            val report = client.get("/api/sample/export.html")
+            val report = client.get("/api/sample/export.html") { header("Host", "127.0.0.1:8080") }
             assertEquals(HttpStatusCode.OK, report.status)
             assertFalse(report.bodyAsText().contains("synthetic-not-a-credential"))
         }
