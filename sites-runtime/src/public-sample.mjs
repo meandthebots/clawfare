@@ -22,6 +22,8 @@ export const INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL = [
 export const GET_PUBLIC_SAMPLE_SQL = [
   "SELECT result_json, content_sha256 FROM public_sample_fixtures WHERE slug = ?",
 ].join("\n");
+export const GET_PUBLIC_SAMPLE_METADATA_SQL =
+  "SELECT content_sha256, imported_at FROM public_sample_fixtures WHERE slug = ?";
 
 function denySecrets(value, depth = 0) {
   if (depth > 24) throw new Error("Public fixture is too deeply nested.");
@@ -152,9 +154,8 @@ export async function publicSampleStorageEvidence(
 ) {
   const sample = await loadPublicSample(db, { cryptoApi }); // verifies SHA-256
   if (!sample) return { backend: "d1", sampleStored: false, firstImportedAt: null, sha256: null };
-  const row = await db.prepare(
-    "SELECT content_sha256, imported_at FROM public_sample_fixtures WHERE slug = ?",
-  ).bind(PUBLIC_SAMPLE_SLUG).first();
+  const row = await db.prepare(GET_PUBLIC_SAMPLE_METADATA_SQL)
+    .bind(PUBLIC_SAMPLE_SLUG).first();
   if (!row || typeof row.imported_at !== "string" ||
       typeof row.content_sha256 !== "string") {
     throw new Error("Missing stored public sample metadata.");
