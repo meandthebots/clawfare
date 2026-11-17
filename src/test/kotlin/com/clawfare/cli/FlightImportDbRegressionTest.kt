@@ -102,16 +102,16 @@ class FlightImportDbRegressionTest {
                     connection
                         .prepareStatement(
                             """
-                        INSERT INTO investigations (
-                            slug, origin, destination, depart_start, depart_end,
-                            cabin_class, max_stops, created_at, updated_at
-                        ) VALUES (?, 'AAA', 'BBB', '2027-01-01', '2027-01-10',
-                                  'business', 1, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')
-                        """.trimIndent(),
-                    ).use { insert ->
-                        insert.setString(1, slug)
-                        assertEquals(1, insert.executeUpdate())
-                    }
+                            INSERT INTO investigations (
+                                slug, origin, destination, depart_start, depart_end,
+                                cabin_class, max_stops, created_at, updated_at
+                            ) VALUES (?, 'AAA', 'BBB', '2027-01-01', '2027-01-10',
+                                      'business', 1, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')
+                            """.trimIndent(),
+                        ).use { insert ->
+                            insert.setString(1, slug)
+                            assertEquals(1, insert.executeUpdate())
+                        }
                 }
                 for ((flightId, slug, amount) in listOf(
                     Triple("flight-alpha", "fixture-alpha", 120.0),
@@ -120,22 +120,22 @@ class FlightImportDbRegressionTest {
                     connection
                         .prepareStatement(
                             """
-                        INSERT INTO flights (
-                            id, investigation_slug, share_link, ${sourceFlightColumn.sqlName},
-                            trip_type, ticket_structure, price_amount,
-                            price_currency, price_market, price_checked_at,
-                            origin, destination, outbound_json, captured_at
-                        ) VALUES (?, ?, ?, 'fixture-agent', 'one_way', 'single', ?,
-                                  'EUR', 'FR', '2026-01-01T00:00:00Z',
-                                  'AAA', 'BBB', '[]', '2026-01-01T00:00:00Z')
-                        """.trimIndent(),
-                    ).use { insert ->
-                        insert.setString(1, flightId)
-                        insert.setString(2, slug)
-                        insert.setString(3, "https://example.invalid/booking/$flightId")
-                        insert.setDouble(4, amount)
-                        assertEquals(1, insert.executeUpdate())
-                    }
+                            INSERT INTO flights (
+                                id, investigation_slug, share_link, ${sourceFlightColumn.sqlName},
+                                trip_type, ticket_structure, price_amount,
+                                price_currency, price_market, price_checked_at,
+                                origin, destination, outbound_json, captured_at
+                            ) VALUES (?, ?, ?, 'fixture-agent', 'one_way', 'single', ?,
+                                      'EUR', 'FR', '2026-01-01T00:00:00Z',
+                                      'AAA', 'BBB', '[]', '2026-01-01T00:00:00Z')
+                            """.trimIndent(),
+                        ).use { insert ->
+                            insert.setString(1, flightId)
+                            insert.setString(2, slug)
+                            insert.setString(3, "https://example.invalid/booking/$flightId")
+                            insert.setDouble(4, amount)
+                            assertEquals(1, insert.executeUpdate())
+                        }
                 }
                 sql.execute(
                     """
