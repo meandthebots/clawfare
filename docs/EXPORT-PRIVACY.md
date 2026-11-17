@@ -84,10 +84,12 @@ before purchasing. Missing exact refund evidence must remain **unverified**.
   versions of sensitive records even after a cache purge; do not treat SQL
   deletion as secure erase.
 - Keep SQLite, journal files, working directories and backups private; never
-  check them into Git or publish them as CI artifacts. An offline encrypted
-  backup/restore workflow with WAL consistency and tested old-version recovery
-  remains open under #25, as do non-cache token retention policy and supplier
-  licensing/redistribution obligations.
+  check them into Git or publish them as CI artifacts. `db backup` and
+  `db restore` provide an optional encrypted SQLite-only archive/recovery
+  flow ([ENCRYPTED-RECOVERY.md](ENCRYPTED-RECOVERY.md)), but exclude separate
+  financial budget/audit/alert journals and never securely erase plaintext
+  staging or older unencrypted migration backups. Token TTL/retention,
+  key rotation, full disaster recovery and supplier licensing remain #25 work.
 
 ## Tests
 
