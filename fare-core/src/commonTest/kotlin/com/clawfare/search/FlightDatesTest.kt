@@ -1,5 +1,8 @@
 package com.clawfare.search
 
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.plus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -120,4 +123,94 @@ class FlightDatesTest {
         assertTrue(tooMany.error.contains("route searches"))
         assertTrue(tooMany.pairs.isEmpty())
     }
+    @Test
+    fun rejectsMultiMillenniumDateRangesBeforeAllocatingPairs() {
+        val base =
+            SearchQuery(
+                origins = listOf("LHR"),
+                destinations = listOf("TPA"),
+                outboundFrom = "0001-01-01",
+                outboundTo = "9999-12-31",
+                tripType = "one_way",
+            )
+        val extremeOutbound = planFlightSearch(base)
+        assertNotNull(extremeOutbound.error)
+        assertTrue(extremeOutbound.error.contains("route searches"))
+        assertTrue(extremeOutbound.pairs.isEmpty())
+
+        val extremeReturn =
+            planFlightSearch(
+                base.copy(
+                    outboundFrom = "2027-04-01",
+                    outboundTo = "2027-04-02",
+                    returnFrom = "0001-01-01",
+                    returnTo = "9999-12-31",
+                    tripType = "round_trip",
+                ),
+            )
+        assertNotNull(extremeReturn.error)
+        assertTrue(extremeReturn.error.contains("route searches"))
+        assertTrue(extremeReturn.pairs.isEmpty())
+    }
+
+    @Test
+    fun exactFiveHundredRouteBoundaryStillWorks() {
+        val origin = LocalDate(2027, 1, 1)
+        val base =
+            SearchQuery(
+                origins = listOf("LHR"),
+                destinations = listOf("TPA"),
+                outboundFrom = origin.toString(),
+                outboundTo = origin.plus(499, DateTimeUnit.DAY).toString(),
+                tripType = "one_way",
+            )
+        val allowed = planFlightSearch(base)
+        assertNull(allowed.error)
+        assertEquals(500, allowed.pairs.size)
+
+        val rejected = planFlightSearch(base.copy(outboundTo = origin.plus(500, DateTimeUnit.DAY).toString()))
+        assertNotNull(rejected.error)
+        assertTrue(rejected.error.contains("501 route searches"))
+        assertTrue(rejected.pairs.isEmpty())
+    }
+
+    @Test
+    fun arithmeticPairCountsAgreeWithEnumeratedOverlappingWindows() {
+        val beginning = LocalDate(2027, 4, 1)
+        val days = (0..7).map { beginning.plus(it, DateTimeUnit.DAY).toString() }
+        val origins = listOf("LHR", "LGW", "STN", "LTN", "LCY")
+        val destinations = listOf("TPA", "MCO", "MIA", "JAX", "FLL")
+        for (outStart in days.indices) {
+            for (outEnd in outStart until days.size) {
+                for (retStart in days.indices) {
+                    for (retEnd in retStart until days.size) {
+                        val query =
+                            SearchQuery(
+                                origins = origins,
+                                destinations = destinations,
+                                outboundFrom = days[outStart],
+                                outboundTo = days[outEnd],
+                                returnFrom = days[retStart],
+                                returnTo = days[retEnd],
+                            )
+                        val pairs = datePairs(query)
+                        val routes = pairs.size * origins.size * destinations.size
+                        val expected =
+                            when {
+                                pairs.isEmpty() -> "No outbound/return pairs. The return has to be after the outbound."
+                                routes > 500 ->
+                                    "That is $routes route searches before return lookups. Narrow the airports or the dates."
+                                else -> null
+                            }
+                        assertEquals(
+                            expected,
+                            validateQuery(query),
+                            "Outbound ${days[outStart]}..${days[outEnd]}, return ${days[retStart]}..${days[retEnd]}",
+                        )
+                    }
+                }
+            }
+        }
+    }
+
 }
