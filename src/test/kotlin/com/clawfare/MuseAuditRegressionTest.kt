@@ -38,10 +38,22 @@ import kotlin.test.assertTrue
 class MuseAuditRegressionTest {
     @Test
     fun webEstimatesExactlyTheMarketsThatItConfirms() {
-        val source = java.io.File("web/src/controller.ts").readText()
-        assertTrue(source.contains("var vendorMarkets = [\"uk\", \"us\"];"))
-        assertEquals(2, Regex("markets: vendorMarkets").findAll(source).count())
-        assertFalse(source.contains("markets: [\"uk\"], cacheOnly"))
+        // The legacy controller was replaced by React in PR #82. Inspect the
+        // shared request object in the current UI, not a deleted source file.
+        val source = java.io.File("web/src/App.tsx").readText()
+        val vendorFlow =
+            source.substringAfter("const showVendors = async (it: Itinerary) => {")
+                .substringBefore("const trackItinerary = async (it: Itinerary) => {")
+        assertTrue(vendorFlow.contains("const vendorRequest = {"))
+        assertTrue(Regex("""markets:\s*\["uk",\s*"us"]""").containsMatchIn(vendorFlow))
+        assertTrue(Regex("""confirmed:\s*false""").containsMatchIn(vendorFlow))
+        assertEquals(1, Regex("""\bmarkets\s*:""").findAll(vendorFlow).count())
+        assertEquals(2, Regex("""client\.vendors\(""").findAll(vendorFlow).count())
+        assertTrue(Regex("""client\.vendors\(\s*result\.id,\s*vendorRequest\s*\)""").containsMatchIn(vendorFlow))
+        assertTrue(
+            Regex("""client\.vendors\(\s*result\.id,\s*\{\s*\.\.\.vendorRequest,\s*confirmed:\s*true\s*},\s*response\.consent""")
+                .containsMatchIn(vendorFlow),
+        )
         assertTrue(Server.page().contains("btnRun"))
     }
 
