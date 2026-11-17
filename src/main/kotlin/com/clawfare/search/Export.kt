@@ -4,8 +4,9 @@ object Export {
     fun itineraryCsv(
         result: ResultSet,
         filter: FilterSpec,
+        privacy: ExportPrivacy = ExportPrivacy.SHARE_SAFE,
     ): String {
-        val rows = result.itineraries.filter { Filters.matches(it, filter) }
+        val rows = ExportPrivacyProjection.project(result, privacy).itineraries.filter { Filters.matches(it, filter) }
         val header =
             listOf(
                 "id",
@@ -85,7 +86,10 @@ object Export {
         }
     }
 
-    fun vendorCsv(result: ResultSet): String {
+    fun vendorCsv(
+        result: ResultSet,
+        privacy: ExportPrivacy = ExportPrivacy.SHARE_SAFE,
+    ): String {
         val header =
             listOf(
                 "vendor",
@@ -112,7 +116,7 @@ object Export {
         return buildString {
             append(header.joinToString(","))
             append('\n')
-            for (row in result.vendors) {
+            for (row in ExportPrivacyProjection.project(result, privacy).vendors) {
                 val values =
                     listOf(
                         row.vendor,
@@ -152,13 +156,16 @@ object Export {
     }
 
     /** Safe, read-only export: no booking POST data, credentials or opaque tokens. */
-    fun sellerOptionsCsv(result: ResultSet): String =
+    fun sellerOptionsCsv(
+        result: ResultSet,
+        privacy: ExportPrivacy = ExportPrivacy.SHARE_SAFE,
+    ): String =
         buildString {
             appendLine(
                 "option_id,product_key,itinerary_id,provider,market,seller,fare_brand,fare_type,party_price,currency,passengers,journey," +
                     "direct_airline,split_tickets,bags,phone_service_fee,observed_at,refund_status",
             )
-            for (option in result.sellerOptions) {
+            for (option in ExportPrivacyProjection.project(result, privacy).sellerOptions) {
                 appendLine(
                     listOf(
                         option.id,
@@ -188,8 +195,10 @@ object Export {
     fun html(
         page: String,
         result: ResultSet,
+        privacy: ExportPrivacy = ExportPrivacy.SHARE_SAFE,
     ): String {
-        val json = AppJson.encodeToString(ResultSet.serializer(), result).replace("<", "\\u003c")
+        val safeResult = ExportPrivacyProjection.project(result, privacy)
+        val json = AppJson.encodeToString(ResultSet.serializer(), safeResult).replace("<", "\\u003c")
         val injected = page.replace("window.__SNAPSHOT__ = null", "window.__SNAPSHOT__ = $json")
         check(injected != page) { "App page is missing the snapshot marker." }
         return injected
