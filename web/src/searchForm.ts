@@ -23,20 +23,37 @@ export interface SearchForm {
   cacheOnly: boolean;
 }
 export const INITIAL_SEARCH: Readonly<SearchForm> = Object.freeze({
-  origins: "LHR, LGW", destinations: "TPA, SRQ",
-  outFrom: "2026-12-16", outTo: "2026-12-23",
-  nights: "8", retFrom: "", retTo: "", tripType: "round_trip",
-  adults: "2", bags: "1", cabin: "premium_economy", cabinShort: "economy",
-  returnChoices: "3", serpapi: true, searchapi: true,
-  travelpayouts: true, duffel: true, nonstop: false, cacheOnly: false,
+  origins: "LHR, LGW",
+  destinations: "TPA, SRQ",
+  outFrom: "2026-12-16",
+  outTo: "2026-12-23",
+  nights: "8",
+  retFrom: "",
+  retTo: "",
+  tripType: "round_trip",
+  adults: "2",
+  bags: "1",
+  cabin: "premium_economy",
+  cabinShort: "economy",
+  returnChoices: "3",
+  serpapi: true,
+  searchapi: true,
+  travelpayouts: true,
+  duffel: true,
+  nonstop: false,
+  cacheOnly: false,
 });
 export function buildSearchQuery(form: SearchForm): SearchQuery {
-  const providers = ([
-    ["serpapi", form.serpapi],
-    ["searchapi", form.searchapi],
-    ["travelpayouts", form.travelpayouts],
-    ["duffel", form.duffel],
-  ] as const).filter(([, enabled]) => enabled).map(([name]) => name);
+  const providers = (
+    [
+      ["serpapi", form.serpapi],
+      ["searchapi", form.searchapi],
+      ["travelpayouts", form.travelpayouts],
+      ["duffel", form.duffel],
+    ] as const
+  )
+    .filter(([, enabled]) => enabled)
+    .map(([name]) => name);
   return {
     origins: splitList(form.origins),
     destinations: splitList(form.destinations),
@@ -60,10 +77,16 @@ export function buildSearchQuery(form: SearchForm): SearchQuery {
   };
 }
 export function estimateIsRunnable(
-  warnings: readonly string[], liveCalls: number, cachedCalls: number,
-  returnLookups: number, cacheOnly: boolean,
+  warnings: readonly string[],
+  liveCalls: number,
+  cachedCalls: number,
+  returnLookups: number,
+  cacheOnly: boolean,
 ): boolean {
-  return !warnings.some((warning) =>
-    /Enter at least|Check the dates|Set a return|No outbound|Narrow/.test(warning)) &&
-    (cacheOnly || liveCalls > 0 || cachedCalls > 0 || returnLookups > 0);
+  return (
+    !warnings.some((warning) =>
+      /Enter at least|Check the dates|Set a return|No outbound|Narrow/.test(warning),
+    ) &&
+    (cacheOnly || liveCalls > 0 || cachedCalls > 0 || returnLookups > 0)
+  );
 }
