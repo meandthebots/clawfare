@@ -15,6 +15,9 @@ import com.clawfare.search.TrackRequest
 import com.clawfare.search.VendorRequest
 import com.clawfare.search.providersFromEnv
 import com.clawfare.search.redact
+import com.clawfare.web.generated.GetEndpoints
+import com.clawfare.web.generated.KtorClawfareApiRoutes
+import com.clawfare.web.generated.PostEndpoints
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -117,8 +120,9 @@ fun Application.clawfareModule() {
         }
     }
     routing {
+        val api = KtorClawfareApiRoutes(this)
         get("/") { call.respondText(Server.page(), ContentType.Text.Html) }
-        get("/api/session") {
+        api.get(GetEndpoints.getSession) {
             if (!local.acceptsHost(call.request.headers[HttpHeaders.Host])) {
                 denied(call, "Invalid local host.")
                 return@get
@@ -127,7 +131,7 @@ fun Application.clawfareModule() {
             call.respond(mapOf("token" to local.sessionToken))
         }
         get("/favicon.ico") { call.respond(HttpStatusCode.NoContent) }
-        get("/api/status") {
+        api.get(GetEndpoints.getStatus) {
             call.respond(
                 StatusResponse(
                     cacheDir = "sqlite",
@@ -139,13 +143,13 @@ fun Application.clawfareModule() {
                 ),
             )
         }
-        get("/api/quota") {
+        api.get(GetEndpoints.getQuota) {
             val views = withContext(Dispatchers.IO) { providersFromEnv().map { it.quota() } }
             call.respond(views)
         }
-        get("/api/sample") { call.respond(SampleSeeder.ensure()) }
-        get("/api/searches") { call.respond(service.listSearches()) }
-        get("/api/results/{id}") {
+        api.get(GetEndpoints.getSample) { call.respond(SampleSeeder.ensure()) }
+        api.get(GetEndpoints.getSearches) { call.respond(service.listSearches()) }
+        api.get(GetEndpoints.getResult) {
             val result = service.open(call.parameters["id"] ?: "")
             if (result == null) {
                 call.respondText("""{"error":"Not found"}""", ContentType.Application.Json, HttpStatusCode.NotFound)
@@ -153,7 +157,7 @@ fun Application.clawfareModule() {
                 call.respond(result)
             }
         }
-        post("/api/estimate") {
+        api.post(PostEndpoints.estimate) {
             if (!authorized(call)) return@post
             val query = call.receive<SearchQuery>()
             // Estimation must never trigger provider quota HTTP calls before consent.
@@ -174,7 +178,7 @@ fun Application.clawfareModule() {
                 }
             call.respond(shown)
         }
-        post("/api/search") {
+        api.post(PostEndpoints.search) {
             if (!authorized(call)) return@post
             val query = call.receive<SearchQuery>()
             val estimate = service.estimate(query)
@@ -212,7 +216,7 @@ fun Application.clawfareModule() {
                 paidRequestLock.release()
             }
         }
-        post("/api/results/{id}/vendors") {
+        api.post(PostEndpoints.vendors) {
             if (!authorized(call)) return@post
             val id = call.parameters["id"] ?: ""
             val body = call.receive<VendorRequest>()
@@ -251,7 +255,7 @@ fun Application.clawfareModule() {
                 paidRequestLock.release()
             }
         }
-        post("/api/results/{id}/track") {
+        api.post(PostEndpoints.track) {
             if (!authorized(call)) return@post
             val id = call.parameters["id"] ?: ""
             val body = call.receive<TrackRequest>()
@@ -266,7 +270,7 @@ fun Application.clawfareModule() {
                 }
             call.respondText("""{"slug":"$slug"}""", ContentType.Application.Json)
         }
-        post("/api/export/html") {
+        api.post(PostEndpoints.exportHtml) {
             if (!authorized(call)) return@post
             val body = call.receive<ExportRequest>()
             val snapshot = body.result.copy(suggestedFilters = body.filters)
@@ -274,7 +278,7 @@ fun Application.clawfareModule() {
             call.response.header("Content-Disposition", "attachment; filename=\"clawfare-${safeName(body.result.id)}.html\"")
             call.respondText(html, ContentType.Text.Html)
         }
-        post("/api/export/csv") {
+        api.post(PostEndpoints.exportCsv) {
             if (!authorized(call)) return@post
             val body = call.receive<ExportRequest>()
             val csv =
@@ -286,7 +290,7 @@ fun Application.clawfareModule() {
             call.response.header("Content-Disposition", "attachment; filename=\"clawfare-${safeName(body.result.id)}.csv\"")
             call.respondText(csv, ContentType.Text.CSV)
         }
-        get("/api/sample/export.html") {
+        api.get(GetEndpoints.getSampleExport) {
             call.respondText(Export.html(Server.page(), SampleSeeder.ensure()), ContentType.Text.Html)
         }
     }
