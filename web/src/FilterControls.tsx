@@ -8,7 +8,23 @@ import {
 } from "./filterForm.ts";
 
 const styles = stylex.create({
-  section: { display: "flex", flexWrap: "wrap", gap: "10px 14px" },
+  section: { display: "flex", flexWrap: "wrap", gap: "12px 16px", alignItems: "flex-end" },
+  segment: {
+    display: "inline-flex",
+    border: "1px solid var(--line)",
+    borderRadius: "8px",
+    overflow: "hidden",
+    backgroundColor: "var(--card)",
+  },
+  segmentButton: {
+    border: 0,
+    borderRadius: 0,
+    backgroundColor: "var(--card)",
+    padding: "6px 10px",
+    color: "var(--muted)",
+  },
+  segmentAfterFirst: { borderLeft: "1px solid var(--line)" },
+  segmentSelected: { backgroundColor: "var(--accent)", color: "#fff" },
   heading: { fontSize: "12px", fontWeight: 700 },
   actions: { marginTop: 0 },
 });
@@ -52,13 +68,20 @@ export function FilterControls({ state, result, onChange }: FilterControlsProps)
     current: string,
     onClick: (value: string) => void,
   ) => (
-    <div className="seg" id={id}>
-      {options.map((option) => (
+    <div className={"seg " + stylex.props(styles.segment).className} id={id}>
+      {options.map((option, index) => (
         <button
           type="button"
           data-v={option.value}
           key={option.value}
-          className={current === option.value ? "on" : ""}
+          className={
+            (current === option.value ? "on " : "") +
+            stylex.props(
+              styles.segmentButton,
+              index > 0 && styles.segmentAfterFirst,
+              current === option.value && styles.segmentSelected,
+            ).className
+          }
           aria-pressed={current === option.value}
           onClick={() => onClick(option.value)}
         >
