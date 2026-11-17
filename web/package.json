@@ -11,9 +11,12 @@
     "format": "oxfmt src vite.config.ts",
     "format:check": "oxfmt --check src vite.config.ts",
     "check": "npm run api:generate && npm run api:check && npm run typecheck && npm run lint && npm run test && npm run format:check",
-    "test": "npm run api:generate && node --experimental-strip-types --test src/*.test.ts",
+    "test": "npm run api:generate && node --experimental-strip-types --test src/*.test.ts && npm run guest:test",
     "api:generate": "node ../scripts/generate-openapi.mjs",
-    "api:check": "node ../scripts/generate-openapi.mjs --check"
+    "api:check": "node ../scripts/generate-openapi.mjs --check",
+    "guest:build": "npm run build && node ../scripts/build-guest-preview.mjs",
+    "guest:check": "node ../scripts/build-guest-preview.mjs",
+    "guest:test": "node --test ../scripts/guest-preview.test.mjs"
   },
   "dependencies": {
     "@stylexjs/stylex": "0.19.1",

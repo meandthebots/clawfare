@@ -4,7 +4,7 @@ on:
     paths:
       - 'web/**'
       - 'api/**'
-      - 'scripts/generate-openapi.mjs'
+      - 'scripts/**'
       - 'src/main/kotlin/com/clawfare/web/Server.kt'
       - 'scripts/verify-web-bundle.mjs'
       - 'build.gradle.kts'
@@ -26,4 +26,6 @@ jobs:
       - run: npm run test
         working-directory: web
       - run: npm run build
+        working-directory: web
+      - run: npm run guest:check
         working-directory: web
