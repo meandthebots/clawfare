@@ -7,6 +7,9 @@ on:
       - 'web/**'
       - 'build.gradle.kts'
       - 'scripts/verify-web-bundle.mjs'
+      - 'scripts/guest-*'
+      - 'scripts/build-guest-preview.mjs'
+      - 'sites-runtime/tests/guest-preview-browser.mjs'
       - 'sites-runtime/tests/mobile-grid-browser.mjs'
       - 'sites-runtime/tests/react-app-browser.mjs'
       - '.github/workflows/mobile-grid.yml'
@@ -38,3 +41,7 @@ jobs:
         run: node sites-runtime/tests/mobile-grid-browser.mjs build/frontend/web/index.html build/sites/clawfare-sample.json
       - name: Verify hosted React UI safety and diagnostics
         run: node sites-runtime/tests/react-app-browser.mjs build/frontend/web/index.html build/sites/clawfare-sample.json
+      - name: Build isolated credential-free guest preview
+        run: node scripts/build-guest-preview.mjs
+      - name: Test guest React UI on desktop and mobile with zero network
+        run: node sites-runtime/tests/guest-preview-browser.mjs build/guest-preview.html
