@@ -381,4 +381,44 @@ class FlightImportDbRegressionTest {
         assertEquals("fixture tag", flight.tags)
         assertTrue(PriceHistoryQueries.getByFlightId(flight.id).all { it.source == "price-source-field" })
     }
+
+    @Test
+    fun nullableLegacyFieldsUseExplicitSafeDefaults() {
+        val source = source()
+        DriverManager.getConnection("jdbc:sqlite:$source").use { connection ->
+            connection.createStatement().use { sql ->
+                sql.execute(
+                    """
+                    UPDATE flights SET trip_type = NULL, ticket_structure = NULL,
+                        price_market = NULL, price_checked_at = NULL
+                    WHERE id = 'flight-alpha'
+                    """.trimIndent(),
+                )
+                sql.execute(
+                    """
+                    UPDATE price_history SET source = NULL, price_market = NULL
+                    WHERE flight_id = 'flight-alpha'
+                    """.trimIndent(),
+                )
+            }
+        }
+        assertEquals(0, execute(source.toString(), "--investigation", "fixture-alpha"))
+        val flight = assertNotNull(FlightQueries.getById("flight-alpha"))
+        assertEquals("round_trip", flight.tripType)
+        assertEquals("single", flight.ticketStructure)
+        assertEquals("UK", flight.priceMarket)
+        assertTrue(flight.priceCheckedAt.isNotBlank())
+
+        val prices = PriceHistoryQueries.getByFlightId(flight.id)
+        assertEquals(2, prices.size)
+        assertTrue(prices.all { it.source == "imported" && it.priceMarket == "UK" })
+    }
+
+    @Test
+    fun blankSourcePathIsRejectedWithoutInitializingAnImport() {
+        // The source-path check intentionally precedes access to the
+        // Picocli parent command and any target database mutation.
+        assertEquals(1, FlightImportDbCommand().call())
+        assertTrue(InvestigationQueries.listAll().isEmpty())
+    }
 }
