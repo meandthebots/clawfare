@@ -18,7 +18,7 @@ test("hosted build reuses actual Kotlin HTML UI and explicitly disables mutation
   assert.ok(result.includes("window.__CLAWFARE_HOSTED_READ_ONLY__ = true"));
   assert.ok(result.includes("function loadSample()"));
   assert.ok(result.includes('api("/api/searches")'));
-  assert.ok(result.includes('"btnEstimate", "btnRun", "btnHtml", "btnCsv"'));
+  assert.ok(result.includes('["btnRun", "btnHtml", "btnCsv"].concat(hostedEstimate ? [] : ["btnEstimate"])'));
   assert.ok(!template.includes("window.__CLAWFARE_HOSTED_READ_ONLY__ = true"));
 });
 
