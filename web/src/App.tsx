@@ -35,10 +35,96 @@ const client = createClawfareClient({
   hostedEstimateOnly: HOSTED_ESTIMATE_ONLY,
 });
 const styles = stylex.create({
-  header: { boxShadow: "0 2px 12px rgba(16, 24, 40, 0.08)" },
-  main: { maxWidth: "1800px", marginInline: "auto" },
-  footer: { maxWidth: "1800px", marginInline: "auto" },
+  header: {
+    boxShadow: "0 2px 12px rgba(16, 24, 40, 0.08)",
+    backgroundImage: "linear-gradient(135deg, #1e3a8a, #3e5bd8 60%, #0ea5e9)",
+    color: "#fff",
+    paddingTop: "22px",
+    paddingBottom: "18px",
+    paddingLeft: { default: "28px", "@media (max-width: 760px)": "14px" },
+    paddingRight: { default: "28px", "@media (max-width: 760px)": "14px" },
+  },
+  heading: { margin: "0 0 6px", fontSize: "22px", fontWeight: 700, letterSpacing: "-0.01em" },
+  subtitle: { margin: "4px 0", maxWidth: "1100px", opacity: 0.95 },
+  main: {
+    maxWidth: "1800px",
+    marginInline: "auto",
+    paddingTop: "16px",
+    paddingBottom: "40px",
+    paddingLeft: { default: "28px", "@media (max-width: 760px)": "14px" },
+    paddingRight: { default: "28px", "@media (max-width: 760px)": "14px" },
+  },
+  footer: {
+    maxWidth: "1800px",
+    marginInline: "auto",
+    color: "var(--muted)",
+    fontSize: "12px",
+    paddingBottom: "28px",
+    paddingLeft: { default: "28px", "@media (max-width: 760px)": "14px" },
+    paddingRight: { default: "28px", "@media (max-width: 760px)": "14px" },
+  },
   results: { minWidth: 0 },
+  summary: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
+    gap: "12px",
+    marginBottom: "12px",
+  },
+  tabs: { display: "flex", gap: "6px", margin: "0 0 10px" },
+  tabSelected: { backgroundColor: "var(--accent)", color: "#fff", borderColor: "var(--accent)" },
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(16,24,40,0.35)",
+    display: "none",
+    zIndex: 20,
+  },
+  overlayOpen: { display: "block" },
+  panel: {
+    position: "fixed",
+    top: 0,
+    right: 0,
+    height: "100%",
+    width: { default: "min(580px, 100%)", "@media (max-width: 760px)": "100%" },
+    maxWidth: "100%",
+    backgroundColor: "#fff",
+    zIndex: 21,
+    boxShadow: "-8px 0 30px rgba(0,0,0,0.18)",
+    transform: "translateX(105%)",
+    transition: "transform 0.2s ease",
+    overflow: "auto",
+    overscrollBehavior: { default: "auto", "@media (max-width: 760px)": "contain" },
+  },
+  panelOpen: { transform: "none" },
+  panelHeader: {
+    paddingTop: { default: "18px", "@media (max-width: 760px)": "12px" },
+    paddingBottom: { default: "18px", "@media (max-width: 760px)": "12px" },
+    paddingLeft: { default: "22px", "@media (max-width: 760px)": "14px" },
+    paddingRight: { default: "22px", "@media (max-width: 760px)": "14px" },
+    borderBottom: "1px solid var(--line)",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "10px",
+    position: "sticky",
+    top: 0,
+    backgroundColor: "#fff",
+    zIndex: 2,
+  },
+  panelTitle: { margin: 0, fontSize: "18px" },
+  panelClose: {
+    border: 0,
+    backgroundColor: "#f2f4f7",
+    width: "32px",
+    height: "32px",
+    fontSize: "18px",
+  },
+  panelBody: {
+    paddingTop: { default: "16px", "@media (max-width: 760px)": "12px" },
+    paddingBottom: { default: "30px", "@media (max-width: 760px)": "28px" },
+    paddingLeft: { default: "22px", "@media (max-width: 760px)": "14px" },
+    paddingRight: { default: "22px", "@media (max-width: 760px)": "14px" },
+  },
 });
 type Selection = { primaryId: string; addonId: string };
 interface PortalTargets {
@@ -542,11 +628,17 @@ export function App() {
     );
   };
 
+  const overlayProps = stylex.props(styles.overlay, activeItinerary && styles.overlayOpen);
+  const panelProps = stylex.props(styles.panel, activeItinerary && styles.panelOpen);
   return (
     <>
       <header {...stylex.props(styles.header)}>
-        <h1 id="title">{title}</h1>
-        <p id="subtitle">{subtitle}</p>
+        <h1 id="title" {...stylex.props(styles.heading)}>
+          {title}
+        </h1>
+        <p id="subtitle" {...stylex.props(styles.subtitle)}>
+          {subtitle}
+        </p>
         <div className="notes" id="notes" />
       </header>
       <main {...stylex.props(styles.main)}>
@@ -578,7 +670,7 @@ export function App() {
         />
         <div id="banners" />
         <FilterControls state={filter} onChange={setFilter} result={result} />
-        <div className="summary" id="summary">
+        <div className={"summary " + stylex.props(styles.summary).className} id="summary">
           {result && portals && (
             <SnapshotOverview
               result={result}
@@ -592,13 +684,16 @@ export function App() {
           )}
         </div>
         <div className="legend" id="legend" />
-        <div className="tabs" id="tabs">
+        <div className={"tabs " + stylex.props(styles.tabs).className} id="tabs">
           {(["grid", "itineraries", "matrix", "vendors"] as const).map((choice) => (
             <button
               type="button"
               key={choice}
               data-tab={choice}
-              className={choice === tab ? "on" : ""}
+              className={
+                (choice === tab ? "on " : "") +
+                (choice === tab ? stylex.props(styles.tabSelected).className : "")
+              }
               aria-pressed={choice === tab}
               onClick={() => setTab(choice)}
             >
@@ -652,18 +747,20 @@ export function App() {
       </footer>
       <div
         id="overlay"
-        className={activeItinerary ? "open" : ""}
+        {...overlayProps}
+        className={(activeItinerary ? "open " : "") + overlayProps.className}
         onClick={() => setSelection(null)}
       />
       <aside
         id="panel"
-        className={activeItinerary ? "open" : ""}
+        {...panelProps}
+        className={(activeItinerary ? "open " : "") + panelProps.className}
         aria-hidden={!activeItinerary}
         aria-label="Itinerary details"
       >
-        <div className="ph">
+        <div className={"ph " + stylex.props(styles.panelHeader).className}>
           <div>
-            <h2 id="pTitle">
+            <h2 id="pTitle" {...stylex.props(styles.panelTitle)}>
               {activeItinerary
                 ? activeItinerary.origin +
                   " → " +
@@ -686,7 +783,7 @@ export function App() {
             </div>
           </div>
           <button
-            className="close"
+            className={"close " + stylex.props(styles.panelClose).className}
             id="pClose"
             type="button"
             aria-label="Close"
@@ -696,7 +793,7 @@ export function App() {
             ×
           </button>
         </div>
-        <div className="pb" id="pBody">
+        <div className={"pb " + stylex.props(styles.panelBody).className} id="pBody">
           {activeItinerary && (
             <DetailsContent
               it={activeItinerary}

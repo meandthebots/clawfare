@@ -25,22 +25,6 @@ body {
   font-size: 14px;
   line-height: 1.45;
 }
-header {
-  background: linear-gradient(135deg, #1e3a8a, #3e5bd8 60%, #0ea5e9);
-  color: #fff;
-  padding: 22px 28px 18px;
-}
-header h1 {
-  margin: 0 0 6px;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-header p {
-  margin: 4px 0;
-  max-width: 1100px;
-  opacity: 0.95;
-}
 .notes {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -63,9 +47,6 @@ header p {
 .warn {
   background: rgba(250, 204, 21, 0.18);
   border-color: rgba(250, 204, 21, 0.5);
-}
-main {
-  padding: 16px 28px 40px;
 }
 .card {
   background: var(--card);
@@ -199,22 +180,6 @@ button:disabled {
 .seg button.on {
   background: var(--accent);
   color: #fff;
-}
-.tabs {
-  display: flex;
-  gap: 6px;
-  margin: 0 0 10px;
-}
-.tabs button.on {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-.summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
 }
 .sumcard {
   background: var(--card);
@@ -554,58 +519,6 @@ td.lhonly {
   text-align: center;
   color: var(--muted);
 }
-#overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(16, 24, 40, 0.35);
-  display: none;
-  z-index: 20;
-}
-#panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  height: 100%;
-  width: min(580px, 100%);
-  background: #fff;
-  z-index: 21;
-  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.18);
-  transform: translateX(105%);
-  transition: transform 0.2s ease;
-  overflow: auto;
-}
-#panel.open {
-  transform: none;
-}
-#overlay.open {
-  display: block;
-}
-.ph {
-  padding: 18px 22px;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-  position: sticky;
-  top: 0;
-  background: #fff;
-  z-index: 2;
-}
-.ph h2 {
-  margin: 0;
-  font-size: 18px;
-}
-.close {
-  border: 0;
-  background: #f2f4f7;
-  width: 32px;
-  height: 32px;
-  font-size: 18px;
-}
-.pb {
-  padding: 16px 22px 30px;
-}
 .status {
   display: inline-block;
   padding: 4px 10px;
@@ -872,11 +785,6 @@ tr.stale td {
 .mobile-flight button:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: -3px;
-}
-footer {
-  color: var(--muted);
-  font-size: 12px;
-  padding: 0 28px 28px;
 }
 @media (max-width: 760px) {
   header,
