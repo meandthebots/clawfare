@@ -105,6 +105,41 @@ class ServerTest {
                 Regex(""""token":"([^"]+)"""").find(session.bodyAsText())?.groupValues?.get(1)
                     ?: error("No local session token")
 
+            // Body enforcement must inspect bytes actually received, not
+            // just the Content-Length declaration. These are small enough to
+            // pass the legacy 2 MiB header precheck, but exceed the query cap.
+            val oversizedJson = """{"opaque":"${"x".repeat(70 * 1024)}"}"""
+            for (
+                path in
+                listOf(
+                    "/api/estimate",
+                    "/api/search",
+                    "/api/results/florida-dec-2026/vendors",
+                    "/api/results/florida-dec-2026/track",
+                )
+            ) {
+                val oversized =
+                    client.post(path) {
+                        header("Host", "127.0.0.1:8080")
+                        header("X-Clawfare-Session", sessionToken)
+                        contentType(ContentType.Application.Json)
+                        setBody(oversizedJson)
+                    }
+                assertEquals(HttpStatusCode.PayloadTooLarge, oversized.status, "JSON cap on $path")
+                assertTrue(oversized.bodyAsText().contains("Request body too large."))
+            }
+
+            val malformed =
+                client.post("/api/estimate") {
+                    header("Host", "127.0.0.1:8080")
+                    header("X-Clawfare-Session", sessionToken)
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"secret":"confidential-test-string","broken":}""")
+                }
+            assertEquals(HttpStatusCode.BadRequest, malformed.status)
+            assertEquals("""{"error":"Invalid JSON request body."}""", malformed.bodyAsText())
+            assertFalse(malformed.bodyAsText().contains("confidential-test-string"))
+
             val noToken =
                 client.post("/api/search") {
                     header("Host", "127.0.0.1:8080")
@@ -175,6 +210,7 @@ class ServerTest {
                     setBody("""{"itineraryId":"missing","tripSlug":"nope"}""")
                 }
             assertEquals(HttpStatusCode.BadRequest, badTrack.status)
+            assertEquals("""{"error":"Could not save."}""", badTrack.bodyAsText())
 
             val csv =
                 client.post("/api/export/csv") {
