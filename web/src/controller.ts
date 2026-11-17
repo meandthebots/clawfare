@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { GridView } from "./GridView";
 import { ItineraryView, MatrixView } from "./ItineraryViews";
+import { VendorView } from "./VendorView";
 // TODO: Migrate the imperative fare-grid renderer to typed React components.
 // Extracted from the former monolithic JVM HTML. This transitional controller
 // retains all existing search, filtering, export, mobile touch and Sites rules.
@@ -386,7 +387,7 @@ export function initializeClawfare(): void {
     if (tab === "grid") renderGrid();
     else if (tab === "itineraries") renderTable();
     else if (tab === "matrix") renderMatrix();
-    else { unmountGrid(); renderVendors(); }
+    else renderVendors();
     Array.prototype.forEach.call($("tabs").querySelectorAll("button"), function (b) {
       b.classList.toggle("on", b.getAttribute("data-tab") === tab);
     });
@@ -543,65 +544,31 @@ export function initializeClawfare(): void {
   }
   function renderVendors() {
     var markets = {};
-    (result.vendors || []).forEach(function (v) { markets[v.market] = v.marketLabel || v.market; });
+    (result.vendors || []).forEach(function (v) {
+      markets[v.market] = v.marketLabel || v.market;
+    });
     var rows = vendorRows();
-    var cheapest = null;
-    rows.forEach(function (v) { if (v.allInGbp != null && (cheapest == null || v.allInGbp < cheapest)) cheapest = v.allInGbp; });
-    var html = "<div class='actions' style='padding:8px'><span class='muted'>Market</span> <select id='vMarket'><option value='all'>All</option>";
-    Object.keys(markets).sort().forEach(function (m) {
-      html += "<option value='" + esc(m) + "'" + (state.market === m ? " selected" : "") + ">" + esc(markets[m]) + "</option>";
-    });
-    html += "</select> <span class='muted'>" + rows.length + " sellers</span></div>";
-    html += "<table class='data' id='vendors'><thead><tr><th>#</th><th class='num'>All-in incl. bag</th><th>Vendor / fare</th><th>Type</th><th>Market · fetched</th><th class='num'>Δ all-in</th><th class='num'>Round trip</th><th class='num'>One-way out</th><th class='num'>One-way back</th><th class='num'>2 one-ways incl. bags</th><th>Google Flights</th></tr></thead><tbody>";
-    if (!rows.length) html += "<tr><td class='empty' colspan='11'>No seller rows. Open a sample, or fetch sellers for one saved itinerary.</td></tr>";
-    rows.forEach(function (v, i) {
-      var best = v.allInGbp != null && v.allInGbp === cheapest;
-      var chg = v.isNew && v.priceChangeGbp == null ? "<span class='chg new'>new</span>" : (v.priceChangeGbp == null ? "" : delta(v.priceChangeGbp, 0).replace("£0", "£" + Math.abs(v.priceChangeGbp)).replace("previous", "14 Oct"));
-      if (v.priceChangeGbp != null) {
-        var d = v.priceChangeGbp;
-        chg = d === 0 ? "<span class='chg same'>£0</span>" : "<span class='chg " + (d > 0 ? "up" : "down") + "'>" + (d > 0 ? "▲ £" : "▼ £") + Math.abs(d) + "</span>";
-      }
-      html += "<tr class='" + (best ? "bestv" : "") + (v.fresh ? "" : " stale") + "'><td>" + (i + 1) + "</td>" +
-        "<td class='num'><b>" + gbp(v.allInGbp) + "</b><div class='muted'>" + esc(v.how || "") + "</div></td>" +
-        "<td><b>" + esc(v.vendor) + "</b><div class='muted'>" + esc(v.fareBrand || "") + (v.bags ? " · " + esc(v.bags) : "") + "</div>" +
-        "<textarea class='noteedit' data-market='" + esc(v.market) + "' data-vendor='" + esc(v.vendor) + "'>" + esc(v.note || "") + "</textarea></td>" +
-        "<td><span class='trust " + esc(v.trust) + "'>" + esc(v.trustLabel || v.trust) + "</span><div><select class='trustpick' data-market='" + esc(v.market) + "' data-vendor='" + esc(v.vendor) + "'>" +
-        ["airline", "trusted", "caution", "risky"].map(function (t) { return "<option value='" + t + "'" + (v.trust === t ? " selected" : "") + ">" + t + "</option>"; }).join("") +
-        "</select></div></td>" +
-        "<td>" + esc(v.marketLabel || v.market) + "<div class='muted'>" + esc(v.fetchedAt || "") + (v.fresh ? "" : " · carried forward") + "</div></td>" +
-        "<td class='num'>" + chg + "</td>" +
-        "<td class='num'>" + money(v.roundTrip, v.currency) + (v.roundTripWithBag != null ? "<div class='muted'>with bag " + money(v.roundTripWithBag, v.currency) + "</div>" : "") + "</td>" +
-        "<td class='num'>" + money(v.oneWayOut, v.currency) + "</td>" +
-        "<td class='num'>" + money(v.oneWayBack, v.currency) + "</td>" +
-        "<td class='num'>" + money(v.oneWaysWithBag, v.currency) + "</td>" +
-        "<td>" + (v.links || []).map(function (l) {
-          return "<a class='lbtn' href='" + esc(l.url) + "' target='_blank' rel='noopener noreferrer'>" + esc(l.label) + "</a> ";
-        }).join("") + "</td></tr>";
-    });
-    html += "</tbody></table>";
     var options = (result.sellerOptions || []).filter(function (option) {
       return state.market === "all" || option.market === state.market;
     });
-    if (options.length) {
-      html += "<div class='sec'><h3>Exact seller fare options (" + options.length + ")</h3>" +
-        "<div class='muted'>Provider booking options are read-only observations. Fare name and airline cancellation flags do not prove a cash refund to your original payment method. Split tickets, telephone fees, unknown baggage and missing prices are not verified all-in offers.</div>" +
-        "<table class='data'><thead><tr><th>Seller / fare</th><th>Market</th><th>Journey</th><th>Whole-party quote</th><th>Details</th><th>Refund</th></tr></thead><tbody>";
-      options.forEach(function (option) {
-        var label = option.seller + (option.fareBrand || option.fareType ? " — " + (option.fareBrand || option.fareType) : "");
-        var details = [
-          option.splitTickets ? "Separate tickets" : "Ticketing not independently verified",
-          option.directAirline === true ? "Provider marked airline direct" : "Seller/issuer needs confirmation",
-          option.bags || "Baggage fee unknown",
-          option.phoneServiceFee != null ? "Possible telephone service fee " + money(option.phoneServiceFee, option.currency) : ""
-        ].filter(Boolean).join("; ");
-        html += "<tr><td>" + esc(label) + "<div class='muted'>" + esc(option.id) + "</div></td>" +
-          "<td>" + esc(option.market) + "</td><td>" + esc(option.journey) + "</td>" +
-          "<td class='num'>" + money(option.priceTotal, option.currency) + " <span class='muted'>/ " + esc(option.passengers) + " adults</span></td>" +
-          "<td>" + esc(details) + "</td><td>Unverified</td></tr>";
-      });
-      html += "</tbody></table></div>";
-    }
-    $("view").innerHTML = html;
+    if (!gridRoot) gridRoot = createRoot($("view"));
+    gridRoot.render(createElement(VendorView, {
+      rows: rows, markets: markets, market: state.market, options: options,
+      onMarketChange: function (market) {
+        state.market = market;
+        renderVendors();
+      },
+      onNoteChange: function (vendor, note) {
+        vendor.note = note;
+        try { localStorage.setItem(noteStorageKey(vendor) + ":note", note); } catch (error) {}
+      },
+      onTrustChange: function (vendor, trust) {
+        vendor.trust = trust;
+        vendor.trustLabel = { airline: "Airline", trusted: "Trusted OTA", caution: "OTA · caution", risky: "Risky OTA" }[trust] || vendor.trustLabel;
+        try { localStorage.setItem(noteStorageKey(vendor) + ":trust", trust); } catch (error) {}
+        render();
+      },
+    }));
   }
 
   function openPanel(primaryId, addonId) {
@@ -961,6 +928,7 @@ export function initializeClawfare(): void {
     openPanel(cell.getAttribute("data-p"), cell.getAttribute("data-a"));
   });
   $("view").addEventListener("change", function (e) {
+    if (gridRoot) return; // React vendor controls own change events.
     if (e.target.id === "vMarket") { state.market = e.target.value; renderVendors(); return; }
     if (e.target.classList.contains("trustpick")) {
       var v = findVendor(e.target.getAttribute("data-market"), e.target.getAttribute("data-vendor"));
@@ -971,6 +939,7 @@ export function initializeClawfare(): void {
     }
   });
   $("view").addEventListener("input", function (e) {
+    if (gridRoot) return;
     if (!e.target.classList.contains("noteedit")) return;
     var v = findVendor(e.target.getAttribute("data-market"), e.target.getAttribute("data-vendor"));
     if (!v) return;
