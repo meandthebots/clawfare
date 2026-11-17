@@ -7,6 +7,7 @@ import { ItineraryView, MatrixView } from "./ItineraryViews";
 import { VendorView } from "./VendorView";
 import { DetailsContent, isCashRefundVerified } from "./DetailsContent";
 import { SnapshotOverview } from "./SnapshotOverview";
+import { toFilterSpec, matchesFilter, visibleItineraries } from "./filters";
 import { flushSync } from "react-dom";
 // TODO: Migrate the imperative fare-grid renderer to typed React components.
 // Extracted from the former monolithic JVM HTML. This transitional controller
@@ -48,20 +49,6 @@ export function initializeClawfare(): void {
     if (n == null || isNaN(n)) return "—";
     var sym = { GBP: "£", USD: "US$", MXN: "MX$", CAD: "C$", EUR: "€" }[cur] || ((cur || "") + " ");
     return sym + Math.round(Number(n)).toLocaleString("en-GB");
-  }
-  function normTime(raw) {
-    if (!raw) return "";
-    var parts = String(raw).trim().slice(0, 5).split(":");
-    if (parts.length < 2) return "00:00";
-    return parts[0].padStart(2, "0") + ":" + parts[1].padStart(2, "0");
-  }
-  function cabinKey(raw) {
-    var s = String(raw || "").toLowerCase();
-    if (!s) return "economy";
-    if (s.indexOf("prem") >= 0 || s === "w") return "premium_economy";
-    if (s.indexOf("bus") >= 0 || s === "j") return "business";
-    if (s.indexOf("first") >= 0 || s === "f") return "first";
-    return "economy";
   }
   function splitList(raw) {
     return String(raw || "").split(/[,/\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
@@ -108,80 +95,14 @@ export function initializeClawfare(): void {
     (result.cells || []).forEach(function (c) { map[cellKey(c.primaryId, c.addonId)] = c; });
     return map;
   }
-  function carrierMatch(leg, token) {
-    if (token.toLowerCase() === String(leg.airlineCode || "").toLowerCase()) return true;
-    if (token.toLowerCase() === String(leg.airline || "").toLowerCase()) return true;
-    if (token.toLowerCase() === String(leg.operatingCarrier || "").toLowerCase()) return true;
-    if (token.length > 2 && ((leg.airline || "").toLowerCase().indexOf(token.toLowerCase()) >= 0 || (leg.operatingCarrier || "").toLowerCase().indexOf(token.toLowerCase()) >= 0)) return true;
-    return false;
-  }
-  function legsOf(it) { return (it.outbound.legs || []).concat(it.returning && it.returning.legs ? it.returning.legs : []); }
-  function allows(it, tokens) {
-    var legs = legsOf(it);
-    if (!legs.length) return tokens.some(function (t) { return (it.airlineSummary || "").toLowerCase().indexOf(t.toLowerCase()) >= 0; });
-    return legs.every(function (leg) { return tokens.some(function (t) { return carrierMatch(leg, t); }); });
-  }
-  function blocked(it, tokens) {
-    var legs = legsOf(it);
-    if (!legs.length) return tokens.some(function (t) { return (it.airlineSummary || "").toLowerCase().indexOf(t.toLowerCase()) >= 0; });
-    return legs.some(function (leg) { return tokens.some(function (t) { return carrierMatch(leg, t); }); });
-  }
   function currentFilters() {
-    var cabin = state.cabin === "all" || state.cabin === "EU" ? null : state.cabin;
-    return {
-      maxStops: state.maxStops === "" ? null : Number(state.maxStops),
-      maxLayoverMinutes: state.maxLayoverHours === "" ? null : Math.round(Number(state.maxLayoverHours) * 60),
-      excludeOutboundDates: splitList(state.excludeOut),
-      excludeReturnDates: splitList(state.excludeReturn),
-      europeanPremiumOnly: !!(state.eu || state.cabin === "EU"),
-      airlineAllow: splitList(state.allow),
-      airlineBlock: splitList(state.block),
-      maxTravelMinutes: state.maxTravelHours === "" ? null : Math.round(Number(state.maxTravelHours) * 60),
-      outboundDepartAfter: state.departAfter || null,
-      outboundDepartBefore: state.departBefore || null,
-      returnDepartAfter: state.returnAfter || null,
-      nonstopOnly: !!state.nonstop,
-      hideMock: state.hideMock !== false,
-      verifiedCashRefundOnly: !!state.cashRefund,
-      cabin: cabin,
-      nights: state.nights === "all" ? null : Number(state.nights),
-      origin: state.lhr ? "LHR" : (state.origin === "all" ? null : state.origin)
-    };
+    return toFilterSpec(state);
   }
   function matches(it, f) {
-    if (f.hideMock && it.sourceLabel === "mock") return false;
-    if (f.verifiedCashRefundOnly && !verifiedCashRefund(it)) return false;
-    var stops = it.stopsRet == null ? it.stopsOut : Math.max(it.stopsOut, it.stopsRet);
-    if (f.nonstopOnly && (it.stopsOut !== 0 || it.returnMissing || it.stopsRet !== 0)) return false;
-    if (f.maxStops != null && stops > f.maxStops) return false;
-    if (f.maxLayoverMinutes != null && (it.layoverMinutes || []).some(function (m) { return m > f.maxLayoverMinutes; })) return false;
-    if ((f.excludeOutboundDates || []).indexOf(it.outboundDate) >= 0) return false;
-    if (it.returnDate && (f.excludeReturnDates || []).indexOf(it.returnDate) >= 0) return false;
-    if (f.europeanPremiumOnly && !it.euPremium) return false;
-    if (f.maxTravelMinutes != null && (it.travelMinutes == null || it.travelMinutes > f.maxTravelMinutes)) return false;
-    if (f.outboundDepartAfter && it.outboundDepart && it.outboundDepart < normTime(f.outboundDepartAfter)) return false;
-    if (f.outboundDepartBefore && it.outboundDepart && it.outboundDepart > normTime(f.outboundDepartBefore)) return false;
-    if (f.returnDepartAfter && it.returnDepart && it.returnDepart < normTime(f.returnDepartAfter)) return false;
-    if (f.cabin && f.cabin !== "all" && it.cabinKey !== cabinKey(f.cabin)) return false;
-    if (f.nights != null && it.nights !== f.nights) return false;
-    if (f.origin && it.origin !== String(f.origin).toUpperCase()) return false;
-    if (f.airlineAllow && f.airlineAllow.length && !allows(it, f.airlineAllow)) return false;
-    if (f.airlineBlock && f.airlineBlock.length && blocked(it, f.airlineBlock)) return false;
-    return true;
+    return matchesFilter(it, f, isCashRefundVerified);
   }
   function visibleRows() {
-    var f = currentFilters();
-    var rows = (result.itineraries || []).filter(function (it) { return matches(it, f); });
-    if (state.hide && (result.addons || []).length) {
-      var cells = cellMap();
-      rows = rows.filter(function (it) {
-        return (result.addons || []).some(function (mx) {
-          var c = cells[cellKey(it.id, mx.id)];
-          return c && c.status !== "no";
-        });
-      });
-    }
-    return rows;
+    return visibleItineraries(result, currentFilters(), state.hide, isCashRefundVerified);
   }
   function quoteable(it) {
     if (it.sourceLabel !== "live" || it.livePrice !== true) return false;
