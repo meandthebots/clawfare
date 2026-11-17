@@ -156,3 +156,59 @@ test("request preserves HTTP errors and never turns missing prices into zero", a
     true,
   );
 });
+
+test("guest mode uses only synthetic in-memory fixtures, without credentials or HTTP", async () => {
+  let calls = 0;
+  const client = createClawfareClient(
+    { hostedReadOnly: false, hostedEstimateOnly: true, guest: true },
+    async () => {
+      calls++;
+      throw new Error("Guest mode must not fetch");
+    },
+  );
+  const sample = await client.sample();
+  assert.equal(sample.ok, true);
+  if (!sample.ok) throw new Error("Guest sample missing");
+  assert.equal(sample.data.id, "guest-florida-demo");
+  assert.equal(sample.data.itineraries.length, 3);
+  assert.equal(sample.data.cells.length, 6);
+  assert.ok(
+    sample.data.itineraries.every(
+      (it) => it.sourceLabel === "sample" && it.livePrice === false && it.links.length === 0,
+    ),
+  );
+  const searches = await client.searches();
+  assert.equal(searches.ok, true);
+  if (!searches.ok) throw new Error("Guest investigation missing");
+  assert.equal(searches.data[0]?.id, sample.data.id);
+  const selected = await client.request("/api/results/guest-florida-demo");
+  assert.equal(selected.status, 200);
+  assert.equal((selected.body as { id: string }).id, sample.data.id);
+  assert.equal((await client.status()).ok, true);
+  assert.equal((await client.quota()).ok, true);
+  assert.equal((await client.storage()).ok, false);
+  assert.equal(
+    (
+      await client.estimate({
+        ...sampleQuery,
+        origins: [...sampleQuery.origins],
+        destinations: [...sampleQuery.destinations],
+        providers: [...sampleQuery.providers],
+      })
+    ).ok,
+    false,
+  );
+  assert.equal((await client.request("/api/search", {})).status, 405);
+  assert.equal((await client.request("/api/results/guest-florida-demo/vendors", {})).status, 405);
+  assert.equal((await client.request("/api/results/guest-florida-demo/track", {})).status, 405);
+  await assert.rejects(
+    client.download(
+      "/api/export/csv",
+      { result: sample.data, filters: {}, kind: "itineraries" },
+      "test.csv",
+    ),
+    /Guest exports are disabled/,
+  );
+  await assert.rejects(client.request("/api/results/..%2Fprivate" as never), /Unsupported/);
+  assert.equal(calls, 0, "no session, API or provider requests may occur in guest mode");
+});

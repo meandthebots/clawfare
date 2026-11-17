@@ -39,3 +39,36 @@ the repository workflows. The compiled browser bundle is static/offline-safe;
 hosted identity and all paid-provider authorizations are enforced server-side.
 ResultSet validators check the transport envelope; component renderers must
 still handle nullable prices and unknown refund evidence conservatively.
+
+## Credential-free guest mode (issue #89)
+
+Open `http://127.0.0.1:5173/?guest=1` after `npm run api:generate && npm run dev`
+(or open the self-contained `build/frontend/web/index.html?guest=1` after
+`npm run build`). No ChatGPT or Google sign-in, local JVM server, API keys,
+D1 database or network connection is required to use the guest UI.
+
+Guest mode renders a **bundled, deliberately synthetic** Florida/Mexico City
+fixture with grid cells in all three feasibility states, itineraries, vendor
+rows and details. Filters, sorting, tabs, the details panel, theme selection
+and notes can be exercised. It provides one built-in investigation in the
+saved-investigations control, but no user data or personal history.
+
+The guest client never calls `fetch` (including `/api/session`), never
+reads D1 and rejects all API mutations, estimates, tracking, paid search and
+exports. The sample contains no booking URLs or live quotes. Vendor notes and
+theme preference may be stored in this browser's localStorage, as in the
+normal UI; **no data goes to the server**. To test Kotlin-backed estimates or
+D1 persistence, use the separately authenticated hosted environment.
+
+The query parameter **does not bypass a hosting platform's authentication**:
+an owner-only ChatGPT Site continues to require ChatGPT sign-in at ingress.
+For an anonymous test URL, deploy the self-contained static HTML to a
+separate public static host; do not change the existing Site's access
+controls. The sample is bundled client-side, so never embed private trips in
+the guest fixture.
+
+Verification: `npm run check && npm run build`, plus
+`node sites-runtime/tests/guest-browser.mjs build/frontend/web/index.html`
+from the repository root after installing Playwright in the mobile-grid CI
+environment. The browser test aborts and fails on **any** request other than
+the static HTML document.
