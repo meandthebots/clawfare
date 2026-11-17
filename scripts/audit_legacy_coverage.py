@@ -19,6 +19,15 @@ import sys
 import xml.etree.ElementTree as ET
 
 
+# Ratchet: previously exempt commands must remain individually well-tested.
+# They appear in BOTH XML reports, and no one may re-exempt them silently.
+RETIRED_CLI_EXEMPTIONS: tuple[str, ...] = (
+    "com.clawfare.cli.FlightImportCommand",
+    "com.clawfare.cli.FlightPriceCommand",
+)
+MIN_RETIRED_COVERAGE_PERCENT = 80
+
+
 @dataclass(frozen=True)
 class Counts:
     missed: int = 0
@@ -117,12 +126,30 @@ def parse_xml_report(source: Path) -> Report:
 
 
 def audit(
-    unfiltered: Report, filtered: Report, excluded: tuple[str, ...]
+    unfiltered: Report,
+    filtered: Report,
+    excluded: tuple[str, ...],
+    retired: tuple[str, ...] = (),
 ) -> tuple[dict[str, object], str]:
     excluded_set = set(excluded)
     visible = excluded_set & unfiltered.classes.keys()
     missing = sorted(excluded_set - unfiltered.classes.keys())
     leaked = sorted(excluded_set & filtered.classes.keys())
+    retired_entries: dict[str, ClassCoverage] = {}
+    for name in retired:
+        if name in excluded_set:
+            raise ValueError(f"Retired CLI command is still exempted: {name}")
+        full = unfiltered.classes.get(name)
+        gated = filtered.classes.get(name)
+        if full is None or gated is None:
+            raise ValueError(f"Retired CLI command is missing from coverage reports: {name}")
+        for counter_name, counts in (("line", full.lines), ("branch", full.branches)):
+            if counts.total == 0 or counts.covered * 100 < MIN_RETIRED_COVERAGE_PERCENT * counts.total:
+                raise ValueError(
+                    f"Retired CLI command fell below {MIN_RETIRED_COVERAGE_PERCENT}% "
+                    f"{counter_name} coverage: {name} ({counts.percentage})"
+                )
+        retired_entries[name] = full
     if not visible:
         raise ValueError(
             "Unfiltered JVM report contains none of the legacy-excluded classes; "
@@ -148,6 +175,10 @@ def audit(
                             "branches": legacy_branches.as_json()},
         "missing_legacy_classes": missing,
         "configured_exclusions_present_in_gate": leaked,
+        "retired_legacy": {
+            name: {"lines": entry.lines.as_json(), "branches": entry.branches.as_json()}
+            for name, entry in sorted(retired_entries.items())
+        },
     }
     table = [
         "# Legacy CLI — unfiltered Kover coverage",
@@ -181,6 +212,21 @@ def audit(
             f"{entry.branches.covered} / {entry.branches.total} | "
             f"{entry.branches.percentage} |"
         )
+    if retired_entries:
+        table.extend([
+            "",
+            "## Retired CLI exemptions — enforced per-class coverage",
+            "",
+            "Every retired command is included in the **gated** Kover XML and must",
+            f"retain at least {MIN_RETIRED_COVERAGE_PERCENT}% line **and** branch coverage.",
+            "",
+            "| Command | Lines | Branches |",
+            "| --- | ---: | ---: |",
+        ])
+        for name, entry in sorted(retired_entries.items()):
+            table.append(
+                f"| `{name}` | {entry.lines.percentage} | {entry.branches.percentage} |"
+            )
     if leaked:
         table.extend([
             "",
@@ -223,7 +269,7 @@ def main() -> int:
         exclusions = excluded_legacy_classes(args.gradle)
         unfiltered = parse_xml_report(args.unfiltered)
         filtered = parse_xml_report(args.filtered)
-        metrics, markdown = audit(unfiltered, filtered, exclusions)
+        metrics, markdown = audit(unfiltered, filtered, exclusions, RETIRED_CLI_EXEMPTIONS)
     except (ValueError, ET.ParseError, OSError) as exc:
         print(f"Coverage audit failed: {exc}", file=sys.stderr)
         return 1
