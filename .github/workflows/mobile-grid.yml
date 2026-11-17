@@ -4,7 +4,9 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - 'src/main/resources/web/index.html'
+      - 'web/**'
+      - 'build.gradle.kts'
+      - 'scripts/verify-web-bundle.mjs'
       - 'sites-runtime/tests/mobile-grid-browser.mjs'
       - '.github/workflows/mobile-grid.yml'
 
@@ -32,4 +34,4 @@ jobs:
           npm install --no-save --no-package-lock playwright@1.58.2
           npx playwright install chromium --with-deps
       - name: Verify mobile tap details and existing desktop grid
-        run: node sites-runtime/tests/mobile-grid-browser.mjs src/main/resources/web/index.html build/sites/clawfare-sample.json
+        run: node sites-runtime/tests/mobile-grid-browser.mjs build/frontend/web/index.html build/sites/clawfare-sample.json

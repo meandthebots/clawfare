@@ -24,3 +24,4 @@ clawfare-linux-amd64
 # Project notes (not clawfare)
 COVERAGE-NOTES.md
 
+\n# React/Vite frontend\nweb/node_modules/\nweb/dist/\nweb/package-lock.json\n

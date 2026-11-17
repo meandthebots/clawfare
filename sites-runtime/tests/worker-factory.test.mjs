@@ -3,7 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { createClawfareWorkerFactory } from "../src/worker-factory.mjs";
 
-const templateHtml = readFileSync("src/main/resources/web/index.html", "utf8");
+const templateHtml = readFileSync("build/frontend/web/index.html", "utf8");
 const sample = {
   id: "florida-dec-2026",
   title: "Public saved Kotlin sample", currency: "GBP",

@@ -16,6 +16,9 @@ jobs:
         with:
           java-version: '25'
           distribution: 'temurin'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
       - name: Offline, synthetic end-to-end smoke test
@@ -39,6 +42,9 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
       
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
       
@@ -69,6 +75,9 @@ jobs:
           distribution: 'temurin'
       - name: Set up Node.js for Kotlin/JS and Kotlin/Wasm tests
         uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Setup Gradle

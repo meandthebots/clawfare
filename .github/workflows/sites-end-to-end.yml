@@ -6,7 +6,9 @@ on:
     paths:
       - 'sites-runtime/**'
       - 'fare-core/**'
-      - 'src/main/resources/web/**'
+      - 'web/**'
+      - 'build.gradle.kts'
+      - 'scripts/verify-web-bundle.mjs'
       - 'src/main/kotlin/com/clawfare/search/**'
       - 'src/main/kotlin/com/clawfare/cli/FareCommands.kt'
       - 'scripts/build-sites-preview.sh'
@@ -39,7 +41,7 @@ jobs:
           node --experimental-sqlite sites-runtime/tests/real-sqlite-integration.mjs \
             build/sites/clawfare-sample.json \
             fare-core/build/kotlin-webpack/js/productionExecutable \
-            src/main/resources/web/index.html
+            build/frontend/web/index.html
       - name: Upload sample-only preview
         uses: actions/upload-artifact@v4
         with:

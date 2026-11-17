@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
 import { createReadOnlySitesHandler } from "../src/site-handler.mjs";
 
-const templateHtml = readFileSync("src/main/resources/web/index.html", "utf8");
+const templateHtml = readFileSync("build/frontend/web/index.html", "utf8");
 const secret = "strong-signed-in-owner-scope-secret-for-this-site";
 const db = { prepare() {
   return { bind() { return {

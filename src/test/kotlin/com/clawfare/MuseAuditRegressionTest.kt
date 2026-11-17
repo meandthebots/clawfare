@@ -38,10 +38,11 @@ import kotlin.test.assertTrue
 class MuseAuditRegressionTest {
     @Test
     fun webEstimatesExactlyTheMarketsThatItConfirms() {
-        val page = Server.page()
-        assertTrue(page.contains("var vendorMarkets = [\"uk\", \"us\"];"))
-        assertEquals(2, Regex("markets: vendorMarkets").findAll(page).count())
-        assertFalse(page.contains("markets: [\"uk\"], cacheOnly"))
+        val source = java.io.File("web/src/controller.ts").readText()
+        assertTrue(source.contains("var vendorMarkets = [\"uk\", \"us\"];"))
+        assertEquals(2, Regex("markets: vendorMarkets").findAll(source).count())
+        assertFalse(source.contains("markets: [\"uk\"], cacheOnly"))
+        assertTrue(Server.page().contains("btnRun"))
     }
 
     @Test

@@ -15,6 +15,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Build self-contained React template for hosted tests
+        run: |
+          cd web
+          npm install --no-audit --no-fund
+          npm run build
       - name: Exercise hosted adapters and URL classification
         run: node --test sites-runtime/tests/*.test.mjs
       - name: Test D1 SQL against SQLite, including concurrent writers and tenant isolation
