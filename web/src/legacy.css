@@ -340,12 +340,6 @@ tr.group td.gh {
   background: var(--green-bg);
   color: var(--green-ink);
 }
-.links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
 .lbtn {
   display: inline-block;
   text-decoration: none;
@@ -362,15 +356,6 @@ tr.group td.gh {
   text-decoration: none;
   font-size: 12px;
   margin-left: 2px;
-}
-.booknote {
-  margin-top: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--notice-bg);
-  border: 1px solid var(--notice-border);
-  font-size: 12px;
-  color: var(--notice-ink);
 }
 .chg {
   font-size: 10.5px;
@@ -503,32 +488,6 @@ td.lhonly {
   color: var(--muted);
   margin: 0 0 8px;
 }
-.reasons {
-  margin: 0;
-  padding-left: 18px;
-}
-.reasons li.no {
-  color: var(--red-ink);
-}
-.reasons li.catch {
-  color: var(--amber-ink);
-}
-.reasons li.ok {
-  color: var(--green-ink);
-}
-.box {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px 12px;
-  margin-bottom: 10px;
-}
-.box .t {
-  font-weight: 700;
-  margin-bottom: 4px;
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-}
 .seglist,
 .price {
   width: 100%;
@@ -565,57 +524,6 @@ td.lhonly {
 }
 .muted {
   color: var(--muted);
-}
-.tl-days {
-  display: grid;
-  font-size: 10px;
-  color: var(--muted);
-  text-align: center;
-}
-.tl-days div {
-  padding: 2px 0;
-  border-left: 1px solid var(--neutral-bg);
-}
-.tl-days div.xmas {
-  color: var(--red-ink);
-  font-weight: 800;
-}
-.tl-row {
-  position: relative;
-  height: 24px;
-  margin: 5px 0;
-  background: var(--header-bg);
-  border-radius: 6px;
-}
-.tl-bar {
-  position: absolute;
-  top: 2px;
-  height: 20px;
-  border-radius: 5px;
-  font-size: 11px;
-  color: #fff;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  padding: 0 6px;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.tl-bar.couple {
-  background: var(--accent);
-}
-.tl-bar.mex {
-  background: var(--orange);
-}
-.tl-bar.bad {
-  background: var(--red);
-}
-.tl-mark {
-  position: absolute;
-  top: -2px;
-  bottom: -2px;
-  width: 2px;
-  background: var(--red-ink);
 }
 .trust {
   display: inline-block;
