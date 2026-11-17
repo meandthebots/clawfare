@@ -8,6 +8,7 @@ on:
       - 'build.gradle.kts'
       - 'scripts/verify-web-bundle.mjs'
       - 'sites-runtime/tests/mobile-grid-browser.mjs'
+      - 'sites-runtime/tests/react-app-browser.mjs'
       - '.github/workflows/mobile-grid.yml'
 
 jobs:
@@ -35,3 +36,5 @@ jobs:
           npx playwright install chromium --with-deps
       - name: Verify mobile tap details and existing desktop grid
         run: node sites-runtime/tests/mobile-grid-browser.mjs build/frontend/web/index.html build/sites/clawfare-sample.json
+      - name: Verify hosted React UI safety and diagnostics
+        run: node sites-runtime/tests/react-app-browser.mjs build/frontend/web/index.html build/sites/clawfare-sample.json
