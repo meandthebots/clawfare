@@ -156,6 +156,40 @@ It does not include budget/alert/audit journals or replace existing databases.
 Store off-host copies securely; restoring a prior snapshot intentionally
 loses writes committed after its capture.
 
+## Legacy upgrade and rollback regression tests
+
+`LegacySchemaMigrationTest` builds disposable, synthetic **v0 and v1 SQLite**
+files with real legacy tables and rows: one investigation, one flight, and two
+dated EUR price observations. The fixtures deliberately omit additive v2
+columns, so the tests exercise `ClawfareDatabase.connect` and the actual
+`runMigrations` path rather than mocking a migration call.
+
+The assertions check that v0/v1 become v2, that the old booking link is
+backfilled to **both** historical `price_history.source_url` records, that
+the investigation/flight/price values can still be read through the current
+Kotlin query layer, and that a fresh, owner-only pre-upgrade snapshot still
+contains the **original** rows and schema version. Reopening the upgraded
+database must not produce duplicate backups.
+
+For rollback, a test-only SQLite trigger deliberately aborts the legacy
+booking-link backfill *after* the migration attempts to add a column. The
+test checks that `user_version` did not advance, the original rows survived,
+the attempted column was rolled back, and the published backup can be copied
+to a new path, repaired in the synthetic fixture, and upgraded successfully.
+No production failure-injection hooks or special migrations are introduced.
+
+Run just this offline suite with:
+
+```sh
+./gradlew test --tests "com.clawfare.db.LegacySchemaMigrationTest"
+```
+
+These tests do **not** guarantee crash safety on every filesystem; they
+complement the WAL-consistency, POSIX-permission, invalid-source and encrypted
+backup tests documented above. They require POSIX semantics and skip on
+unsupported test hosts. No live provider calls or real traveller data are
+used.
+
 ## Fare search columns (additive)
 
 `ClawfareDatabase.runMigrations()` adds these with `ALTER TABLE ... ADD COLUMN` when `PRAGMA table_info` does not already list them. Existing investigations and flights keep working. The `source_url` backfill from `flights.share_link` runs only when that column exists.
