@@ -105,19 +105,17 @@ class ServerTest {
                 Regex(""""token":"([^"]+)"""").find(session.bodyAsText())?.groupValues?.get(1)
                     ?: error("No local session token")
 
-            // Body enforcement must inspect bytes actually received, not
-            // just the Content-Length declaration. These are small enough to
-            // pass the legacy 2 MiB header precheck, but exceed the query cap.
+            // Body enforcement must inspect actual bytes, not just the optional
+            // Content-Length header. The query cap is lower than the export cap.
             val oversizedJson = """{"opaque":"${"x".repeat(70 * 1024)}"}"""
-            for (
-                path in
+            val protectedRoutes =
                 listOf(
                     "/api/estimate",
                     "/api/search",
                     "/api/results/florida-dec-2026/vendors",
                     "/api/results/florida-dec-2026/track",
                 )
-            ) {
+            for (path in protectedRoutes) {
                 val oversized =
                     client.post(path) {
                         header("Host", "127.0.0.1:8080")
