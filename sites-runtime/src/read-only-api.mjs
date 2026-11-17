@@ -3,6 +3,7 @@
 // from a trusted identity gateway. Raw user headers are never accepted here.
 import { D1Investigations } from "./investigations.mjs";
 import { ensureBundledPublicSample, loadPublicSample } from "./public-sample.mjs";
+import { estimateHostedSearch } from "./search-estimate.mjs";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -64,7 +65,7 @@ export async function ownerKeyFromVerifiedEmail(email, secret, cryptoApi = globa
 export async function handleReadOnlyApi(
   request,
   { db, getVerifiedEmail, ownerKeySecret, cryptoApi = globalThis.crypto,
-    bundledPublicSample = null },
+    bundledPublicSample = null, kotlinEngine = null },
 ) {
   if (typeof getVerifiedEmail !== "function") {
     throw new Error("Trusted identity gateway integration is required");
@@ -72,9 +73,13 @@ export async function handleReadOnlyApi(
   const url = new URL(request.url);
   if (!url.pathname.startsWith("/api/")) return null;
 
-  if (request.method !== "GET") {
-    return respond({ error: "Read-only preview: mutations and live search are disabled." }, 405,
-      { allow: "GET" });
+  // Only informational, no-egress Kotlin search estimates may POST. No
+  // other mutation, provider search, write or consent-granting route exists.
+  const isEstimate = url.pathname === "/api/estimate" && request.method === "POST" &&
+    kotlinEngine != null;
+  if (request.method !== "GET" && !isEstimate) {
+    return respond({ error: "Hosted preview: paid searches and mutations are disabled." }, 405,
+      { allow: url.pathname === "/api/estimate" && kotlinEngine != null ? "POST" : "GET" });
   }
 
   let email;
@@ -93,6 +98,9 @@ export async function handleReadOnlyApi(
     return respond({ error: "Sign in with ChatGPT required." }, 401);
   }
   const ownerId = await ownerKeyFromVerifiedEmail(email, ownerKeySecret, cryptoApi);
+  // Authentication precedes parsing and Kotlin planning. The estimator
+  // creates no token, no reservation, no network request and no D1 write.
+  if (isEstimate) return estimateHostedSearch(request, kotlinEngine);
   const store = new D1Investigations(db, { cryptoApi });
 
   if (url.pathname === "/api/status") {
