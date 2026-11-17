@@ -131,7 +131,15 @@ Mutation routes additionally require a same-origin local session token,
 JSON content type, and an origin match when browsers provide an `Origin`
 header. Paid searches require an explicit estimate-bound, short-lived,
 single-use confirmation token; local search requests are capped and
-serialized. The JVM API **streams and bounds actual JSON bytes** before
+serialized. Inspecting provider account quotas from the local UI also requires
+the same session header (without a JSON request body), so an unrelated
+webpage cannot cause external quota-account requests using a simple
+cross-origin GET. These inspections are throttled to one per 30 seconds
+per server instance; repeats return HTTP 429 with `Retry-After`. The
+browser sends the session header automatically for the **Check quota**
+control; no change is needed for ordinary local use.
+
+The JVM API **streams and bounds actual JSON bytes** before
 deserializing or invoking business logic: query, vendor and tracking requests
 are limited to 64 KiB, while HTML/CSV export requests allow 2 MiB. Requests
 over the route cap return HTTP 413 regardless of whether the client supplies
