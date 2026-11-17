@@ -23,7 +23,8 @@ async function createPage(options) {
     return route.abort();
   });
   await page.goto("https://offline-guest.test/");
-  await page.waitForSelector("#grid td.cell");
+  await page.waitForSelector(options?.isMobile
+    ? "#mobileGrid button.mobile-flight-main" : "#grid td.cell");
   return page;
 }
 try {
