@@ -72,7 +72,7 @@ function bestItinerary(
 function SummaryCard({
   label, hit, onSelect,
 }: { label: string; hit: Hit | null; onSelect: SnapshotOverviewProps["onSelect"] }) {
-  if (!hit) return <div className="sumcard" {...stylex.props(styles.staticCard)}>
+  if (!hit) return <div className={"sumcard " + stylex.props(styles.staticCard).className}>
     <div className="k">{label}</div><div className="v">—</div>
     <div className="d">None in the current filters</div>
   </div>;
