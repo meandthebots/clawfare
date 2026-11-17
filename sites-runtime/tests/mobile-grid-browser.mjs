@@ -67,6 +67,10 @@ try {
   const desktop = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await desktop.setContent(html, { waitUntil: "load" });
   await desktop.waitForSelector("#grid td.cell");
+  const headerBackground = await desktop.locator("header").evaluate(
+    el => getComputedStyle(el).backgroundImage);
+  assert.match(headerBackground, /linear-gradient/,
+    "Compiled StyleX header background must be present in the standalone browser page");
   assert.notEqual(await desktop.locator("#grid").evaluate(el => getComputedStyle(el).display), "none");
   assert.equal(await desktop.locator("#mobileGrid").evaluate(el => getComputedStyle(el).display), "none");
   await desktop.locator("#grid td.cell[data-p]").last().click();

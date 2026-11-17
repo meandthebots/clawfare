@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "typecheck": "npm run api:generate && tsc --noEmit",
-    "build": "npm run api:generate && tsc --noEmit && vite build && node ../scripts/verify-web-bundle.mjs",
+    "build": "npm run api:generate && tsc --noEmit && vite build && node ../scripts/inline-web-bundle.mjs && node ../scripts/verify-web-bundle.mjs",
     "lint": "oxlint src vite.config.ts",
     "format": "oxfmt src vite.config.ts",
     "format:check": "oxfmt --check src vite.config.ts",
@@ -32,7 +32,6 @@
     "oxfmt": "0.78.0",
     "oxlint": "1.93.0",
     "typescript": "5.9.3",
-    "vite": "8.3.8",
-    "vite-plugin-singlefile": "2.3.4"
+    "vite": "8.3.8"
   }
 }
