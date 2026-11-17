@@ -104,6 +104,79 @@ class BatchSweepTest {
     }
 
     @Test
+    fun rejectExtremeDateWindowsBeforeBuildingBatchEntries() {
+        val outbound =
+            dates.copy(
+                origins = listOf("LHR"),
+                destinations = listOf("HND"),
+                outboundFrom = "0001-01-01",
+                outboundTo = "9999-12-31",
+                tripType = "one_way",
+            )
+        val hugeOutbound =
+            assertFailsWith<IllegalArgumentException> {
+                BatchSweep.expand(BatchConfig("bounded", listOf(BatchScenario("extreme", outbound))))
+            }
+        assertTrue(hugeOutbound.message.orEmpty().contains("Scenario matrix too large"))
+
+        val returns =
+            outbound.copy(
+                outboundFrom = "2027-04-01",
+                outboundTo = "2027-04-02",
+                returnFrom = "0001-01-01",
+                returnTo = "9999-12-31",
+                tripType = "round_trip",
+            )
+        val hugeReturn =
+            assertFailsWith<IllegalArgumentException> {
+                BatchSweep.expand(BatchConfig("bounded", listOf(BatchScenario("extreme", returns))))
+            }
+        assertTrue(hugeReturn.message.orEmpty().contains("Scenario matrix too large"))
+    }
+
+    @Test
+    fun perScenarioBatchMatrixUsesExistingFifteenHundredEntryCap() {
+        // 750 days x two destinations is permitted; 751 x two is not.
+        val query =
+            dates.copy(
+                origins = listOf("LHR"),
+                destinations = listOf("HND", "NRT"),
+                outboundFrom = "2027-01-01",
+                outboundTo = "2029-01-19",
+                tripType = "one_way",
+            )
+        assertEquals(1_500, BatchSweep.expand(BatchConfig("bounded", listOf(BatchScenario("exact", query)))).size)
+        val over = query.copy(outboundTo = "2029-01-20")
+        val thrown =
+            assertFailsWith<IllegalArgumentException> {
+                BatchSweep.expand(BatchConfig("bounded", listOf(BatchScenario("over", over))))
+            }
+        assertTrue(thrown.message.orEmpty().contains("Scenario matrix too large"))
+    }
+
+    @Test
+    fun batchLimitChecksAllScenariosBeforeExpandingAny() {
+        // Six individually legal 1,000-entry scenarios exceed the 5,000-entry
+        // batch cap. Exactly five must retain the existing expansion behavior.
+        val query =
+            dates.copy(
+                origins = listOf("LHR"),
+                destinations = listOf("HND"),
+                outboundFrom = "2027-01-01",
+                outboundTo = "2029-09-26",
+                tripType = "one_way",
+            )
+        val scenarios = (1..6).map { index -> BatchScenario("scenario-$index", query) }
+        assertEquals(5_000, BatchSweep.expand(BatchConfig("bounded", scenarios.take(5))).size)
+        val error =
+            assertFailsWith<IllegalArgumentException> {
+                BatchSweep.expand(BatchConfig("bounded", scenarios))
+            }
+        assertTrue(error.message.orEmpty().contains("Batch matrix too large"))
+        assertTrue(error.message.orEmpty().contains("6000"))
+    }
+
+    @Test
     fun matrixNeverSpendsPastHardUpperBound() {
         val config = BatchConfig("budget", listOf(BatchScenario("limited", dates)), maxLiveCalls = 4)
         val network = service()

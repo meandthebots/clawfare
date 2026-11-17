@@ -35,7 +35,7 @@ private fun inclusiveDates(fromRaw: String, toRaw: String): List<LocalDate> {
  * count; the arithmetic-series calculation is exact, even for overlapping
  * outbound and return windows.
  */
-private fun countDatePairs(query: SearchQuery): Long {
+fun countDatePairs(query: SearchQuery): Long {
     val firstOutbound = LocalDate.parse(query.outboundFrom)
     val lastOutbound = LocalDate.parse(query.outboundTo.ifBlank { query.outboundFrom })
     val firstOutDay = firstOutbound.toEpochDays().toLong()

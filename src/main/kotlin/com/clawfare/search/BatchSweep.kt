@@ -142,26 +142,54 @@ data class BatchCoverageRow(
  * route/date pair, with its own durable price history.
  */
 object BatchSweep {
-    fun expand(config: BatchConfig): List<BatchEntry> =
-        config.scenarios.flatMap { scenario ->
-            val normalized = normalizeQuery(scenario.query)
-            require(scenario.id.matches(Regex("[a-zA-Z][a-zA-Z0-9-]{0,35}"))) { "Invalid scenario identifier" }
-            require(scenario.costScope == null || scenario.costScope in COST_SCOPES) {
-                "Unknown batch cost scope; no searches started."
+    private const val MAX_SCENARIO_MATRIX_ENTRIES = 1_500L
+    private const val MAX_BATCH_MATRIX_ENTRIES = 5_000L
+
+    private data class PreparedScenario(
+        val scenario: BatchScenario,
+        val query: SearchQuery,
+        val routeCount: Long,
+    )
+
+    /**
+     * Preflight every scenario and the aggregate matrix before constructing
+     * any date pairs or entries. A rejected multi-year return window must
+     * not allocate its Cartesian product merely to compute its size.
+     */
+    fun expand(config: BatchConfig): List<BatchEntry> {
+        val prepared =
+            config.scenarios.map { scenario ->
+                val normalized = normalizeQuery(scenario.query)
+                require(scenario.id.matches(Regex("[a-zA-Z][a-zA-Z0-9-]{0,35}"))) { "Invalid scenario identifier" }
+                require(scenario.costScope == null || scenario.costScope in COST_SCOPES) {
+                    "Unknown batch cost scope; no searches started."
+                }
+                val pairCount = countDatePairs(normalized)
+                // Check pair cardinality before multiplying by the two airport
+                // counts so even enormous input arrays cannot overflow Long.
+                require(pairCount <= MAX_SCENARIO_MATRIX_ENTRIES) {
+                    "Scenario matrix too large; split searches into batches"
+                }
+                val routes = pairCount * normalized.origins.size.toLong() * normalized.destinations.size.toLong()
+                require(routes <= MAX_SCENARIO_MATRIX_ENTRIES) {
+                    "Scenario matrix too large; split searches into batches"
+                }
+                PreparedScenario(scenario, normalized, routes)
             }
-            val pairs = datePairs(normalized)
-            require(pairs.size * normalized.origins.size * normalized.destinations.size <= 1500) {
-                "Scenario matrix too large; split searches into batches"
-            }
-            pairs.flatMap { (departure, returning) ->
-                normalized.origins.flatMap { origin ->
-                    normalized.destinations.map { destination ->
-                        val key = listOf(scenario.id, origin, destination, departure, returning.orEmpty()).joinToString("-")
+        val totalRoutes = prepared.sumOf { it.routeCount }
+        require(totalRoutes <= MAX_BATCH_MATRIX_ENTRIES) {
+            "Batch matrix too large ($totalRoutes entries); split searches into batches of at most $MAX_BATCH_MATRIX_ENTRIES."
+        }
+        return prepared.flatMap { plan ->
+            datePairs(plan.query).flatMap { (departure, returning) ->
+                plan.query.origins.flatMap { origin ->
+                    plan.query.destinations.map { destination ->
+                        val key = listOf(plan.scenario.id, origin, destination, departure, returning.orEmpty()).joinToString("-")
                         val safeKey = (config.name + "-" + key).lowercase()
                         val legalKey = safeKey.replace(Regex("[^a-z0-9-]"), "-")
                         val slug = legalKey.take(120).trim('-')
                         val q =
-                            normalized.copy(
+                            plan.query.copy(
                                 origins = listOf(origin),
                                 destinations = listOf(destination),
                                 outboundFrom = departure,
@@ -170,11 +198,12 @@ object BatchSweep {
                                 returnTo = returning,
                                 investigation = slug,
                             )
-                        BatchEntry(scenario, q, slug)
+                        BatchEntry(plan.scenario, q, slug)
                     }
                 }
             }
         }
+    }
 
     fun estimate(
         config: BatchConfig,
