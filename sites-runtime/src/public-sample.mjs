@@ -22,6 +22,8 @@ export const INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL = [
 export const GET_PUBLIC_SAMPLE_SQL = [
   "SELECT result_json, content_sha256 FROM public_sample_fixtures WHERE slug = ?",
 ].join("\n");
+export const GET_PUBLIC_SAMPLE_METADATA_SQL =
+  "SELECT content_sha256, imported_at FROM public_sample_fixtures WHERE slug = ?";
 
 function denySecrets(value, depth = 0) {
   if (depth > 24) throw new Error("Public fixture is too deeply nested.");
@@ -139,4 +141,29 @@ export async function ensureBundledPublicSample(
     throw new Error("Bundled Kotlin sample bootstrap conflict; explicit migration required.");
   }
   return stored;
+}
+
+/**
+ * Authentication-gated D1 diagnostic. Unlike the first-read bootstrap, this
+ * performs no write and exposes no owner identity or private investigations.
+ * The import timestamp is stable across reloads if the actual hosted D1 row
+ * persists; it is NOT evidence about private searches or user isolation.
+ */
+export async function publicSampleStorageEvidence(
+  db, { cryptoApi = globalThis.crypto } = {},
+) {
+  const sample = await loadPublicSample(db, { cryptoApi }); // verifies SHA-256
+  if (!sample) return { backend: "d1", sampleStored: false, firstImportedAt: null, sha256: null };
+  const row = await db.prepare(GET_PUBLIC_SAMPLE_METADATA_SQL)
+    .bind(PUBLIC_SAMPLE_SLUG).first();
+  if (!row || typeof row.imported_at !== "string" ||
+      typeof row.content_sha256 !== "string") {
+    throw new Error("Missing stored public sample metadata.");
+  }
+  return {
+    backend: "d1",
+    sampleStored: true,
+    firstImportedAt: row.imported_at,
+    sha256: row.content_sha256,
+  };
 }

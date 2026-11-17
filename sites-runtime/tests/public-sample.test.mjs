@@ -3,7 +3,8 @@ import test from "node:test";
 import { webcrypto } from "node:crypto";
 import {
   bootstrapPublicSample, loadPublicSample, validatePublicSample,
-  ensureBundledPublicSample, INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL,
+  ensureBundledPublicSample, publicSampleStorageEvidence, GET_PUBLIC_SAMPLE_METADATA_SQL,
+  INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL,
   UPSERT_PUBLIC_SAMPLE_SQL, GET_PUBLIC_SAMPLE_SQL,
 } from "../src/public-sample.mjs";
 import { handleReadOnlyApi } from "../src/read-only-api.mjs";
@@ -33,12 +34,12 @@ function fakeDatabase() {
             async run() {
               assert.ok([UPSERT_PUBLIC_SAMPLE_SQL, INSERT_PUBLIC_SAMPLE_IF_MISSING_SQL].includes(sql));
               if (sql === UPSERT_PUBLIC_SAMPLE_SQL || !row) {
-                row = { result_json: args[1], content_sha256: args[2] };
+                row = { result_json: args[1], content_sha256: args[2], imported_at: args[3] };
               }
               return { success: true };
             },
             async first() {
-              assert.equal(sql, GET_PUBLIC_SAMPLE_SQL);
+              assert.ok([GET_PUBLIC_SAMPLE_SQL, GET_PUBLIC_SAMPLE_METADATA_SQL].includes(sql));
               return row;
             },
           };
@@ -168,4 +169,28 @@ test("concurrent first requests are idempotent; mismatched or corrupt fixtures f
   await assert.rejects(ensureBundledPublicSample(db, {
     ...base, itineraries: [{ ...base.itineraries[0], livePrice: true }],
   }, options), /sample-only/);
+});
+
+test("read-only storage evidence verifies D1 sample digest and stable first import timestamp", async () => {
+  const db = fakeDatabase();
+  const options = { cryptoApi: webcrypto, clock: () => new Date("2026-11-16T12:00:00Z") };
+  const before = await publicSampleStorageEvidence(db, options);
+  assert.deepEqual(before, {
+    backend: "d1", sampleStored: false, firstImportedAt: null, sha256: null,
+  });
+  const digest = await bootstrapPublicSample(db, base, options);
+  db.calls.length = 0;
+  const first = await publicSampleStorageEvidence(db, options);
+  assert.deepEqual(first, {
+    backend: "d1", sampleStored: true,
+    firstImportedAt: "2026-11-16T12:00:00.000Z",
+    sha256: digest,
+  });
+  assert.deepEqual(db.calls.map(x => x.sql), [
+    GET_PUBLIC_SAMPLE_SQL, GET_PUBLIC_SAMPLE_METADATA_SQL,
+  ]);
+  const again = await publicSampleStorageEvidence(db, options);
+  assert.deepEqual(again, first);
+  db.corrupt();
+  await assert.rejects(publicSampleStorageEvidence(db, options), /digest mismatch/);
 });

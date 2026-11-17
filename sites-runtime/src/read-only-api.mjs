@@ -2,7 +2,7 @@
 // This is NOT a public entrypoint: Sites must supply an authenticated email
 // from a trusted identity gateway. Raw user headers are never accepted here.
 import { D1Investigations } from "./investigations.mjs";
-import { ensureBundledPublicSample, loadPublicSample } from "./public-sample.mjs";
+import { ensureBundledPublicSample, loadPublicSample, publicSampleStorageEvidence } from "./public-sample.mjs";
 import { estimateHostedSearch } from "./search-estimate.mjs";
 
 const JSON_HEADERS = {
@@ -108,6 +108,11 @@ export async function handleReadOnlyApi(
   }
   if (url.pathname === "/api/quota") {
     return respond([]);
+  }
+  if (url.pathname === "/api/storage") {
+    // Read the actual D1 row and verify its digest; do not initialize,
+    // mutate, or expose tenant-private rows for a diagnostic request.
+    return respond(await publicSampleStorageEvidence(db, { cryptoApi }));
   }
   if (url.pathname === "/api/searches") {
     const limit = parseLimit(url.searchParams);

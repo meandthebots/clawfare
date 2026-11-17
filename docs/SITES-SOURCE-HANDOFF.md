@@ -37,6 +37,16 @@ Sites project ID.
 - `manifest.json` — deterministic names, SHA-256 checksums and sizes of every
   packaged file.
 
+The signed-in **Check storage** control requests `GET /api/storage`. The
+response reads the actual D1 `public_sample_fixtures` row, validates its
+content digest and returns `sampleStored`, `firstImportedAt` and SHA-256.
+It never writes to D1, queries user investigations or reveals credentials.
+After loading the sample, compare `firstImportedAt` before/after page reload
+and a new browser session. An unchanged timestamp is evidence that the
+public sample row persisted in the configured D1 binding. This check does
+**not** prove that private investigations persist or that account isolation
+is enforced; those need separate owner-approved hosted tests.
+
 ## Integration required in ChatGPT Sites / Work
 
 1. Create a new **private** Site from the package. Do not invent or commit
