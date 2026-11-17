@@ -74,6 +74,36 @@ Kover exclusions **and** append it to `RETIRED_CLI_EXEMPTIONS`; CI will enforce
 the resulting ratchet. These percentages come from synthetic JVM unit tests,
 not live-provider API calls.
 
+## Legacy CLI database-import regression suite
+
+`FlightImportDbRegressionTest` exercises `flight import-db` against **two
+disposable SQLite databases**. Its synthetic source deliberately resembles an
+older export: optional columns such as `flight_source` and price
+`source_url` may be absent. The tests cover:
+
+- `--dry-run` and an unmatched `--investigation` filter leaving the target
+  unchanged, and missing-source rejection before creating records.
+- Selective investigation import with complete flight and **historical price**
+  preservation, including EUR amount/currency, market, source and timestamp.
+- Re-imports that deduplicate existing price timestamps but add newly observed
+  prices, without duplicating flights or investigations.
+- `--skip-prices` on new and previously imported flights, a first-import
+  flight-price fallback when the source has no price-history rows, and both
+  legacy and renamed flight-source column forms.
+- Source URLs that fall back to the legacy booking link **only when** a
+  per-observation URL is missing.
+
+Run the isolated suite with:
+
+```sh
+./gradlew test --tests "com.clawfare.cli.FlightImportDbRegressionTest"
+```
+
+No provider endpoints are contacted; every booking URL is under
+`example.invalid`. This improves legacy CLI coverage but does not yet verify
+transactional rollback for a partially failing `import-db` command, which
+remains follow-up work under #23.
+
 This is a measured starting point, **not completion of issue #23**.
 Next: increase coverage of individual existing `Inv*`, `Flight*` and
 `PriceCheck*` commands, then remove exemptions one at a time only after
