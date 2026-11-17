@@ -1,3 +1,5 @@
+import { createClawfareClient } from "./api";
+
 // @ts-nocheck
 // TODO: Migrate the imperative fare-grid renderer to typed React components.
 // Extracted from the former monolithic JVM HTML. This transitional controller
@@ -834,38 +836,14 @@ export function initializeClawfare(): void {
     $("btnRun").disabled = !canRun;
     pendingQuery = canRun ? queryFromForm() : null;
   }
-  // The JVM server uses a loopback-only session. A hosted read-only site
-  // must not request or manufacture that token: authentication is enforced
-  // by the trusted Sites gateway and the server's tenant-scoped API.
+  // The server validates identity and tenant scoping. A hosted preview
+  // cannot request a localhost session or authorize paid API mutations.
   var hostedReadOnly = window.__CLAWFARE_HOSTED_READ_ONLY__ === true;
   var hostedEstimate = hostedReadOnly && window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ === true;
-  var localSession = hostedReadOnly ? Promise.resolve(null) :
-    fetch("/api/session", { cache: "no-store" }).then(function (r) {
-      if (!r.ok) throw new Error("Local session unavailable");
-      return r.json();
-    }).then(function (data) { return data.token; });
+  var client = createClawfareClient({ hostedReadOnly, hostedEstimateOnly: hostedEstimate });
   var searchConsent = null;
   function api(path, body, consent) {
-    if (hostedReadOnly && body !== undefined && !(hostedEstimate && path === "/api/estimate")) {
-      return Promise.resolve({ status: 405, body: { error: "Paid search and mutations are disabled in hosted mode." } });
-    }
-    return localSession.then(function (session) {
-      var opts = { headers: { "Accept": "application/json" } };
-      if (session) opts.headers["X-Clawfare-Session"] = session;
-      if (body !== undefined) {
-        opts.method = "POST";
-        opts.headers["Content-Type"] = "application/json";
-        opts.body = JSON.stringify(body);
-      }
-      if (consent) opts.headers["X-Clawfare-Consent"] = consent;
-      return fetch(path, opts).then(function (r) {
-        return r.text().then(function (text) {
-          var parsed = {};
-          try { parsed = text ? JSON.parse(text) : {}; } catch (e) { parsed = { error: text }; }
-          return { status: r.status, body: parsed, text: text, consent: r.headers.get("X-Clawfare-Consent") };
-        });
-      });
-    });
+    return client.request(path, body, consent);
   }
   function setResult(data) {
     result = data;
@@ -925,23 +903,8 @@ export function initializeClawfare(): void {
     return result;
   }
   function download(path, body, fallback) {
-    localSession.then(function (session) {
-      return fetch(path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Clawfare-Session": session },
-        body: JSON.stringify(body)
-      });
-    }).then(function (r) {
-      if (!r.ok) throw new Error("Export rejected by local access controls");
-      var disp = r.headers.get("Content-Disposition") || "";
-      var match = /filename="([^"]+)"/.exec(disp);
-      return r.blob().then(function (blob) {
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = match ? match[1] : fallback;
-        a.click();
-      });
-    });
+    // This route is local-only even if someone enables a disabled HTML button.
+    return client.download(path, body, fallback);
   }
 
   function boot(data) {

@@ -23,3 +23,10 @@ complex fare grid, investigations, vendor list, and search/API flow. It is
 TypeScript source but has a temporary `@ts-nocheck` annotation; this migration
 does **not** claim that those legacy code paths are already type-safe or
 declarative React. Converting them to typed React components is the next phase.
+
+Typed API/client boundaries live in `src/domain.ts` and `src/api.ts`. The
+client supports exact same-origin routes, lazy local session authentication,
+and an explicit hosted read-only estimate exception. Run `npm run test` for
+network-boundary regressions. ResultSet validators intentionally check the
+transport envelope; individual renderers must still handle unknowns and
+nullable prices safely.
