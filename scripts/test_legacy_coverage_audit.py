@@ -117,7 +117,7 @@ class LegacyCoverageAuditTest(unittest.TestCase):
             ("com.clawfare.cli.InvConfigCommand", "com.clawfare.cli.Output"),
         )
         path.write_text(path.read_text().replace("minBound(80)", "minBound(30)"))
-        with self.assertRaisesRegex(ValueError, "80% gate missing"):
+        with self.assertRaisesRegex(ValueError, "80% gate"):
             excluded_legacy_classes(path)
 
 

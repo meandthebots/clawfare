@@ -22,9 +22,10 @@ report the original **80%** JVM coverage gate, with only the explicit
 pre-port command-class exceptions shown in `build.gradle.kts`.
 
 For visibility into that excluded debt, the **unfiltered JVM report variant**
-has its own named task and XML output. Because the filters are restricted to
-Kover's `total` variant, this report includes the historically exempt CLI
-classes without relaxing the ordinary verification gate.
+has its own named task and XML output. The standard total report retains
+the original shared Kover exclusions; an explicit empty `variant("jvm")`
+filter override produces a separate audit with the historically exempt CLI
+classes, without changing the ordinary verification gate.
 
 ```sh
 ./gradlew test koverVerify koverHtmlReport koverXmlReport koverXmlReportJvm

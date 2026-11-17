@@ -48,63 +48,57 @@ dependencies {
 
 kover {
     reports {
-        // The ordinary 80% gate retains the explicit legacy CLI exclusions.
-        // Keep this scope restricted to the TOTAL report: the JVM variant
-        // below is an independent, unfiltered audit of every compiled class.
-        total {
-            filters {
-                excludes {
-                    // Pre-port CLI classes only; do not exempt future Inv*/Flight* classes.
-                    // Covered by CommandsTest plus ReviewRegressionTest, with an explicit
-                    // migration-to-80% tracking plan in docs/LEGACY-COVERAGE.md.
-                    classes(
-                        "com.clawfare.cli.FlightAddCommand",
-                        "com.clawfare.cli.FlightCommand",
-                        "com.clawfare.cli.FlightCoverageCommand",
-                        "com.clawfare.cli.FlightDedupeCommand",
-                        "com.clawfare.cli.FlightDeleteCommand",
-                        "com.clawfare.cli.FlightExportTasksCommand",
-                        "com.clawfare.cli.FlightHistoryCommand",
-                        "com.clawfare.cli.FlightImportCommand",
-                        "com.clawfare.cli.FlightImportDbCommand",
-                        "com.clawfare.cli.FlightImportResultsCommand",
-                        "com.clawfare.cli.FlightListCommand",
-                        "com.clawfare.cli.FlightMarkStaleCommand",
-                        "com.clawfare.cli.FlightMatchCommand",
-                        "com.clawfare.cli.FlightPriceCommand",
-                        "com.clawfare.cli.FlightRefreshCommand",
-                        "com.clawfare.cli.FlightShowCommand",
-                        "com.clawfare.cli.FlightStaleCommand",
-                        "com.clawfare.cli.FlightTagCommand",
-                        "com.clawfare.cli.FlightTasksCommand",
-                        "com.clawfare.cli.FlightUntagCommand",
-                        "com.clawfare.cli.FlightUpdateCommand",
-                        "com.clawfare.cli.FlightValidateCommand",
-                        "com.clawfare.cli.InvCommand",
-                        "com.clawfare.cli.InvConfigCommand",
-                        "com.clawfare.cli.InvDeleteCommand",
-                        "com.clawfare.cli.InvListCommand",
-                        "com.clawfare.cli.InvNewCommand",
-                        "com.clawfare.cli.InvResumeCommand",
-                        "com.clawfare.cli.InvShowCommand",
-                        "com.clawfare.cli.InvUrlsCommand",
-                        "com.clawfare.cli.Output",
-                        "com.clawfare.cli.PriceCheckFlight",
-                        "com.clawfare.cli.PriceCheckResult",
-                        "com.clawfare.cli.PriceCheckResults",
-                        "com.clawfare.cli.PriceCheckTask",
-                    )
-                }
-            }
-            verify {
-                rule {
-                    minBound(80)
-                }
+        filters {
+            excludes {
+                // Pre-port CLI classes only; do not exempt future Inv*/Flight* classes.
+                // Covered by CommandsTest plus ReviewRegressionTest, with an explicit
+                // migration-to-80% tracking plan in docs/LEGACY-COVERAGE.md.
+                classes(
+                    "com.clawfare.cli.FlightAddCommand",
+                    "com.clawfare.cli.FlightCommand",
+                    "com.clawfare.cli.FlightCoverageCommand",
+                    "com.clawfare.cli.FlightDedupeCommand",
+                    "com.clawfare.cli.FlightDeleteCommand",
+                    "com.clawfare.cli.FlightExportTasksCommand",
+                    "com.clawfare.cli.FlightHistoryCommand",
+                    "com.clawfare.cli.FlightImportCommand",
+                    "com.clawfare.cli.FlightImportDbCommand",
+                    "com.clawfare.cli.FlightImportResultsCommand",
+                    "com.clawfare.cli.FlightListCommand",
+                    "com.clawfare.cli.FlightMarkStaleCommand",
+                    "com.clawfare.cli.FlightMatchCommand",
+                    "com.clawfare.cli.FlightPriceCommand",
+                    "com.clawfare.cli.FlightRefreshCommand",
+                    "com.clawfare.cli.FlightShowCommand",
+                    "com.clawfare.cli.FlightStaleCommand",
+                    "com.clawfare.cli.FlightTagCommand",
+                    "com.clawfare.cli.FlightTasksCommand",
+                    "com.clawfare.cli.FlightUntagCommand",
+                    "com.clawfare.cli.FlightUpdateCommand",
+                    "com.clawfare.cli.FlightValidateCommand",
+                    "com.clawfare.cli.InvCommand",
+                    "com.clawfare.cli.InvConfigCommand",
+                    "com.clawfare.cli.InvDeleteCommand",
+                    "com.clawfare.cli.InvListCommand",
+                    "com.clawfare.cli.InvNewCommand",
+                    "com.clawfare.cli.InvResumeCommand",
+                    "com.clawfare.cli.InvShowCommand",
+                    "com.clawfare.cli.InvUrlsCommand",
+                    "com.clawfare.cli.Output",
+                    "com.clawfare.cli.PriceCheckFlight",
+                    "com.clawfare.cli.PriceCheckResult",
+                    "com.clawfare.cli.PriceCheckResults",
+                    "com.clawfare.cli.PriceCheckTask",
+                )
             }
         }
-
-        // No filtering and no verification threshold: this is evidence about
-        // legacy debt, not a means of weakening the enforced 80% gate.
+        verify {
+            rule {
+                minBound(80)
+            }
+        }
+        // Override the common legacy exclusions for the JVM-only audit.
+        // All normal koverVerify/HTML/XML tasks keep the original 80% gate.
         variant("jvm") {
             filters { }
             xml {

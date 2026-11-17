@@ -72,8 +72,8 @@ def excluded_legacy_classes(gradle_file: Path) -> tuple[str, ...]:
     if "kover {" not in contents or 'variant("jvm")' not in contents:
         raise ValueError("Expected Kover total gate and unfiltered JVM variant")
     config = contents.split("kover {", 1)[1].split("\napplication {", 1)[0]
-    if "total {" not in config or "minBound(80)" not in config:
-        raise ValueError("Enforced total-report 80% gate missing")
+    if "reports {" not in config or "filters {" not in config or "minBound(80)" not in config:
+        raise ValueError("Enforced 80% gate or shared report filters missing")
     names = re.findall(r'"(com\.clawfare\.cli\.[A-Za-z][A-Za-z0-9_]*)"', config)
     if not names or len(set(names)) != len(names):
         raise ValueError("Expected distinct, explicitly named legacy CLI exemptions")
