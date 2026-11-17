@@ -79,6 +79,17 @@ try {
   await desktop.locator("#pClose").click();
   await desktop.locator("#tabs button[data-tab='grid']").click();
   await desktop.waitForSelector("#grid td.cell");
+  await desktop.locator("#tabs button[data-tab='vendors']").click();
+  await desktop.waitForSelector("#vendors tbody tr");
+  const firstNote = desktop.locator("#vendors textarea.noteedit").first();
+  await firstNote.fill("React vendor note regression");
+  await firstNote.blur();
+  await desktop.locator("#tabs button[data-tab='grid']").click();
+  await desktop.locator("#tabs button[data-tab='vendors']").click();
+  await desktop.waitForSelector("#vendors textarea.noteedit");
+  assert.equal(await desktop.locator("#vendors textarea.noteedit").first().inputValue(),
+    "React vendor note regression", "Local vendor notes must survive tab switches");
+  await desktop.locator("#tabs button[data-tab='grid']").click();
   await desktop.close();
   console.log("Clawfare mobile grid browser PASS: touchable first-column flights and add-ons open details; desktop remains intact");
 } finally {

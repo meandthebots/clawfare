@@ -7,9 +7,9 @@
     "dev": "vite --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build && node ../scripts/verify-web-bundle.mjs",
-    "lint": "oxlint src/App.tsx src/main.tsx src/api.ts src/domain.ts src/api.test.ts src/GridView.tsx src/ItineraryViews.tsx vite.config.ts",
-    "format": "oxfmt src/App.tsx src/main.tsx src/api.ts src/domain.ts src/api.test.ts src/GridView.tsx src/ItineraryViews.tsx vite.config.ts",
-    "format:check": "oxfmt --check src/App.tsx src/main.tsx src/api.ts src/domain.ts src/api.test.ts src/GridView.tsx src/ItineraryViews.tsx vite.config.ts",
+    "lint": "oxlint src/App.tsx src/main.tsx src/api.ts src/domain.ts src/api.test.ts src/GridView.tsx src/ItineraryViews.tsx src/VendorView.tsx vite.config.ts",
+    "format": "oxfmt src/App.tsx src/main.tsx src/api.ts src/domain.ts src/api.test.ts src/GridView.tsx src/ItineraryViews.tsx src/VendorView.tsx vite.config.ts",
+    "format:check": "oxfmt --check src/App.tsx src/main.tsx src/api.ts src/domain.ts src/api.test.ts src/GridView.tsx src/ItineraryViews.tsx src/VendorView.tsx vite.config.ts",
     "check": "npm run typecheck && npm run lint && npm run test",
     "test": "node --experimental-strip-types --test src/api.test.ts"
   },
