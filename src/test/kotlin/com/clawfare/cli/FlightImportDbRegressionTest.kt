@@ -283,6 +283,7 @@ class FlightImportDbRegressionTest {
         assertTrue(InvestigationQueries.listAll().isEmpty())
         assertTrue(FlightQueries.listByInvestigation("fixture-alpha").isEmpty())
     }
+
     @Test
     fun dryRunAgainstExistingFlightLeavesNewPriceUnwritten() {
         val source = source()
@@ -380,5 +381,4 @@ class FlightImportDbRegressionTest {
         assertEquals("fixture tag", flight.tags)
         assertTrue(PriceHistoryQueries.getByFlightId(flight.id).all { it.source == "price-source-field" })
     }
-
 }
