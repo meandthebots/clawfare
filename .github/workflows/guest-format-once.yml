@@ -1,0 +1,36 @@
+name: One-time guest branch formatting
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/guest-format-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format-guest:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feat/89-browser-guest-mode'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/89-browser-guest-mode
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+        working-directory: web
+      - run: npm run format
+        working-directory: web
+      - name: Commit formatting changes to guest branch only
+        run: |
+          git add web/src
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'style: apply Oxfmt to guest mode changes'
+            git push origin HEAD:feat/89-browser-guest-mode
+          fi
