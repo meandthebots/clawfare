@@ -69,5 +69,4 @@ class LocalAccessTest {
             pool.shutdownNow()
         }
     }
-
 }
