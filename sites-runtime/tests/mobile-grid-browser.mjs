@@ -78,7 +78,7 @@ try {
     "React itinerary Details button must open the drawer");
   await desktop.locator("#pClose").click();
   await desktop.locator("#tabs button[data-tab='grid']").click();
-  await desktop.waitForSelector("#mobileGrid button.mobile-flight-main");
+  await desktop.waitForSelector("#grid td.cell");
   await desktop.close();
   console.log("Clawfare mobile grid browser PASS: touchable first-column flights and add-ons open details; desktop remains intact");
 } finally {
