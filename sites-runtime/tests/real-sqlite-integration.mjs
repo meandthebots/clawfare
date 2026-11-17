@@ -120,6 +120,14 @@ assert.ok(homepageHtml.includes("window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ = true
 assert.ok(homepageHtml.includes("Hosted read-only preview:"));
 assert.ok(homepageHtml.includes("loadSample().then(refreshSaved)"));
 
+// The storage diagnostic must read genuine SQLite D1 rows and never seed
+// data when empty. It is authenticated and contains no tenant information.
+const unseeded = await get(sites[0], "/api/storage");
+assert.equal(unseeded.status, 200);
+assert.equal(unseeded.data.sampleStored, false);
+assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM public_sample_fixtures").get().n, 0);
+assert.equal((await get(sites[2], "/api/storage")).status, 401);
+
 // Signed-out requests cannot initialize a database. Two first signed-in
 // requests may race, but INSERT ... ON CONFLICT DO NOTHING creates one row.
 assert.equal((await get(sites[2], "/api/sample")).status, 401);
@@ -137,6 +145,20 @@ assert.match(
   /^[a-f0-9]{64}$/,
 );
 assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM investigation_snapshots").get().n, 2);
+const firstStorage = await get(sites[0], "/api/storage");
+assert.equal(firstStorage.status, 200);
+assert.equal(firstStorage.data.backend, "d1");
+assert.equal(firstStorage.data.sampleStored, true);
+assert.match(firstStorage.data.sha256, /^[a-f0-9]{64}$/);
+assert.equal(
+  firstStorage.data.firstImportedAt,
+  sql.prepare("SELECT imported_at FROM public_sample_fixtures").get().imported_at,
+);
+assert.equal((await get(sites[1], "/api/storage")).data.firstImportedAt,
+  firstStorage.data.firstImportedAt);
+assert.equal((await get(sites[0], "/api/storage")).data.firstImportedAt,
+  firstStorage.data.firstImportedAt);
+assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM public_sample_fixtures").get().n, 1);
 
 const aliceListing = await get(sites[0], "/api/searches");
 const bobListing = await get(sites[1], "/api/searches");
@@ -193,6 +215,7 @@ assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM provider_http_reservations")
 sql.prepare("UPDATE public_sample_fixtures SET result_json = result_json || ' ' WHERE slug = ?")
   .run("florida-dec-2026");
 await assert.rejects(sites[0](req("/api/sample")), /digest mismatch/);
+await assert.rejects(sites[0](req("/api/storage")), /digest mismatch/);
 sql.close();
 console.log("Clawfare hosted SQLite integration PASS: " + sample.itineraries.length +
   " Kotlin sample itineraries, independent tenants, JS flight planning, quota denial and fail-closed integrity");
