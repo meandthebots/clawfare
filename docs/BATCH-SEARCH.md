@@ -60,6 +60,14 @@ fare batch coverage ~/travel-search-private.json --out ~/private-coverage.csv
 fare batch run ~/travel-search-private.json --resume --confirm
 ```
 
+Batch planning first counts route/date combinations without generating them,
+then enforces a **1,500-entry limit per scenario** and a **5,000-entry
+limit across the entire batch**. A batch over either limit is rejected
+before any date-pair matrix or search entries are allocated. Split large
+requests into smaller private batch configurations. These limits apply to
+local planning, reporting, resume and execution; they are separate from
+the stricter 500-route cap used for interactive single searches.
+
 The non-confirmed `run` command is dry-run only. An executable run is
 refused if the full estimated maximum including return follow-ups exceeds
 `maxLiveCalls`; it never silently increases the cap. Confirmed searches
