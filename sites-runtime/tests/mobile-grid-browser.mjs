@@ -28,6 +28,11 @@ try {
   });
   await mobile.setContent(html, { waitUntil: "load" });
   await mobile.waitForSelector("#mobileGrid .mobile-flight");
+  await mobile.waitForSelector("#summary .sumcard");
+  assert.ok(await mobile.locator("#summary .sumcard").count() >= 3,
+    "React summary must render all cheapest-fare categories");
+  assert.match(await mobile.locator("#banners").textContent(), /not a live search/,
+    "Historical sample must be labelled as non-live by React");
   const mobileStatus = await mobile.evaluate(() => ({
     table: getComputedStyle(document.querySelector("#grid")).display,
     cards: getComputedStyle(document.querySelector("#mobileGrid")).display,

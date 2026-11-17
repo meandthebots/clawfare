@@ -6,6 +6,7 @@ import { GridView } from "./GridView";
 import { ItineraryView, MatrixView } from "./ItineraryViews";
 import { VendorView } from "./VendorView";
 import { DetailsContent, isCashRefundVerified } from "./DetailsContent";
+import { SnapshotOverview } from "./SnapshotOverview";
 import { flushSync } from "react-dom";
 // TODO: Migrate the imperative fare-grid renderer to typed React components.
 // Extracted from the former monolithic JVM HTML. This transitional controller
@@ -19,6 +20,7 @@ export function initializeClawfare(): void {
   var pendingQuery = null;
   var gridRoot = null;
   var detailsRoot = null;
+  var overviewRoot = null;
   function unmountGrid() {
     if (gridRoot) { gridRoot.unmount(); gridRoot = null; }
   }
@@ -335,13 +337,13 @@ export function initializeClawfare(): void {
     if (!result) {
       unmountGrid();
       $("view").innerHTML = "<div class='empty'>Load the Florida sample, or estimate a search. Live providers are not called until you confirm.</div>";
-      $("summary").innerHTML = "";
-      $("legend").innerHTML = "";
+      if (overviewRoot) { overviewRoot.unmount(); overviewRoot = null; }
+      $("notes").textContent = "";
+      $("banners").textContent = "";
+      $("legend").textContent = "";
       return;
     }
-    renderHeader();
-    renderSummary();
-    renderLegend();
+    renderOverview();
     markSeg("cabinSeg", state.cabin);
     markSeg("sortSeg", state.sort);
     buildDynamicSegs();
@@ -355,7 +357,7 @@ export function initializeClawfare(): void {
       b.classList.toggle("on", b.getAttribute("data-tab") === tab);
     });
   }
-  function renderHeader() {
+  function renderOverview() {
     var vendorMode = tab === "vendors" && result.scenarioLabel === "florida";
     $("title").textContent = vendorMode
       ? "Tampa ⇄ Mexico City nonstop · Fri 25 Dec → Tue 29 Dec 2026 · 1 adult · 1 checked bag each way"
@@ -363,62 +365,12 @@ export function initializeClawfare(): void {
     $("subtitle").textContent = vendorMode
       ? "Out AM 1741 TPA 09:23 → MEX 11:50 · Back AM 1740 MEX 15:40 → TPA 19:49. All-in prices include one checked bag. Round trip beside two one-ways. Sample seller check, not a new lookup."
       : (result.subtitle || "");
-    var notes = vendorMode ? (result.vendorIntro || []) : (result.headerNotes || []);
-    $("notes").innerHTML = notes.map(function (n) {
-      return "<div class='note" + (n.warn ? " warn" : "") + "'><span class='nt'>" + esc(n.title) + "</span>" + esc(n.body) + "</div>";
-    }).join("");
-    var banners = [];
-    if (result.scenarioLabel === "sample" || (result.itineraries || []).some(function (it) { return it.sourceLabel === "sample"; })) {
-      banners.push("<div class='banner'>Sample saved from Google Flights. Long-haul fares 11 Oct 2026, seller table 15 Oct 2026. This is not a live search.</div>");
-    }
-    (result.warnings || []).forEach(function (w) {
-      banners.push("<div class='banner" + (/mock|fail|credit|error/i.test(w) ? " bad" : "") + "'>" + esc(w) + "</div>");
-    });
-    if ((result.itineraries || []).some(function (it) { return it.sourceLabel === "mock"; })) {
-      banners.push("<div class='banner bad'>Duffel rows are test-mode mocks. They are hidden from the cheapest highlight and, with “Hide mocks” on, from the tables.</div>");
-    }
-    if ((result.itineraries || []).some(function (it) { return it.sourceLabel === "cached"; })) {
-      banners.push("<div class='banner'>Cached fares (including historic Duffel live quotes and Travelpayouts) are not verified bookable at the displayed price.</div>");
-    }
-    $("banners").innerHTML = banners.join("");
-  }
-  function card(label, hit) {
-    if (!hit) return "<div class='sumcard' style='cursor:default'><div class='k'>" + esc(label) + "</div><div class='v'>—</div><div class='d'>None in the current filters</div></div>";
-    var who = "#" + hit.it.id + " " + (hit.it.airlineSummary || "") + " " + fmtRange(hit.it.outboundDate, hit.it.returnDate);
-    if (hit.mx) who += " + Mexico " + hit.mx.id;
-    var attrs = " data-p='" + esc(hit.it.id) + "' data-a='" + esc(hit.mx ? hit.mx.id : "LH") + "'";
-    return "<div class='sumcard'" + attrs + "><div class='k'>" + esc(label) + "</div><div class='v'>" + gbp(hit.total) + "</div><div class='d'>" + esc(who) + "</div></div>";
-  }
-  function renderSummary() {
-    var rows = visibleRows();
-    var feasible = (result.addons || []).length
-      ? cheapestCell(rows, function (c) { return c.status !== "no"; })
-      : cheapestItin(rows, function () { return true; });
-    var works = (result.addons || []).length ? cheapestCell(rows, function (c) { return c.status === "ok"; }) : null;
-    var nonstop = cheapestItin(rows, function (it) { return it.stopsOut === 0 && !it.returnMissing && it.stopsRet === 0; });
-    var eu = cheapestItin(rows, function (it) { return it.euPremium; });
-    $("summary").innerHTML = [
-      card((result.addons || []).length ? "Cheapest feasible combination" : "Cheapest", feasible),
-      (result.addons || []).length ? card("Cheapest fully works", works) : "",
-      card("Cheapest nonstop", nonstop),
-      card("Cheapest European premium", eu)
-    ].join("");
-  }
-  function renderLegend() {
-    if ((result.addons || []).length && (result.cells || []).length && tab === "grid") {
-      $("legend").innerHTML = [
-        "<span><i class='sw' style='background:var(--green-bg);border-color:var(--green)'></i>Works</span>",
-        "<span><i class='sw' style='background:var(--amber-bg);border-color:var(--amber)'></i>Works with a catch</span>",
-        "<span><i class='sw' style='background:#f2f4f7'></i>Doesn’t work</span>",
-        "<span><i class='sw' style='background:#fff;border:2px solid var(--gold)'></i>Cheapest feasible</span>",
-        "<span><i class='sw' style='background:#fff;border:2px solid #027a48'></i>Cheapest that fully works</span>",
-        "<span>Cell = 2 × long-haul + 1 × Mexico. 🔗 opens the booking link.</span>"
-      ].join("");
-    } else if (tab === "vendors") {
-      $("legend").innerHTML = "<span><i class='sw' style='background:#ecfdf3;border-color:#027a48'></i>Cheapest all-in in this market filter</span><span class='trust risky'>Risky</span><span class='trust caution'>Caution</span><span class='trust trusted'>Trusted</span><span class='trust airline'>Airline</span><span>Notes and trust flags are editable and travel with the HTML export.</span>";
-    } else {
-      $("legend").innerHTML = "<span>Prices are per person in GBP unless a row says otherwise. Mocks are excluded from the cheapest cards.</span>";
-    }
+    if (!overviewRoot) overviewRoot = createRoot($("summary"));
+    overviewRoot.render(createElement(SnapshotOverview, {
+      result: result, rows: visibleRows(), tab: tab,
+      notesTarget: $("notes"), bannersTarget: $("banners"), legendTarget: $("legend"),
+      onSelect: openPanel,
+    }));
   }
 
   function renderGrid() {
@@ -864,10 +816,6 @@ export function initializeClawfare(): void {
     for (var i = 0; i < rows.length; i++) if (rows[i].market === market && rows[i].vendor === vendor) return rows[i];
     return null;
   }
-  $("summary").addEventListener("click", function (e) {
-    var card = e.target.closest(".sumcard[data-p]");
-    if (card) openPanel(card.getAttribute("data-p"), card.getAttribute("data-a"));
-  });
   $("pClose").addEventListener("click", closePanel);
   $("overlay").addEventListener("click", closePanel);
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closePanel(); });
