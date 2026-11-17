@@ -90,7 +90,21 @@ export interface Direction {
 export interface BookLink { kind: string; label: string; url: string }
 
 export interface SellerRefundProof {
-  [key: string]: unknown;
+  sellerId: string;
+  offerId: string;
+  itinerarySha256: string;
+  partySize: number;
+  fareBrand: string;
+  termsSourceUrl: string;
+  termsSha256: string;
+  reviewedAt: string;
+  expiresAt: string;
+  cancellationDeadlineAt: string;
+  coversFullTicketBeforeOutbound: boolean;
+  refundToTravellerOriginalPayment: boolean;
+  issuerPenaltyAmount?: Nullable<number>;
+  sellerServicingFeeAmount?: Nullable<number>;
+  reviewerEvidence: string;
 }
 export interface RefundEvidence {
   provider: string;

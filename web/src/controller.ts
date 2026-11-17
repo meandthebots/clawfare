@@ -5,6 +5,8 @@ import { createRoot } from "react-dom/client";
 import { GridView } from "./GridView";
 import { ItineraryView, MatrixView } from "./ItineraryViews";
 import { VendorView } from "./VendorView";
+import { DetailsContent, isCashRefundVerified } from "./DetailsContent";
+import { flushSync } from "react-dom";
 // TODO: Migrate the imperative fare-grid renderer to typed React components.
 // Extracted from the former monolithic JVM HTML. This transitional controller
 // retains all existing search, filtering, export, mobile touch and Sites rules.
@@ -16,6 +18,7 @@ export function initializeClawfare(): void {
   var state = blankState();
   var pendingQuery = null;
   var gridRoot = null;
+  var detailsRoot = null;
   function unmountGrid() {
     if (gridRoot) { gridRoot.unmount(); gridRoot = null; }
   }
@@ -186,47 +189,7 @@ export function initializeClawfare(): void {
     var expiry = it.refundEvidence && it.refundEvidence.expiresAt;
     return !it.refundEvidence || (expiry && Date.parse(expiry) > Date.now());
   }
-  function verifiedCashRefund(it) {
-    var e = it.refundEvidence;
-    // A provider's airline-level refund fields are NEVER sufficient.
-    // The exact itinerary hash is validated by the server when loading data.
-    // Unknown/manual-only, static exports, and stale proof fail closed.
-    if (!it.cashRefundProofVerified || !e || !e.sellerProof) return false;
-    var p = e.sellerProof;
-    if (!p.sellerId || p.sellerId !== e.sellerId || p.offerId !== e.offerId ||
-        p.partySize !== it.passengers || p.fareBrand !== (it.fareBrand || "") ||
-        p.issuerPenaltyAmount !== 0 || p.sellerServicingFeeAmount !== 0 ||
-        p.refundToTravellerOriginalPayment !== true || p.coversFullTicketBeforeOutbound !== true ||
-        it.sourceLabel !== "live" || !it.livePrice || e.allowed !== true ||
-        e.penaltyAmount !== 0 || e.method !== "original_payment" ||
-        e.servicingFeeAmount !== 0 || !e.expiresAt) return false;
-    var expires = Date.parse(e.expiresAt);
-    var proofExpires = Date.parse(p.expiresAt);
-    var deadline = Date.parse(p.cancellationDeadlineAt);
-    var review = Date.parse(p.reviewedAt);
-    var now = Date.now();
-    if (![expires, proofExpires, deadline, review].every(Number.isFinite)) return false;
-    if (expires <= now || proofExpires <= now || deadline <= now || review > now ||
-        now - review > 48 * 60 * 60 * 1000) return false;
-    return e.availablePassengers == null || e.availablePassengers >= it.passengers;
-  }
-  function refundDetails(it) {
-    var e = it.refundEvidence;
-    if (!e) return "<div class='sec'><h3>Cancellation / refund evidence</h3><div class='muted'>No verified cancellation terms were provided for this fare. The refund method, penalties and servicing fees are unknown.</div></div>";
-    var permission = e.allowed === true ? "Allowed by airline" : (e.allowed === false ? "Airline says no refund" : "Unknown");
-    var penalty = e.penaltyAmount == null ? "Unknown" : money(e.penaltyAmount, e.penaltyCurrency || "");
-    var method = e.method === "original_payment" ? "Original payment method" : (e.method === "travel_credit" ? "Travel credit" : "Unknown");
-    var serviceFee = e.servicingFeeAmount == null ? "Unknown" : money(e.servicingFeeAmount, e.servicingFeeCurrency || "");
-    var heading = verifiedCashRefund(it) ? "Cash-refund evidence complete — reconfirm at booking" : "Fully refundable to original payment method: NOT VERIFIED";
-    return "<div class='sec'><h3>Cancellation / refund evidence</h3>" +
-      "<div class='muted'><b>" + esc(heading) + "</b></div>" +
-      "<div>Airline pre-departure cancellation: " + esc(permission) + "</div>" +
-      "<div>Airline penalty: " + esc(penalty) + "; refund method: " + esc(method) + "; servicing fees: " + esc(serviceFee) + "</div>" +
-      "<div class='muted'>Offer: " + esc(e.offerId || "not supplied") + " · Expires: " + esc(e.expiresAt || "unknown") +
-      " · Observed: " + esc(e.observedAt || "unknown") + " · Source: " + esc(e.sourceDescription || e.provider || "unknown") + "</div>" +
-      (e.baggageEvidence && e.baggageEvidence.length ? "<div class='muted'>Bag allowance evidence: " + esc(e.baggageEvidence.join(", ")) + "</div>" : "") +
-      "<div class='muted'>A Duffel zero-penalty condition does not by itself prove cash reimbursement or absence of ticketing/agency fees.</div></div>";
-  }
+  function verifiedCashRefund(it) { return isCashRefundVerified(it); }
   function totalOf(it) { return (it.pricePerPerson || 0) * (it.passengers || 1); }
   function cheapestCell(rows, pred) {
     var cells = cellMap();
@@ -578,74 +541,24 @@ export function initializeClawfare(): void {
     var cells = cellMap();
     var c = cells[cellKey(it.id, mx ? mx.id : null)] || cells[cellKey(it.id, null)];
     state.sel = cellKey(it.id, mx ? mx.id : null);
-    $("pTitle").textContent = (it.origin || "") + " → " + (it.destination || "") + " " + fmtRange(it.outboundDate, it.returnDate) + (mx ? " + " + mx.id : "");
-    $("pStatus").innerHTML = c ? "<span class='status s-" + c.status + "'>" + esc(c.status === "ok" ? "Works" : (c.status === "catch" ? "Works with a catch" : "Doesn’t work")) + "</span>" : "";
-    var html = "";
-    if (c) html += timeline(it, mx, c) + reasons(c);
-    html += "<div class='sec'><h3>Flights</h3>" + directionBox(it, "Outbound", it.outbound) + (it.returning ? directionBox(it, "Return", it.returning) : (it.returnMissing ? "<div class='muted'>Return was not retrieved.</div>" : ""));
-    if (it.notes) html += "<div class='muted'>" + esc(it.notes) + "</div>";
-    html += linkBtns(it.links);
-    if (mx) {
-      html += "<div class='box'><div class='t'><span>Add-on " + esc(mx.id) + " · " + esc(mx.airlineSummary) + "</span><span>" + gbp(mx.pricePerPerson) + "</span></div>" +
-        "<div>" + esc(fmtRange(mx.outboundDate, mx.returnDate)) + " · " + esc(mx.cabin) + "</div>" +
-        "<div class='flights'>" + esc(dirLine(mx.outbound)) + "</div>" +
-        (mx.returning ? "<div class='flights'>↩ " + esc(dirLine(mx.returning)) + "</div>" : "") +
-        (mx.assumedReturn ? "<div class='muted'>Return time is carried from the earlier check.</div>" : "") +
-        linkBtns(mx.links) + "</div>";
-    }
-    html += "</div>";
-    if (c) {
-      html += "<div class='sec'><h3>Price</h3><table class='price'><tr><td>Long-haul × " + it.passengers + "</td><td>" + gbp(totalOf(it)) + "</td></tr>" +
-        (mx ? "<tr><td>Add-on × " + (mx.passengers || 1) + "</td><td>" + gbp((mx.pricePerPerson || 0) * (mx.passengers || 1)) + "</td></tr>" : "") +
-        "<tr class='total'><td>Total</td><td>" + gbp(c.total) + "</td></tr></table></div>";
-    } else {
-      html += "<div class='sec'><h3>Price</h3><table class='price'><tr><td>" + gbp(it.pricePerPerson) + " per person × " + it.passengers + "</td><td>" + gbp(totalOf(it)) + "</td></tr></table></div>";
-    }
-    html += refundDetails(it);
-    html += "<div class='booknote'>Links open for <b>1 adult</b>. Set the passenger count on Google Flights before choosing a booking option. " + esc(it.sourceLabel === "mock" ? "This Duffel price is a mock." : "Re-check the fare before paying.") + "</div>";
-    html += "<div class='actions'><button type='button' id='btnVendorsFor'>Seller comparison</button> <button type='button' id='btnTrack'>Save to a trip</button></div>";
-    $("pBody").innerHTML = html;
+    $("pTitle").textContent = (it.origin || "") + " → " + (it.destination || "") +
+      " " + fmtRange(it.outboundDate, it.returnDate) + (mx ? " + " + mx.id : "");
+    $("pStatus").innerHTML = c
+      ? "<span class='status s-" + c.status + "'>" +
+        esc(c.status === "ok" ? "Works" : c.status === "catch" ? "Works with a catch" : "Doesn’t work") +
+        "</span>"
+      : "";
+    if (!detailsRoot) detailsRoot = createRoot($("pBody"));
+    flushSync(function () {
+      detailsRoot.render(createElement(DetailsContent, {
+        it: it, addon: mx, cell: c || null,
+        onVendors: function () { askVendors(it); },
+        onTrack: function () { trackIt(it); },
+      }));
+    });
     $("panel").classList.add("open");
     $("overlay").classList.add("open");
     $("panel").setAttribute("aria-hidden", "false");
-    var vend = $("btnVendorsFor");
-    if (vend) vend.addEventListener("click", function () { askVendors(it); });
-    var track = $("btnTrack");
-    if (track) track.addEventListener("click", function () { trackIt(it); });
-  }
-  function directionBox(it, title, dir) {
-    var rows = (dir.legs || []).map(function (leg) {
-      return "<tr><td><b>" + esc(leg.flightNumber) + "</b></td><td>" + esc(leg.from) + "</td><td>" + esc(leg.departTime) + "</td><td>" + esc(leg.to) + "</td><td>" + esc(leg.arriveTime) + "</td><td>" + esc(leg.departDate) + (leg.arriveDate && leg.arriveDate !== leg.departDate ? "→" + leg.arriveDate : "") + "</td><td class='muted'>" + esc(leg.operatingCarrier || leg.airline) + (leg.durationMinutes ? " · " + layText(leg.durationMinutes) : "") + (leg.cabin ? " · " + esc(leg.cabin) : "") + "</td></tr>";
-    }).join("");
-    return "<div class='box'><div class='t'><span>" + esc(title) + "</span><span>" + esc(stopsLabel(it)) + "</span></div>" +
-      "<table class='seglist'><thead><tr><th>Flight</th><th>From</th><th>Dep</th><th>To</th><th>Arr</th><th>Date</th><th>Operated by</th></tr></thead><tbody>" + rows + "</tbody></table></div>";
-  }
-  function reasons(c) {
-    var items = (c.reasonsNo || []).map(function (r) { return "<li class='no'>✗ " + esc(r) + "</li>"; })
-      .concat((c.catches || []).map(function (r) { return "<li class='catch'>⚠ " + esc(r) + "</li>"; }))
-      .concat((c.oks || []).map(function (r) { return "<li class='ok'>✓ " + esc(r) + "</li>"; }));
-    if (!items.length) return "";
-    return "<div class='sec'><h3>Why</h3><ul class='reasons'>" + items.join("") + "</ul></div>";
-  }
-  function timeline(it, mx, c) {
-    var start = "2026-12-16", end = "2027-01-01";
-    var a = Date.parse(start + "T00:00:00Z"), b = Date.parse(end + "T00:00:00Z");
-    var span = Math.round((b - a) / 86400000);
-    function pos(iso) { return ((Date.parse(iso + "T00:00:00Z") - a) / 86400000) / span * 100; }
-    function width(from, to) {
-      var days = Math.round((Date.parse(to + "T00:00:00Z") - Date.parse(from + "T00:00:00Z")) / 86400000) + 1;
-      return Math.max(4, days / span * 100);
-    }
-    var days = "";
-    for (var i = 0; i <= span; i++) {
-      var dt = new Date(a + i * 86400000);
-      var iso = dt.toISOString().slice(0, 10);
-      days += "<div class='" + (iso === "2026-12-24" ? "xmas" : "") + "'>" + dt.getUTCDate() + "</div>";
-    }
-    var x = pos("2026-12-24") + (100 / (span + 1) / 2);
-    var couple = it.returnDate ? "<div class='tl-row'><div class='tl-mark' style='left:" + x + "%'></div><div class='tl-bar couple" + (c && c.status === "no" ? " bad" : "") + "' style='left:" + pos(it.outboundDate) + "%;width:" + width(it.outboundDate, it.returnDate) + "%'>Florida</div></div>" : "";
-    var mex = mx && mx.returnDate ? "<div class='tl-row'><div class='tl-mark' style='left:" + x + "%'></div><div class='tl-bar mex" + (c && c.status === "no" ? " bad" : "") + "' style='left:" + pos(mx.outboundDate) + "%;width:" + width(mx.outboundDate, mx.returnDate) + "%'>Mexico " + esc(mx.id) + "</div></div>" : "";
-    return "<div class='sec'><h3>Timeline</h3><div class='tl-days' style='grid-template-columns:repeat(" + (span + 1) + ",1fr)'>" + days + "</div>" + couple + mex + "<div class='muted'>Red line is Christmas Eve.</div></div>";
   }
   function closePanel() {
     $("panel").classList.remove("open");
