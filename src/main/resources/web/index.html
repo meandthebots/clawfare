@@ -153,8 +153,32 @@ tr.stale td{color:#667085}
 .noteedit{width:100%;min-width:180px;min-height:46px;font-size:12px}
 .mxcell{cursor:pointer;font-weight:700}
 .mxcell:hover{background:#eef2ff}
+.mobile-grid{display:none}
+.mobile-flight{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+.mobile-flight-main{display:block;width:100%;text-align:left;border:0;border-radius:0;padding:14px;background:#f8faff}
+.mobile-flight-main .mobile-title{display:block;font-weight:700;font-size:15px}
+.mobile-flight-main .mobile-price{font-size:14px;font-weight:700;margin:5px 0}
+.mobile-flight-main .mobile-details{display:block;color:var(--accent);font-weight:700;margin-top:6px}
+.mobile-addon-list{display:grid;gap:7px;padding:10px}
+.mobile-addon{width:100%;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:5px 8px;border:1px solid var(--line);padding:10px;text-align:left}
+.mobile-addon .mobile-addon-label{display:block;flex:1 1 50%;min-width:0}
+.mobile-addon .mobile-addon-label small{display:block;color:var(--muted)}
+.mobile-addon .mobile-addon-total{font-weight:800;white-space:nowrap}
+.mobile-addon .mobile-addon-status{flex:1 0 100%;font-size:11px;font-weight:600}
+.mobile-addon.s-ok{background:var(--green-bg)}
+.mobile-addon.s-catch{background:var(--amber-bg)}
+.mobile-addon.s-no{background:#f2f4f7}
+.mobile-flight button:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
-@media (max-width:760px){header,main,footer{padding-left:14px;padding-right:14px}}
+@media (max-width:760px){
+  header,main,footer{padding-left:14px;padding-right:14px}
+  .wrap.mobile-grid-view{overflow:visible;max-height:none;border:0;background:transparent}
+  .mobile-grid-view #grid{display:none}
+  .mobile-grid-view .mobile-grid{display:grid;gap:12px}
+  #panel{width:100%;max-width:100%;overscroll-behavior:contain}
+  .ph{padding:12px 14px}
+  .pb{padding:12px 14px 28px}
+}
 </style>
 </head>
 <body>
@@ -628,6 +652,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     markSeg("sortSeg", state.sort);
     buildDynamicSegs();
     $("fresh").textContent = result.fetchedAt ? ("Data " + result.fetchedAt) : "";
+    $("view").classList.remove("mobile-grid-view");
     if (tab === "grid") renderGrid();
     else if (tab === "itineraries") renderTable();
     else if (tab === "matrix") renderMatrix();
@@ -783,6 +808,40 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
       html += "</tr>";
     });
     html += "</tbody></table>";
+    // A 1250px table with a sticky 340px first column hides every price
+    // combination on a phone. Keep the full grid on desktop, but render
+    // usable, keyboard-accessible flight cards on narrow viewports.
+    html += "<div class='mobile-grid' id='mobileGrid' aria-label='Flight combinations'>";
+    rows.forEach(function (it) {
+      var title = esc(it.origin + " → " + it.destination + " " + fmtRange(it.outboundDate, it.returnDate));
+      html += "<article class='mobile-flight'><button type='button' class='mobile-flight-main' data-p='" + esc(it.id) +
+        "' data-a='LH' aria-label='Open long-haul details for " + title + "'>" +
+        "<span class='mobile-title'>" + title + "</span>" +
+        "<span class='lhMeta'>" + esc(it.airlineSummary) + " · " + esc(it.cabin || it.cabinKey) + "</span>" +
+        "<span class='mobile-price'>" + gbp(it.pricePerPerson) + " pp · " + gbp(totalOf(it)) + " total</span>" +
+        "<span class='mobile-details'>View long-haul details</span></button>" +
+        "<div class='mobile-addon-list' aria-label='Add-on combinations'>";
+      (result.addons || []).forEach(function (mx) {
+        var c = cells[cellKey(it.id, mx.id)];
+        if (!c) return;
+        var key = cellKey(it.id, mx.id);
+        var status = labels[c.status] || c.status;
+        html += "<button type='button' class='mobile-addon s-" + esc(c.status) +
+          (state.sel === key ? " sel" : "") + "' data-p='" + esc(it.id) +
+          "' data-a='" + esc(mx.id) + "' aria-label='Open Mexico " + esc(mx.id) +
+          " combination details: " + esc(status) + ", " + gbp(c.total) + "'>" +
+          "<span class='mobile-addon-label'>Mexico " + esc(mx.id) +
+          "<small>" + esc(fmtRange(mx.outboundDate, mx.returnDate)) + "</small></span>" +
+          "<span class='mobile-addon-total'>" + gbp(c.total) + "</span>" +
+          "<span class='mobile-addon-status'>" + esc(status) +
+          ((vAny.indexOf(key) >= 0) ? " · Cheapest feasible" : "") +
+          ((vGreen.indexOf(key) >= 0) ? " · Cheapest works" : "") +
+          "</span></button>";
+      });
+      html += "</div></article>";
+    });
+    html += "</div>";
+    $("view").classList.add("mobile-grid-view");
     $("view").innerHTML = html;
   }
 
@@ -1286,9 +1345,13 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     render();
   });
   $("view").addEventListener("click", function (e) {
-    if (e.target.closest("a, textarea, select, button")) return;
     var cell = e.target.closest("[data-p]");
-    if (cell && result) openPanel(cell.getAttribute("data-p"), cell.getAttribute("data-a"));
+    if (!cell || !result) return;
+    // Mobile combinations are semantic buttons; other interactive controls
+    // must continue to work without opening itinerary details.
+    if (e.target.closest("a, textarea, select, button") &&
+        !e.target.closest("button[data-p]")) return;
+    openPanel(cell.getAttribute("data-p"), cell.getAttribute("data-a"));
   });
   $("view").addEventListener("change", function (e) {
     if (e.target.id === "vMarket") { state.market = e.target.value; renderVendors(); return; }
