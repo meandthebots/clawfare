@@ -9,7 +9,7 @@ test("original UI uses JVM loopback session unless explicit hosted read-only fla
   assert.ok(template.includes('window.__CLAWFARE_HOSTED_READ_ONLY__ === true'));
   assert.ok(template.includes('fetch("/api/session"'));
   assert.ok(template.includes('if (session) opts.headers["X-Clawfare-Session"] = session'));
-  assert.ok(template.includes("Hosted preview is read-only."));
+  assert.ok(template.includes("Paid search and mutations are disabled in hosted mode."));
 });
 
 test("hosted build reuses actual Kotlin HTML UI and explicitly disables mutations", () => {
@@ -27,4 +27,12 @@ test("unknown templates cannot silently remove the host mode injection", () => {
   assert.throws(() => renderHostedReadOnlyPage(null), /HTML template/);
   const duplicate = '<script>window.__SNAPSHOT__ = null;</script>'.repeat(2);
   assert.throws(() => renderHostedReadOnlyPage(duplicate), /exactly one/);
+});
+
+test("estimate-only hosted pages expose a separate flag without enabling run/search", () => {
+  const output = renderHostedReadOnlyPage(template, { allowEstimate: true });
+  assert.ok(output.includes("window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ = true"));
+  assert.ok(output.includes("window.__CLAWFARE_HOSTED_READ_ONLY__ = true"));
+  assert.ok(output.includes('["btnRun", "btnHtml", "btnCsv"]'));
+  assert.ok(!renderHostedReadOnlyPage(template).includes("window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ = true"));
 });
