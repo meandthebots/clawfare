@@ -7,6 +7,9 @@ on:
       - 'web/**'
       - 'build.gradle.kts'
       - 'scripts/verify-web-bundle.mjs'
+      - 'scripts/guest-*'
+      - 'scripts/build-guest-preview.mjs'
+      - 'sites-runtime/tests/guest-preview-browser.mjs'
       - 'sites-runtime/tests/mobile-grid-browser.mjs'
       - 'sites-runtime/tests/react-app-browser.mjs'
       - 'sites-runtime/tests/guest-browser.mjs'
@@ -42,3 +45,7 @@ jobs:
 
       - name: Verify credential-free guest UI without network calls
         run: node sites-runtime/tests/guest-browser.mjs build/frontend/web/index.html
+      - name: Build advanced offline guest QA preview
+        run: node scripts/build-guest-preview.mjs
+      - name: Test advanced guest QA search/export flows in desktop and mobile Chromium
+        run: node sites-runtime/tests/guest-preview-browser.mjs build/guest-preview.html
