@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from audit_legacy_coverage import (
+    RETIRED_CLI_EXEMPTIONS,
     Counts,
     audit,
     excluded_legacy_classes,
@@ -115,6 +116,71 @@ class LegacyCoverageAuditTest(unittest.TestCase):
             ]))
         with self.assertRaisesRegex(ValueError, "Negative LINE"):
             self.parse(report([("com.clawfare.cli.SafeCommand", -1, 10, 0, 0)]))
+
+    def test_retired_commands_are_in_both_reports_and_above_80_percent(self) -> None:
+        excluded = "com.clawfare.cli.FlightValidateCommand"
+        retired = "com.clawfare.cli.FlightImportCommand"
+        full = self.parse(report([
+            (excluded, 8, 2, 7, 3),
+            (retired, 9, 91, 19, 81),
+            ("com.clawfare.cli.SafeCommand", 0, 10, 0, 2),
+        ]))
+        gated = self.parse(report([
+            (retired, 9, 91, 19, 81),
+            ("com.clawfare.cli.SafeCommand", 0, 10, 0, 2),
+        ]))
+        metrics, markdown = audit(full, gated, (excluded,), (retired,))
+        self.assertEqual(metrics["retired_legacy"][retired]["lines"]["percent"], 91.0)
+        self.assertEqual(metrics["retired_legacy"][retired]["branches"]["percent"], 81.0)
+        self.assertIn("Retired CLI exemptions", markdown)
+        self.assertIn(retired, markdown)
+
+    def test_retired_command_cannot_remain_exempted(self) -> None:
+        full = self.parse(report([
+            ("com.clawfare.cli.FlightValidateCommand", 9, 1, 9, 1),
+            ("com.clawfare.cli.FlightImportCommand", 1, 9, 1, 9),
+        ]))
+        with self.assertRaisesRegex(ValueError, "still exempted"):
+            audit(full, full,
+                  ("com.clawfare.cli.FlightImportCommand",),
+                  ("com.clawfare.cli.FlightImportCommand",))
+
+    def test_retired_command_must_appear_in_filtered_report(self) -> None:
+        full = self.parse(report([
+            ("com.clawfare.cli.FlightValidateCommand", 9, 1, 9, 1),
+            ("com.clawfare.cli.FlightImportCommand", 1, 9, 1, 9),
+        ]))
+        gated = self.parse(report([
+            ("com.clawfare.cli.SafeCommand", 0, 10, 0, 2),
+        ]))
+        with self.assertRaisesRegex(ValueError, "missing from coverage reports"):
+            audit(full, gated,
+                  ("com.clawfare.cli.FlightValidateCommand",),
+                  ("com.clawfare.cli.FlightImportCommand",))
+
+    def test_retired_command_cannot_drop_below_line_or_branch_80_percent(self) -> None:
+        exempt = ("com.clawfare.cli.FlightValidateCommand",)
+        retired = ("com.clawfare.cli.FlightImportCommand",)
+        for name, missed_lines, covered_lines, missed_branches, covered_branches in [
+            ("line", 21, 79, 1, 9),
+            ("branch", 1, 9, 21, 79),
+            ("zero branches", 1, 9, 0, 0),
+        ]:
+            with self.subTest(case=name):
+                full = self.parse(report([
+                    (exempt[0], 8, 2, 7, 3),
+                    (retired[0], missed_lines, covered_lines, missed_branches, covered_branches),
+                ]))
+                gated = self.parse(report([
+                    (retired[0], missed_lines, covered_lines, missed_branches, covered_branches),
+                ]))
+                with self.assertRaisesRegex(ValueError, "fell below 80%"):
+                    audit(full, gated, exempt, retired)
+
+    def test_retired_exemptions_are_removed_from_actual_gradle_config(self) -> None:
+        gradle = Path(__file__).resolve().parent.parent / "build.gradle.kts"
+        configured = set(excluded_legacy_classes(gradle))
+        self.assertFalse(configured.intersection(RETIRED_CLI_EXEMPTIONS))
 
     def test_reads_configured_exemption_names_instead_of_duplicating_list(self) -> None:
         path = self.base / "build.gradle.kts"

@@ -50,6 +50,30 @@ a class-level percentage as proof of a working end-to-end provider journey.
 CI uploads the two XML files, deterministic Markdown summary and JSON
 metrics as the `legacy-cli-unfiltered-coverage` artifact.
 
+## Retired CLI exemptions (issue #23 follow-up)
+
+The initial unfiltered audit from PR #104 identified two historical exceptions
+that already exceeded **80% in both LINE and BRANCH coverage**:
+
+| Command | Baseline lines | Baseline branches |
+| --- | ---: | ---: |
+| `FlightImportCommand` | 91.2% | 80.8% |
+| `FlightPriceCommand` | 86.7% | 81.0% |
+
+Their exact-class entries have been **removed** from Kover's exclusion list.
+The exclusion count decreases from 35 to 33. Both are now present in the
+ordinary gated XML and counted toward the existing aggregate 80% requirement.
+The audit's `RETIRED_CLI_EXEMPTIONS` list additionally enforces a per-class
+minimum of **80% LINE and 80% BRANCH** for each retired command and fails if
+either class is missing from the gated report, relisted as excluded, or falls
+below either threshold. Percentage comparisons use integer counts to avoid
+rounding a 79.99% result up to 80%.
+
+When another CLI exception becomes sufficiently covered, remove it from the
+Kover exclusions **and** append it to `RETIRED_CLI_EXEMPTIONS`; CI will enforce
+the resulting ratchet. These percentages come from synthetic JVM unit tests,
+not live-provider API calls.
+
 This is a measured starting point, **not completion of issue #23**.
 Next: increase coverage of individual existing `Inv*`, `Flight*` and
 `PriceCheck*` commands, then remove exemptions one at a time only after
