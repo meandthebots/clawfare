@@ -6,7 +6,9 @@ on:
     paths:
       - 'scripts/build-sites-preview.sh'
       - '.github/workflows/sites-preview.yml'
-      - 'web/**'\n      - 'build.gradle.kts'\n      - 'scripts/verify-web-bundle.mjs'
+      - 'web/**'
+      - 'build.gradle.kts'
+      - 'scripts/verify-web-bundle.mjs'
       - 'src/main/kotlin/com/clawfare/search/**'
       - 'src/main/kotlin/com/clawfare/export/**'
 
