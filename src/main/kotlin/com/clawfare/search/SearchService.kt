@@ -224,18 +224,15 @@ class SearchService(
                 return SearchResponse(ok = false, error = "Offer violates original flight policy: $rejection.")
             }
         }
-        val markets =
-            request.markets
-                .map { it.lowercase() }
-                .distinct()
-                .ifEmpty { listOf("uk") }
+        val plan = VendorMarketPlan.parse(request.markets)
+        val markets = plan.markets
         val provider =
             providers.firstOrNull { it.id == stored.tokens[itinerary.id]?.provider && it is GoogleFlightsProvider }
                 ?: providers.firstOrNull { it is GoogleFlightsProvider && it.configured }
         if (provider == null) {
             return SearchResponse(ok = false, error = "Seller offers need SerpApi or SearchAPI. Neither is configured.")
         }
-        val upper = markets.size * 7
+        val upper = plan.networkCallsUpperBound
         if (!request.cacheOnly && !request.confirmed) {
             return SearchResponse(
                 ok = false,
