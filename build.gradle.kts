@@ -186,7 +186,10 @@ val generateOpenApi by tasks.registering(Exec::class) {
     inputs.file("scripts/generate-openapi.mjs")
     outputs.dir(layout.buildDirectory.dir("generated/openapi/kotlin"))
 }
-kotlin.sourceSets.getByName("main").kotlin.srcDir(layout.buildDirectory.dir("generated/openapi/kotlin"))
+kotlin.sourceSets
+    .getByName("main")
+    .kotlin
+    .srcDir(layout.buildDirectory.dir("generated/openapi/kotlin"))
 tasks.named("compileKotlin") {
     dependsOn(generateOpenApi)
 }
