@@ -10,8 +10,10 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.http.contentType
 import io.ktor.server.testing.testApplication
+import io.ktor.utils.io.ByteReadChannel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -126,6 +128,23 @@ class ServerTest {
                 assertEquals(HttpStatusCode.PayloadTooLarge, oversized.status, "JSON cap on $path")
                 assertTrue(oversized.bodyAsText().contains("Request body too large."))
             }
+
+            // A streaming request with no declared content length must also
+            // hit the byte-counting guard rather than reaching JSON decoding.
+            val streamed =
+                client.post("/api/estimate") {
+                    header("Host", "127.0.0.1:8080")
+                    header("X-Clawfare-Session", sessionToken)
+                    setBody(
+                        object : OutgoingContent.ReadChannelContent() {
+                            override val contentType = ContentType.Application.Json
+
+                            override fun readFrom(): ByteReadChannel = ByteReadChannel(oversizedJson.toByteArray())
+                        },
+                    )
+                }
+            assertEquals(HttpStatusCode.PayloadTooLarge, streamed.status)
+            assertTrue(streamed.bodyAsText().contains("Request body too large."))
 
             val malformed =
                 client.post("/api/estimate") {
