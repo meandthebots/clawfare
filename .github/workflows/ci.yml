@@ -57,6 +57,30 @@ jobs:
       - name: Run tests with coverage
         run: ./gradlew test koverVerify koverHtmlReport
       
+      - name: Test the coverage-audit parser (hermetic fixtures)
+        run: python3 -m unittest discover -s scripts -p 'test_legacy_coverage_audit.py' -v
+
+      - name: Generate unfiltered JVM CLI coverage audit
+        run: |
+          ./gradlew koverXmlReport koverXmlReportJvm
+          python3 scripts/audit_legacy_coverage.py \
+            --unfiltered build/reports/kover/unfiltered-jvm.xml \
+            --filtered build/reports/kover/report.xml \
+            --gradle build.gradle.kts \
+            --markdown build/reports/kover/legacy-audit.md \
+            --json build/reports/kover/legacy-audit.json
+
+      - name: Upload unfiltered legacy coverage audit
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: legacy-cli-unfiltered-coverage
+          path: |
+            build/reports/kover/unfiltered-jvm.xml
+            build/reports/kover/report.xml
+            build/reports/kover/legacy-audit.md
+            build/reports/kover/legacy-audit.json
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         if: always()

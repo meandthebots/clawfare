@@ -97,6 +97,14 @@ kover {
                 minBound(80)
             }
         }
+        // Override the common legacy exclusions for the JVM-only audit.
+        // All normal koverVerify/HTML/XML tasks keep the original 80% gate.
+        variant("jvm") {
+            filters { }
+            xml {
+                xmlFile = layout.buildDirectory.file("reports/kover/unfiltered-jvm.xml")
+            }
+        }
     }
 }
 
