@@ -3857,6 +3857,7 @@ data class ImportFlight(
         InvCommand::class,
         FlightCommand::class,
         FareCommand::class,
+        DbCommand::class,
         ServeCommand::class,
         ReportCommand::class,
     ],
