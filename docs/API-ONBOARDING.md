@@ -139,6 +139,14 @@ per server instance; repeats return HTTP 429 with `Retry-After`. The
 browser sends the session header automatically for the **Check quota**
 control; no change is needed for ordinary local use.
 
+Seller lookups reserve a worst-case **seven provider requests per effective
+market** (outbound/return/booking-option lookups). The server applies the same
+normalization as execution before checking the web call cap: empty or blank
+market lists use the default UK market, and case-insensitive duplicates count
+only once. Cache-only seller lookups are exempt from the paid call cap, but
+still allow at most two distinct markets. A zero-call budget rejects every
+live seller lookup, including an empty market list, before granting consent.
+
 The JVM API **streams and bounds actual JSON bytes** before
 deserializing or invoking business logic: query, vendor and tracking requests
 are limited to 64 KiB, while HTML/CSV export requests allow 2 MiB. Requests

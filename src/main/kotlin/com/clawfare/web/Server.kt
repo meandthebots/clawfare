@@ -12,6 +12,7 @@ import com.clawfare.search.SearchService
 import com.clawfare.search.SqliteResponseCache
 import com.clawfare.search.StatusResponse
 import com.clawfare.search.TrackRequest
+import com.clawfare.search.VendorMarketPlan
 import com.clawfare.search.VendorRequest
 import com.clawfare.search.providersFromEnv
 import com.clawfare.web.generated.GetEndpoints
@@ -302,7 +303,11 @@ fun Application.clawfareModule() {
             if (!authorized(call)) return@post
             val id = call.parameters["id"] ?: ""
             val body = call.receiveBoundedJson(VendorRequest.serializer(), MAX_QUERY_JSON_BYTES) ?: return@post
-            if (body.markets.size > 2 || body.markets.size * 7 > maxWebCalls) {
+            val plan = VendorMarketPlan.parse(body.markets)
+            // The empty request list defaults to UK when executed: treating
+            // it as zero markets would bypass even a zero-call web cap.
+            // Cache-only lookups cannot spend provider calls.
+            if (!plan.withinWebCap(if (body.cacheOnly) Int.MAX_VALUE else maxWebCalls)) {
                 call.respondText(
                     """{"error":"Seller-market request exceeds the configured web call cap."}""",
                     ContentType.Application.Json,
