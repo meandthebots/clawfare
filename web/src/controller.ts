@@ -503,7 +503,7 @@ export function initializeClawfare(): void {
     } else {
       rows.sort(function (a, b) {
         return a.outboundDate.localeCompare(b.outboundDate) ||
-          String(a.returnDate || "").localeCompare(String(b.returnDate || "");
+          String(a.returnDate || "").localeCompare(String(b.returnDate || ""));
       });
     }
     if (!gridRoot) gridRoot = createRoot($("view"));
