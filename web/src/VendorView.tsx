@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { TrustBadge } from "./TrustBadge.tsx";
 import type { SellerOption, VendorRow } from "./domain.ts";
 import { bookingUrl, gbp } from "./GridView.tsx";
 
@@ -124,7 +125,7 @@ export function VendorView({
                 />
               </td>
               <td>
-                <span className={"trust " + vendor.trust}>{vendor.trustLabel || vendor.trust}</span>
+                <TrustBadge trust={vendor.trust} label={vendor.trustLabel || vendor.trust} />
                 <div>
                   <select
                     className="trustpick"

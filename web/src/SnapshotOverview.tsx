@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { TrustBadge } from "./TrustBadge.tsx";
 import * as stylex from "@stylexjs/stylex";
 import type { ComboCell, Itinerary, NoteCard, ResultSet } from "./domain.ts";
 import { fmtRange, gbp, quoteable } from "./GridView.tsx";
@@ -261,10 +262,10 @@ function Legend({ result, tab }: Pick<SnapshotOverviewProps, "result" | "tab">) 
           <i className={"sw " + stylex.props(styles.swatch, styles.legendVendor).className} />
           Cheapest all-in in this market filter
         </span>
-        <span className="trust risky">Risky</span>
-        <span className="trust caution">Caution</span>
-        <span className="trust trusted">Trusted</span>
-        <span className="trust airline">Airline</span>
+        <TrustBadge trust="risky" label="Risky" />
+        <TrustBadge trust="caution" label="Caution" />
+        <TrustBadge trust="trusted" label="Trusted" />
+        <TrustBadge trust="airline" label="Airline" />
         <span>Notes and trust flags are editable and travel with the HTML export.</span>
       </>
     );
