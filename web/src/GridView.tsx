@@ -4,6 +4,38 @@ import type { BookLink, ComboCell, Direction, Itinerary } from "./domain.ts";
 
 const labels = { ok: "Works", catch: "Works with a catch", no: "Doesn’t work" } as const;
 const styles = stylex.create({
+  tag: {
+    display: "inline-block",
+    fontSize: "10.5px",
+    padding: "1px 6px",
+    borderRadius: "999px",
+    backgroundColor: "var(--neutral-bg)",
+    color: "var(--neutral-ink)",
+    margin: "2px 3px 0 0",
+    fontWeight: 600,
+  },
+  tagBusiness: { backgroundColor: "var(--pink-bg)", color: "var(--pink-ink)" },
+  tagPremium: { backgroundColor: "var(--info-bg)", color: "var(--info-ink)" },
+  tagNonstop: { backgroundColor: "var(--green-bg)", color: "var(--green-ink)" },
+  tagGatwick: { backgroundColor: "var(--amber-bg)", color: "var(--amber-ink)" },
+  tagEuropean: {
+    backgroundColor: "var(--info-bg)",
+    color: "var(--info-ink)",
+    border: "1px solid var(--info-border)",
+  },
+  tagMock: { backgroundColor: "var(--red-bg)", color: "var(--red-ink)" },
+  tagCached: { backgroundColor: "var(--neutral-bg)", color: "var(--neutral-ink)" },
+  tagLive: { backgroundColor: "var(--green-bg)", color: "var(--green-ink)" },
+  badge: {
+    fontSize: "10px",
+    fontWeight: 700,
+    borderRadius: "999px",
+    padding: "0 6px",
+    marginTop: "2px",
+    display: "inline-block",
+  },
+  badgeFeasible: { backgroundColor: "var(--gold)", color: "var(--gold-ink)" },
+  badgeWorks: { backgroundColor: "var(--green-solid)", color: "#fff" },
   selectionButton: {
     width: "100%",
     display: "flex",
@@ -191,22 +223,68 @@ export function SourceTag({ it }: { it: Itinerary }) {
             ? "Live"
             : label;
   if (!it.livePrice && label !== "mock" && label !== "sample") text += " · not a live fare";
-  return <span className={"tag " + cls}>{text}</span>;
+  return (
+    <span
+      className={
+        "tag " +
+        cls +
+        " " +
+        stylex.props(
+          styles.tag,
+          cls === "mock" && styles.tagMock,
+          cls === "live" && styles.tagLive,
+          cls === "cached" && styles.tagCached,
+        ).className
+      }
+    >
+      {text}
+    </span>
+  );
 }
 function FlightTags({ it }: { it: Itinerary }) {
   const cabinCls =
     it.cabinKey === "business" ? "biz" : it.cabinKey === "premium_economy" ? "pe" : "";
   return (
     <>
-      <span className={"tag " + cabinCls}>{it.cabin || it.cabinKey}</span>
-      <span className={"tag " + (it.stopsOut === 0 && it.stopsRet === 0 ? "ns" : "")}>
+      <span
+        className={
+          "tag " +
+          cabinCls +
+          " " +
+          stylex.props(
+            styles.tag,
+            cabinCls === "biz" && styles.tagBusiness,
+            cabinCls === "pe" && styles.tagPremium,
+          ).className
+        }
+      >
+        {it.cabin || it.cabinKey}
+      </span>
+      <span
+        className={
+          "tag " +
+          (it.stopsOut === 0 && it.stopsRet === 0 ? "ns " : "") +
+          stylex.props(styles.tag, it.stopsOut === 0 && it.stopsRet === 0 && styles.tagNonstop)
+            .className
+        }
+      >
         {stopsLabel(it)}
       </span>
-      <span className={"tag " + (it.origin === "LGW" ? "lgw" : "")}>
+      <span
+        className={
+          "tag " +
+          (it.origin === "LGW" ? "lgw " : "") +
+          stylex.props(styles.tag, it.origin === "LGW" && styles.tagGatwick).className
+        }
+      >
         {it.origin}
         {it.destination ? "→" + it.destination : ""}
       </span>
-      {it.euPremium && <span className="tag eu">European-operated</span>}
+      {it.euPremium && (
+        <span className={"tag eu " + stylex.props(styles.tag, styles.tagEuropean).className}>
+          European-operated
+        </span>
+      )}
       <SourceTag it={it} />
     </>
   );
@@ -307,8 +385,22 @@ export function GridView({
             <>
               <span className="tot">{gbp(cell.total)}</span>
               <span className="st">{statusLabel(cell)}</span>
-              {bestFeasible && <span className="badge ba">Cheapest feasible</span>}
-              {bestWorks && <span className="badge bg">Cheapest works</span>}
+              {bestFeasible && (
+                <span
+                  className={
+                    "badge ba " + stylex.props(styles.badge, styles.badgeFeasible).className
+                  }
+                >
+                  Cheapest feasible
+                </span>
+              )}
+              {bestWorks && (
+                <span
+                  className={"badge bg " + stylex.props(styles.badge, styles.badgeWorks).className}
+                >
+                  Cheapest works
+                </span>
+              )}
             </>
           )}
         </button>
