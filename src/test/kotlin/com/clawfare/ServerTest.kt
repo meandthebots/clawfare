@@ -244,6 +244,37 @@ class ServerTest {
             assertEquals(HttpStatusCode.OK, sellers.status)
             assertTrue(sellers.bodyAsText().contains("BudgetAir"))
 
+            // Empty markets are not zero-cost: execution defaults them to
+            // UK. An explicit live request still requires estimate consent.
+            val missingVendorConsent =
+                client.post("/api/results/no-such-search/vendors") {
+                    header("Host", "127.0.0.1:8080")
+                    contentType(ContentType.Application.Json)
+                    header("X-Clawfare-Session", sessionToken)
+                    setBody("""{"itineraryId":"synthetic","markets":[],"confirmed":true}""")
+                }
+            assertEquals(HttpStatusCode.Forbidden, missingVendorConsent.status)
+
+            // Cache-only requests still work with the default UK market and
+            // never require live-provider authorization.
+            val defaultCacheVendors =
+                client.post("/api/results/florida-dec-2026/vendors") {
+                    header("Host", "127.0.0.1:8080")
+                    contentType(ContentType.Application.Json)
+                    header("X-Clawfare-Session", sessionToken)
+                    setBody("""{"itineraryId":"H","markets":[],"cacheOnly":true}""")
+                }
+            assertEquals(HttpStatusCode.OK, defaultCacheVendors.status)
+
+            val excessiveMarkets =
+                client.post("/api/results/florida-dec-2026/vendors") {
+                    header("Host", "127.0.0.1:8080")
+                    contentType(ContentType.Application.Json)
+                    header("X-Clawfare-Session", sessionToken)
+                    setBody("""{"itineraryId":"H","markets":["uk","fr","de"],"cacheOnly":true}""")
+                }
+            assertEquals(HttpStatusCode.TooManyRequests, excessiveMarkets.status)
+
             val tracked =
                 client.post("/api/results/florida-dec-2026/track") {
                     header("Host", "127.0.0.1:8080")
