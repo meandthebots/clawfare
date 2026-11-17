@@ -37,6 +37,7 @@ class LocalAccessTest {
         now = now.plusSeconds(601)
         assertFalse(access.consumeConsent(expired, "search", "any"))
     }
+
     @Test
     fun quotaInspectionThrottleHonorsCooldown() {
         var now = Instant.parse("2026-11-17T05:00:00Z")
