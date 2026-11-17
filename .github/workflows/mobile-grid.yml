@@ -4,7 +4,9 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - 'build/frontend/web/index.html'
+      - 'web/**'
+      - 'build.gradle.kts'
+      - 'scripts/verify-web-bundle.mjs'
       - 'sites-runtime/tests/mobile-grid-browser.mjs'
       - '.github/workflows/mobile-grid.yml'
 
