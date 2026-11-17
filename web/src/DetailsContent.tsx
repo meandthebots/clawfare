@@ -26,6 +26,23 @@ const styles = stylex.create({
     justifyContent: "space-between",
     gap: "8px",
   },
+  detailTable: { width: "100%", borderCollapse: "collapse", fontSize: "12.5px", marginTop: "6px" },
+  segmentCell: {
+    padding: "4px 6px",
+    borderBottom: "1px solid var(--neutral-bg)",
+    textAlign: "left",
+    background: "none",
+    fontWeight: 400,
+  },
+  segmentHeader: { color: "var(--muted)", fontSize: "11px", textTransform: "uppercase" },
+  priceCell: {
+    padding: "5px 0",
+    borderBottomWidth: "1px",
+    borderBottomStyle: "dashed",
+    borderBottomColor: "var(--line)",
+  },
+  priceAmount: { textAlign: "right", fontVariantNumeric: "tabular-nums" },
+  priceTotal: { fontWeight: 800, fontSize: "16px", borderBottom: 0, paddingTop: "8px" },
   reasons: { margin: 0, paddingLeft: "18px" },
   reasonNo: { color: "var(--red-ink)" },
   reasonCatch: { color: "var(--amber-ink)" },
@@ -153,33 +170,33 @@ function DirectionBox({
         <span>{title}</span>
         <span>{stopsLabel(it)}</span>
       </div>
-      <table className="seglist">
+      <table className={"seglist " + stylex.props(styles.detailTable).className}>
         <thead>
           <tr>
-            <th>Flight</th>
-            <th>From</th>
-            <th>Dep</th>
-            <th>To</th>
-            <th>Arr</th>
-            <th>Date</th>
-            <th>Operated by</th>
+            <th {...stylex.props(styles.segmentCell, styles.segmentHeader)}>Flight</th>
+            <th {...stylex.props(styles.segmentCell, styles.segmentHeader)}>From</th>
+            <th {...stylex.props(styles.segmentCell, styles.segmentHeader)}>Dep</th>
+            <th {...stylex.props(styles.segmentCell, styles.segmentHeader)}>To</th>
+            <th {...stylex.props(styles.segmentCell, styles.segmentHeader)}>Arr</th>
+            <th {...stylex.props(styles.segmentCell, styles.segmentHeader)}>Date</th>
+            <th {...stylex.props(styles.segmentCell, styles.segmentHeader)}>Operated by</th>
           </tr>
         </thead>
         <tbody>
           {direction.legs.map((leg, index) => (
             <tr key={leg.flightNumber + "-" + index}>
-              <td>
+              <td {...stylex.props(styles.segmentCell)}>
                 <b>{leg.flightNumber}</b>
               </td>
-              <td>{leg.from}</td>
-              <td>{leg.departTime}</td>
-              <td>{leg.to}</td>
-              <td>{leg.arriveTime}</td>
-              <td>
+              <td {...stylex.props(styles.segmentCell)}>{leg.from}</td>
+              <td {...stylex.props(styles.segmentCell)}>{leg.departTime}</td>
+              <td {...stylex.props(styles.segmentCell)}>{leg.to}</td>
+              <td {...stylex.props(styles.segmentCell)}>{leg.arriveTime}</td>
+              <td {...stylex.props(styles.segmentCell)}>
                 {leg.departDate}
                 {leg.arriveDate !== leg.departDate ? "→" + leg.arriveDate : ""}
               </td>
-              <td className="muted">
+              <td className={"muted " + stylex.props(styles.segmentCell).className}>
                 {leg.operatingCarrier || leg.airline}
                 {leg.durationMinutes
                   ? " · " +
@@ -432,22 +449,24 @@ export function DetailsContent({
       </div>
       <div className="sec">
         <h3>Price</h3>
-        <table className="price">
+        <table className={"price " + stylex.props(styles.detailTable).className}>
           <tbody>
             <tr>
-              <td>Long-haul × {it.passengers}</td>
-              <td>{gbp(total(it))}</td>
+              <td {...stylex.props(styles.priceCell)}>Long-haul × {it.passengers}</td>
+              <td {...stylex.props(styles.priceCell, styles.priceAmount)}>{gbp(total(it))}</td>
             </tr>
             {addon && (
               <tr>
-                <td>Add-on × {addon.passengers}</td>
-                <td>{gbp(total(addon))}</td>
+                <td {...stylex.props(styles.priceCell)}>Add-on × {addon.passengers}</td>
+                <td {...stylex.props(styles.priceCell, styles.priceAmount)}>{gbp(total(addon))}</td>
               </tr>
             )}
             {cell && (
               <tr className="total">
-                <td>Total</td>
-                <td>{gbp(cell.total)}</td>
+                <td {...stylex.props(styles.priceCell, styles.priceTotal)}>Total</td>
+                <td {...stylex.props(styles.priceCell, styles.priceAmount, styles.priceTotal)}>
+                  {gbp(cell.total)}
+                </td>
               </tr>
             )}
           </tbody>
