@@ -59,6 +59,34 @@ try {
   });
   await page.goto("https://clawfare.test/");
   await page.waitForSelector("#grid td.cell");
+
+  // Dark is the first-paint default, regardless of the operating system theme.
+  const theme = () => page.evaluate(() => ({
+    name: document.documentElement.dataset.theme,
+    scheme: getComputedStyle(document.documentElement).colorScheme,
+    background: getComputedStyle(document.body).backgroundColor,
+  }));
+  const dark = await theme();
+  assert.equal(dark.name, "dark");
+  assert.equal(dark.scheme, "dark");
+  assert.equal(await page.locator("#themeToggle").getAttribute("aria-pressed"), "true");
+
+  // Light mode must update every surface and survive a full reload.
+  await page.locator("#themeToggle").click();
+  const light = await theme();
+  assert.equal(light.name, "light");
+  assert.equal(light.scheme, "light");
+  assert.notEqual(light.background, dark.background);
+  assert.equal(await page.locator("#themeToggle").getAttribute("aria-pressed"), "false");
+  await page.reload();
+  await page.waitForSelector("#grid td.cell");
+  assert.deepEqual(await theme(), light, "Saved light preference should apply before React mounts");
+  await page.locator("#themeToggle").click();
+  assert.deepEqual(await theme(), dark, "Switching back restores the original dark palette");
+  await page.reload();
+  await page.waitForSelector("#grid td.cell");
+  assert.deepEqual(await theme(), dark, "Dark preference survives reload");
+
   assert.ok(await page.locator("#btnRun").isDisabled());
   assert.ok(await page.locator("#btnHtml").isDisabled());
   assert.ok(await page.locator("#btnCsv").isDisabled());

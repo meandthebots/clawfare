@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="data:," />
+    <script>
+      // Set the preference before the stylesheet loads to avoid a light-theme flash.
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem("clawfare-theme") === "light" ? "light" : "dark";
+      } catch {
+        document.documentElement.dataset.theme = "dark";
+      }
+    </script>
     <title>Clawfare — flight search</title>
   </head>
   <body>

@@ -32,10 +32,10 @@ const styles = stylex.create({
   staticCard: { cursor: "default" },
   legendGreen: { backgroundColor: "var(--green-bg)", borderColor: "var(--green)" },
   legendAmber: { backgroundColor: "var(--amber-bg)", borderColor: "var(--amber)" },
-  legendNo: { backgroundColor: "#f2f4f7" },
-  legendFeasible: { backgroundColor: "#fff", border: "2px solid var(--gold)" },
-  legendWorks: { backgroundColor: "#fff", border: "2px solid #027a48" },
-  legendVendor: { backgroundColor: "#ecfdf3", borderColor: "#027a48" },
+  legendNo: { backgroundColor: "var(--neutral-bg)" },
+  legendFeasible: { backgroundColor: "var(--card)", border: "2px solid var(--gold)" },
+  legendWorks: { backgroundColor: "var(--card)", border: "2px solid var(--green-solid)" },
+  legendVendor: { backgroundColor: "var(--green-bg)", borderColor: "var(--green-solid)" },
 });
 
 function bestCells(

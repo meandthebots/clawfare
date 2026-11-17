@@ -26,7 +26,7 @@ live in `src/domain.ts` and `src/api.ts`. Filter and query mapping live in
 `src/filters.ts`, `src/filterForm.ts`, and `src/searchForm.ts`.
 The old imperative DOM controller and its `@ts-nocheck` suppression are gone.
 
-The UI uses StyleX atomic classes. Some pre-existing complex fare-table,
+The UI defaults to dark mode on first paint. The header toggle saves an explicit\nlight/dark preference in `localStorage` under `clawfare-theme`; an early HTML\nscript restores it before the single-file bundle loads. Theme colours are\ncentralised as CSS custom properties in `src/legacy.css` and consumed by StyleX\nwhere needed. This is a user preference, independent of OS appearance.\n\nThe UI uses StyleX atomic classes. Some pre-existing complex fare-table,
 timeline, and mobile interaction selectors remain in `src/legacy.css`; these
 are compatibility styles under incremental migration, not a second runtime
 controller. Keep React as the only owner of result and control DOM state.
