@@ -171,7 +171,6 @@ class FlightImportDbRegressionTest {
         }
     }
 
-
     private fun targetSql(statement: String) {
         DriverManager.getConnection("jdbc:sqlite:$target").use { connection ->
             connection.createStatement().use { sql ->
@@ -512,5 +511,4 @@ class FlightImportDbRegressionTest {
             PriceHistoryQueries.getByFlightId("flight-alpha").map { it.amount },
         )
     }
-
 }
