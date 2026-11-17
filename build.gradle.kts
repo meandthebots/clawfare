@@ -174,3 +174,22 @@ tasks.named<org.gradle.language.jvm.tasks.ProcessResources>("processResources") 
     dependsOn(buildWebUi)
     from("build/frontend")
 }
+
+/**
+ * OpenAPI is authoritative for route paths and browser DTOs.
+ * Generate JVM route declarations before Kotlin compilation; web tasks
+ * use the same zero-dependency Node generator before TS compilation.
+ */
+val generateOpenApi by tasks.registering(Exec::class) {
+    commandLine("node", "scripts/generate-openapi.mjs")
+    inputs.file("api/openapi.json")
+    inputs.file("scripts/generate-openapi.mjs")
+    outputs.dir(layout.buildDirectory.dir("generated/openapi/kotlin"))
+}
+kotlin.sourceSets
+    .getByName("main")
+    .kotlin
+    .srcDir(layout.buildDirectory.dir("generated/openapi/kotlin"))
+tasks.named("compileKotlin") {
+    dependsOn(generateOpenApi)
+}

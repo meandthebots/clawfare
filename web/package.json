@@ -5,13 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build && node ../scripts/verify-web-bundle.mjs",
+    "typecheck": "npm run api:generate && tsc --noEmit",
+    "build": "npm run api:generate && tsc --noEmit && vite build && node ../scripts/verify-web-bundle.mjs",
     "lint": "oxlint src vite.config.ts",
     "format": "oxfmt src vite.config.ts",
     "format:check": "oxfmt --check src vite.config.ts",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run format:check",
-    "test": "node --experimental-strip-types --test src/*.test.ts"
+    "check": "npm run api:generate && npm run api:check && npm run typecheck && npm run lint && npm run test && npm run format:check",
+    "test": "npm run api:generate && node --experimental-strip-types --test src/*.test.ts",
+    "api:generate": "node ../scripts/generate-openapi.mjs",
+    "api:check": "node ../scripts/generate-openapi.mjs --check"
   },
   "dependencies": {
     "@stylexjs/stylex": "0.19.1",

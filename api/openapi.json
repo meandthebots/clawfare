@@ -1,0 +1,2977 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Clawfare HTTP API",
+    "version": "1.0.0",
+    "description": "Single-source HTTP contract for the local Ktor server, browser and authenticated read-only Sites adapter. Hosted mode exposes only informational GETs and zero-cost POST /api/estimate; all paid operations remain local-only and gated by local consent. Identity is provided by trusted Sites ingress, never by caller-supplied headers."
+  },
+  "paths": {
+    "/api/session": {
+      "get": {
+        "operationId": "getSession",
+        "summary": "getSession",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "jvm",
+        "x-kotlin-request": "Unit",
+        "x-kotlin-response": "Map<String, String>"
+      }
+    },
+    "/api/status": {
+      "get": {
+        "operationId": "getStatus",
+        "summary": "getStatus",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "both",
+        "x-kotlin-request": "Unit",
+        "x-kotlin-response": "com.clawfare.search.StatusResponse"
+      }
+    },
+    "/api/quota": {
+      "get": {
+        "operationId": "getQuota",
+        "summary": "getQuota",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QuotaView"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "both",
+        "x-kotlin-request": "Unit",
+        "x-kotlin-response": "List<com.clawfare.search.QuotaView>"
+      }
+    },
+    "/api/sample": {
+      "get": {
+        "operationId": "getSample",
+        "summary": "getSample",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "both",
+        "x-kotlin-request": "Unit",
+        "x-kotlin-response": "com.clawfare.search.ResultSet"
+      }
+    },
+    "/api/searches": {
+      "get": {
+        "operationId": "getSearches",
+        "summary": "getSearches",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SavedInvestigation"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "both",
+        "x-kotlin-request": "Unit",
+        "x-kotlin-response": "List<com.clawfare.search.ResultSet>"
+      }
+    },
+    "/api/storage": {
+      "get": {
+        "operationId": "getStorage",
+        "summary": "getStorage",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageDiagnostic"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "hosted",
+        "x-kotlin-request": "Unit",
+        "x-kotlin-response": "Any"
+      }
+    },
+    "/api/results/{id}": {
+      "get": {
+        "operationId": "getResult",
+        "summary": "getResult",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultSet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "both",
+        "x-kotlin-request": "Unit",
+        "x-kotlin-response": "com.clawfare.search.ResultSet"
+      }
+    },
+    "/api/history/{slug}/{itineraryId}": {
+      "get": {
+        "operationId": "getHistory",
+        "summary": "getHistory",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$"
+            }
+          },
+          {
+            "name": "itineraryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryObservation"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "hosted",
+        "x-kotlin-request": "Unit",
+        "x-kotlin-response": "Any"
+      }
+    },
+    "/api/sample/export.html": {
+      "get": {
+        "operationId": "getSampleExport",
+        "summary": "getSampleExport",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "jvm",
+        "x-kotlin-request": "Unit",
+        "x-kotlin-response": "String"
+      }
+    },
+    "/api/estimate": {
+      "post": {
+        "operationId": "estimate",
+        "summary": "estimate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Estimate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "both",
+        "x-kotlin-request": "com.clawfare.search.SearchQuery",
+        "x-kotlin-response": "com.clawfare.search.Estimate"
+      }
+    },
+    "/api/search": {
+      "post": {
+        "operationId": "search",
+        "summary": "search",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "jvm",
+        "x-kotlin-request": "com.clawfare.search.SearchQuery",
+        "x-kotlin-response": "com.clawfare.search.SearchResponse"
+      }
+    },
+    "/api/results/{id}/vendors": {
+      "post": {
+        "operationId": "vendors",
+        "summary": "vendors",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "jvm",
+        "x-kotlin-request": "com.clawfare.search.VendorRequest",
+        "x-kotlin-response": "com.clawfare.search.SearchResponse"
+      }
+    },
+    "/api/results/{id}/track": {
+      "post": {
+        "operationId": "track",
+        "summary": "track",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "jvm",
+        "x-kotlin-request": "com.clawfare.search.TrackRequest",
+        "x-kotlin-response": "String"
+      }
+    },
+    "/api/export/html": {
+      "post": {
+        "operationId": "exportHtml",
+        "summary": "exportHtml",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "jvm",
+        "x-kotlin-request": "com.clawfare.web.ExportRequest",
+        "x-kotlin-response": "String"
+      }
+    },
+    "/api/export/csv": {
+      "post": {
+        "operationId": "exportCsv",
+        "summary": "exportCsv",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method not supported by this runtime",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "jvm",
+        "x-kotlin-request": "com.clawfare.web.ExportRequest",
+        "x-kotlin-response": "String"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Cabin": {
+        "type": "string",
+        "enum": [
+          "economy",
+          "premium_economy",
+          "business",
+          "first"
+        ]
+      },
+      "TripType": {
+        "type": "string",
+        "enum": [
+          "round_trip",
+          "one_way"
+        ]
+      },
+      "CellStatus": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "catch",
+          "no"
+        ]
+      },
+      "SearchQuery": {
+        "type": "object",
+        "properties": {
+          "origins": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "destinations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outboundFrom": {
+            "type": "string"
+          },
+          "outboundTo": {
+            "type": "string"
+          },
+          "returnFrom": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "returnTo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nights": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tripType": {
+            "$ref": "#/components/schemas/TripType"
+          },
+          "adults": {
+            "type": "number"
+          },
+          "cabin": {
+            "$ref": "#/components/schemas/Cabin"
+          },
+          "cabinShortHaul": {
+            "$ref": "#/components/schemas/Cabin"
+          },
+          "strictPerLegCabin": {
+            "type": "boolean"
+          },
+          "strictOperatingCarrier": {
+            "type": "boolean"
+          },
+          "checkedBags": {
+            "type": "number"
+          },
+          "excludedAirlines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "currency": {
+            "type": "string"
+          },
+          "market": {
+            "type": "string"
+          },
+          "excludedTransitAirports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "excludedTransitCountries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxLiveCalls": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nonstopOnly": {
+            "type": "boolean"
+          },
+          "returnChoices": {
+            "type": "number"
+          },
+          "fetchReturns": {
+            "type": "boolean"
+          },
+          "cacheOnly": {
+            "type": "boolean"
+          },
+          "confirmed": {
+            "type": "boolean"
+          },
+          "investigation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "origins",
+          "destinations",
+          "outboundFrom",
+          "tripType",
+          "adults",
+          "cabin",
+          "cabinShortHaul",
+          "checkedBags",
+          "currency",
+          "providers",
+          "nonstopOnly",
+          "returnChoices",
+          "fetchReturns",
+          "cacheOnly",
+          "confirmed"
+        ]
+      },
+      "FilterSpec": {
+        "type": "object",
+        "properties": {
+          "maxStops": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxLayoverMinutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "excludeOutboundDates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "excludeReturnDates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "europeanPremiumOnly": {
+            "type": "boolean"
+          },
+          "airlineAllow": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "airlineBlock": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxTravelMinutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outboundDepartAfter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outboundDepartBefore": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "returnDepartAfter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nonstopOnly": {
+            "type": "boolean"
+          },
+          "hideMock": {
+            "type": "boolean"
+          },
+          "verifiedCashRefundOnly": {
+            "type": "boolean"
+          },
+          "cabin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nights": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Leg": {
+        "type": "object",
+        "properties": {
+          "flightNumber": {
+            "type": "string"
+          },
+          "airline": {
+            "type": "string"
+          },
+          "airlineCode": {
+            "type": "string"
+          },
+          "operatingCarrier": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "departTime": {
+            "type": "string"
+          },
+          "arriveTime": {
+            "type": "string"
+          },
+          "departDate": {
+            "type": "string"
+          },
+          "arriveDate": {
+            "type": "string"
+          },
+          "durationMinutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cabin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "aircraft": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operatingCarrierVerified": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "flightNumber",
+          "airline",
+          "airlineCode",
+          "operatingCarrier",
+          "from",
+          "to",
+          "departTime",
+          "arriveTime",
+          "departDate",
+          "arriveDate"
+        ]
+      },
+      "Layover": {
+        "type": "object",
+        "properties": {
+          "airport": {
+            "type": "string"
+          },
+          "minutes": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "airport",
+          "minutes"
+        ]
+      },
+      "Direction": {
+        "type": "object",
+        "properties": {
+          "legs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Leg"
+            }
+          },
+          "layovers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Layover"
+            }
+          },
+          "durationMinutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stops": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "legs",
+          "layovers",
+          "stops"
+        ]
+      },
+      "BookLink": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "url"
+        ]
+      },
+      "SellerRefundProof": {
+        "type": "object",
+        "properties": {
+          "sellerId": {
+            "type": "string"
+          },
+          "offerId": {
+            "type": "string"
+          },
+          "itinerarySha256": {
+            "type": "string"
+          },
+          "partySize": {
+            "type": "number"
+          },
+          "fareBrand": {
+            "type": "string"
+          },
+          "termsSourceUrl": {
+            "type": "string"
+          },
+          "termsSha256": {
+            "type": "string"
+          },
+          "reviewedAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "cancellationDeadlineAt": {
+            "type": "string"
+          },
+          "coversFullTicketBeforeOutbound": {
+            "type": "boolean"
+          },
+          "refundToTravellerOriginalPayment": {
+            "type": "boolean"
+          },
+          "issuerPenaltyAmount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sellerServicingFeeAmount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewerEvidence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sellerId",
+          "offerId",
+          "itinerarySha256",
+          "partySize",
+          "fareBrand",
+          "termsSourceUrl",
+          "termsSha256",
+          "reviewedAt",
+          "expiresAt",
+          "cancellationDeadlineAt",
+          "coversFullTicketBeforeOutbound",
+          "refundToTravellerOriginalPayment",
+          "reviewerEvidence"
+        ]
+      },
+      "RefundEvidence": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "offerId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "allowed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "penaltyAmount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "penaltyCurrency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method": {
+            "type": "string"
+          },
+          "servicingFeeAmount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "servicingFeeCurrency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "availablePassengers": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "baggageEvidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceDescription": {
+            "type": "string"
+          },
+          "sellerId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sellerProof": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SellerRefundProof"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "method",
+          "baggageEvidence",
+          "sourceDescription"
+        ]
+      },
+      "Itinerary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "pricePerPerson": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priceOriginal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priceCurrency": {
+            "type": "string"
+          },
+          "passengers": {
+            "type": "number"
+          },
+          "cabin": {
+            "type": "string"
+          },
+          "cabinKey": {
+            "type": "string"
+          },
+          "euPremium": {
+            "type": "boolean"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "returnFrom": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outboundDate": {
+            "type": "string"
+          },
+          "returnDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nights": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "airlineSummary": {
+            "type": "string"
+          },
+          "outbound": {
+            "$ref": "#/components/schemas/Direction"
+          },
+          "returning": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Direction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "returnMissing": {
+            "type": "boolean"
+          },
+          "stopsOut": {
+            "type": "number"
+          },
+          "stopsRet": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "layoverMinutes": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "maxLayoverMinutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "travelMinutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outboundDepart": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "returnDepart": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "airlineCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "source": {
+            "type": "string"
+          },
+          "fareBrand": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "farePolicyKey": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "refundEvidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RefundEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cashRefundProofVerified": {
+            "type": "boolean"
+          },
+          "sourceLabel": {
+            "type": "string"
+          },
+          "livePrice": {
+            "type": "boolean"
+          },
+          "fetchedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookLink"
+            }
+          },
+          "prevPrice": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "type": "string"
+          },
+          "assumedReturn": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "priceCurrency",
+          "passengers",
+          "cabin",
+          "cabinKey",
+          "euPremium",
+          "origin",
+          "destination",
+          "outboundDate",
+          "airlineSummary",
+          "outbound",
+          "returnMissing",
+          "stopsOut",
+          "layoverMinutes",
+          "airlineCodes",
+          "source",
+          "cashRefundProofVerified",
+          "sourceLabel",
+          "livePrice",
+          "links",
+          "notes",
+          "assumedReturn"
+        ]
+      },
+      "ComboCell": {
+        "type": "object",
+        "properties": {
+          "primaryId": {
+            "type": "string"
+          },
+          "addonId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/CellStatus"
+          },
+          "total": {
+            "type": "number"
+          },
+          "prevTotal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reasonsNo": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "catches": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "oks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "primaryId",
+          "status",
+          "total",
+          "reasonsNo",
+          "catches",
+          "oks"
+        ]
+      },
+      "VendorRow": {
+        "type": "object",
+        "properties": {
+          "vendor": {
+            "type": "string"
+          },
+          "market": {
+            "type": "string"
+          },
+          "marketLabel": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "fareBrand": {
+            "type": "string"
+          },
+          "trust": {
+            "type": "string"
+          },
+          "trustLabel": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "roundTrip": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "oneWayOut": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "oneWayBack": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "roundTripWithBag": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "oneWaysWithBag": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "allInGbp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "how": {
+            "type": "string"
+          },
+          "bags": {
+            "type": "string"
+          },
+          "mix": {
+            "type": "boolean"
+          },
+          "fresh": {
+            "type": "boolean"
+          },
+          "priceChangeGbp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "isNew": {
+            "type": "boolean"
+          },
+          "fetchedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BookLink"
+            }
+          }
+        },
+        "required": [
+          "vendor",
+          "market",
+          "marketLabel",
+          "currency",
+          "fareBrand",
+          "trust",
+          "trustLabel",
+          "note",
+          "how",
+          "bags",
+          "mix",
+          "fresh",
+          "isNew",
+          "links"
+        ]
+      },
+      "SellerOption": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "productKey": {
+            "type": "string"
+          },
+          "itineraryId": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "market": {
+            "type": "string"
+          },
+          "seller": {
+            "type": "string"
+          },
+          "fareBrand": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fareType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priceTotal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "passengers": {
+            "type": "number"
+          },
+          "journey": {
+            "type": "string"
+          },
+          "directAirline": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "splitTickets": {
+            "type": "boolean"
+          },
+          "bags": {
+            "type": "string"
+          },
+          "phoneServiceFee": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "bookingActionAvailable": {
+            "type": "boolean"
+          },
+          "refundStatus": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "productKey",
+          "itineraryId",
+          "provider",
+          "market",
+          "seller",
+          "currency",
+          "passengers",
+          "journey",
+          "splitTickets",
+          "bags",
+          "observedAt",
+          "bookingActionAvailable",
+          "refundStatus"
+        ]
+      },
+      "NoteCard": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "warn": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "title",
+          "body",
+          "warn"
+        ]
+      },
+      "FxInfo": {
+        "type": "object",
+        "properties": {
+          "perGbp": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "asOf": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "perGbp",
+          "asOf"
+        ]
+      },
+      "ResultSet": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "fetchedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "checkedBags": {
+            "type": "number"
+          },
+          "passengers": {
+            "type": "number"
+          },
+          "itineraries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Itinerary"
+            }
+          },
+          "addons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Itinerary"
+            }
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComboCell"
+            }
+          },
+          "vendors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VendorRow"
+            }
+          },
+          "sellerOptions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SellerOption"
+            }
+          },
+          "vendorIntro": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteCard"
+            }
+          },
+          "headerNotes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteCard"
+            }
+          },
+          "suggestedFilters": {
+            "$ref": "#/components/schemas/FilterSpec"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fx": {
+            "$ref": "#/components/schemas/FxInfo"
+          },
+          "scenarioLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "query": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchQuery"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vendorItineraryId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "subtitle",
+          "currency",
+          "checkedBags",
+          "passengers",
+          "itineraries",
+          "addons",
+          "cells",
+          "vendors",
+          "sellerOptions",
+          "vendorIntro",
+          "headerNotes",
+          "suggestedFilters",
+          "warnings",
+          "fx"
+        ]
+      },
+      "QuotaView": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "used": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "configured"
+        ]
+      },
+      "Estimate": {
+        "type": "object",
+        "properties": {
+          "liveCalls": {
+            "type": "number"
+          },
+          "cachedCalls": {
+            "type": "number"
+          },
+          "skippedCalls": {
+            "type": "number"
+          },
+          "returnLookupsUpperBound": {
+            "type": "number"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "quota": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuotaView"
+            }
+          },
+          "canRun": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "liveCalls",
+          "cachedCalls",
+          "skippedCalls",
+          "returnLookupsUpperBound",
+          "lines",
+          "warnings",
+          "quota"
+        ]
+      },
+      "SearchResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "needsConfirmation": {
+            "type": "boolean"
+          },
+          "estimate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Estimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResultSet"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "StatusResponse": {
+        "type": "object",
+        "properties": {
+          "cacheDir": {
+            "type": "string"
+          },
+          "searchesDir": {
+            "type": "string"
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuotaView"
+            }
+          }
+        },
+        "required": [
+          "cacheDir",
+          "searchesDir",
+          "providers"
+        ]
+      },
+      "SavedInvestigation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "fetchedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ]
+      },
+      "StorageDiagnostic": {
+        "type": "object",
+        "properties": {
+          "backend": {
+            "type": "string",
+            "enum": [
+              "d1"
+            ]
+          },
+          "sampleStored": {
+            "type": "boolean"
+          },
+          "firstImportedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "backend",
+          "sampleStored"
+        ]
+      },
+      "VendorRequest": {
+        "type": "object",
+        "properties": {
+          "itineraryId": {
+            "type": "string"
+          },
+          "markets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cacheOnly": {
+            "type": "boolean"
+          },
+          "confirmed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "itineraryId",
+          "markets",
+          "cacheOnly",
+          "confirmed"
+        ]
+      },
+      "TrackRequest": {
+        "type": "object",
+        "properties": {
+          "itineraryId": {
+            "type": "string"
+          },
+          "tripSlug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "itineraryId",
+          "tripSlug"
+        ]
+      },
+      "ExportRequest": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/ResultSet"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/FilterSpec"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "itineraries",
+              "vendors",
+              "seller_options"
+            ]
+          }
+        },
+        "required": [
+          "result",
+          "filters",
+          "kind"
+        ]
+      },
+      "SessionResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "TrackResponse": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "HistoryObservation": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Read-only D1 price observation record."
+      }
+    }
+  }
+}

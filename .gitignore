@@ -25,3 +25,5 @@ clawfare-linux-amd64
 COVERAGE-NOTES.md
 
 \n# React/Vite frontend\nweb/node_modules/\nweb/dist/\nweb/package-lock.json\n
+# Generated from api/openapi.json on each build.
+web/src/generated/
