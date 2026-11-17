@@ -19,6 +19,7 @@ export function createReadOnlySitesHandler({
   ownerKeySecret,
   cryptoApi = globalThis.crypto,
   bundledPublicSample = null,
+  kotlinEngine = null,
 }) {
   if (!db?.prepare || typeof getVerifiedEmail !== "function" ||
       typeof ownerKeySecret !== "string" ||
@@ -27,7 +28,12 @@ export function createReadOnlySitesHandler({
   }
   // Fail before accepting requests if the Kotlin UI version does not support
   // hosted mode. No silent fallback to localhost token auth.
-  const page = renderHostedReadOnlyPage(templateHtml);
+  const allowEstimate = kotlinEngine != null;
+  if (allowEstimate && (typeof kotlinEngine.planSearchJson !== "function" ||
+      typeof kotlinEngine.projectBudgetJson !== "function")) {
+    throw new Error("Hosted estimates require compiled Kotlin flight planning and budget exports");
+  }
+  const page = renderHostedReadOnlyPage(templateHtml, { allowEstimate });
   // The fixture is provided by the server build, never supplied by the
   // request. Copy and validate before accepting requests so a caller cannot
   // mutate the in-memory object after handler initialization.
@@ -52,7 +58,7 @@ export function createReadOnlySitesHandler({
     if (path.startsWith("/api/")) {
       return handleReadOnlyApi(request, {
         db, getVerifiedEmail, ownerKeySecret, cryptoApi,
-        bundledPublicSample: trustedSample,
+        bundledPublicSample: trustedSample, kotlinEngine,
       });
     }
     if (path === "/favicon.ico") return new Response(null, { status: 204 });

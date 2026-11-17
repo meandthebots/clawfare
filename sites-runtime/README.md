@@ -213,6 +213,29 @@ not from the client request, and the actual Sites sign-in gate must be
 verified after an owner-only deployment. A saved, undeployed Site version
 cannot demonstrate live D1 or identity security.
 
+## Hosted estimate-only planning (zero provider egress)
+
+The authenticated Fetch API can optionally expose `POST /api/estimate`
+when the prebuilt Kotlin/JS `fare-core` bridge is supplied to
+`createReadOnlySitesHandler`. The bundled Sites Worker factory supplies
+this bridge by default. The original HTML enables **Estimate calls** but
+keeps **Run search** and all other mutations disabled in hosted mode.
+
+The estimator enforces JSON MIME type and same-origin requests, caps
+request bytes and date/airport fanout *before* invoking Kotlin, then uses
+the actual Kotlin `planSearchJson` and `projectBudgetJson` exports for
+flight dates and upper-bound provider request accounting. It does not
+invoke provider HTTP, query credentials or quota, write D1 records,
+issue consent tokens or expose any write endpoint. The response is
+explicitly hypothetical (`canRun:false`), with all provider quotas marked
+unconfigured. `cacheOnly` cannot magically return live fares because
+the hosted provider response cache is not implemented.
+
+**Only POST /api/estimate is permitted.** POST /api/search and
+vendor/track/export actions still return HTTP 405. Do not enable paid
+search until the separate durable quote/consent, provider-adapter,
+per-tenant rate limit and actual Sites identity tests are complete.
+
 ## Remaining requirements
 
 - Authenticate and scope data to approved identities, including protection

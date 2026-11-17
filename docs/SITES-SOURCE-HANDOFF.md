@@ -17,6 +17,12 @@ Sites project ID.
 - `server/kotlin/fare-core.cjs` — **actual Kotlin/JS** production bundle,
   exposing normalized queries, search-date planning, provider call-budget
   projection and FX. Do not replace it with handwritten fare math.
+- `server/src/search-estimate.mjs` — authenticated, input-bounded,
+  **no-cost** Kotlin/JS request planning and provider-call estimate. This
+  permits only `POST /api/estimate`, performs no provider HTTP requests,
+  does not persist searches, reserve quota or issue approval tokens. All
+  counts describe hypothetical network calls **if providers are enabled in
+  a future reviewed release**, not presently configured/charged calls.
 - `server/worker.mjs` — a self-contained **ESM Worker factory**, bundled
   with a pinned esbuild release. It embeds the original HTML and fixed Kotlin
   public fixture and loads the genuine Kotlin/JS bridge. The host imports
@@ -91,9 +97,12 @@ Sites project ID.
 - A user cannot forge a signed-in identity by supplying request headers.
 - Two distinct signed-in users with the same investigation slug cannot see
   each other's records.
-- `POST /api/search`, `POST /api/estimate`, vendor/track mutations and
-  HTML/CSV POST exports return HTTP 405. This is **server-enforced**, not
-  merely hidden buttons.
+- `POST /api/estimate` is the **sole permitted authenticated POST**.
+  It must accept same-origin, bounded JSON only, call the compiled Kotlin
+  plan and budget exports, and return potential call counts with
+  `canRun:false`. It never contacts paid providers or issues consent tokens.
+- `POST /api/search`, vendor/track mutations and HTML/CSV POST exports
+  return HTTP 405. This is **server-enforced**, not merely hidden buttons.
 - No provider HTTP requests, credentials or order/payment requests are
   reachable in this build; provider caps remain zero/unconfigured.
 - Kotlin sample prices are explicitly labelled **sample/saved**, not live.
@@ -162,8 +171,10 @@ Avoid repeated creation of new Sites to work around missing access.
 > Provision D1 binding `DB`, apply the three migrations, seed the canonical
 > Kotlin public sample from a trusted setup action, and implement a
 > server-verified Sign in with ChatGPT identity callback.
-> Retain the original HTML UI and Kotlin/JS engine. Keep live search,
-> estimates that could spend quota, and all POST operations disabled.
+> Retain the original HTML UI and Kotlin/JS engine. Enable only the
+> authenticated, zero-egress `POST /api/estimate` to show hypothetical
+> provider usage. Keep `POST /api/search`, vendor/track mutations,
+> exports and all paid provider calls disabled.
 > Run signed-in, signed-out, identity spoofing, tenant-isolation and mobile
 > browser tests. **Save a version only; do not deploy or publish it.**
 

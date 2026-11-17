@@ -102,6 +102,7 @@ const templateHtml = readFileSync(htmlPath, "utf8");
 const createSite = email => createReadOnlySitesHandler({
   templateHtml, db, cryptoApi: webcrypto, ownerKeySecret: secret,
   bundledPublicSample: sample, // Fixed, trusted build artifact; never request data
+  kotlinEngine: engine, // Actual Kotlin/JS, no handwritten budget
   getVerifiedEmail: async () => email, // Test-only trusted identity injection
 });
 const sites = [createSite("alice@example.com"), createSite("bob@example.com"), createSite(null)];
@@ -115,6 +116,7 @@ const homepage = await sites[0](req("/"));
 const homepageHtml = await homepage.text();
 assert.equal(homepage.status, 200);
 assert.ok(homepageHtml.includes("window.__CLAWFARE_HOSTED_READ_ONLY__ = true"));
+assert.ok(homepageHtml.includes("window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ = true"));
 assert.ok(homepageHtml.includes("Hosted read-only preview:"));
 assert.ok(homepageHtml.includes("loadSample().then(refreshSaved)"));
 
@@ -154,12 +156,32 @@ const forged = await sites[2](req("/api/searches", "GET", {
 assert.equal(forged.status, 401);
 assert.equal((await get(sites[2], "/api/sample")).status, 401);
 for (const site of sites) {
-  for (const path of ["/api/search", "/api/estimate", "/api/export/csv", "/api/results/private-dec-2026/track"]) {
+  for (const path of ["/api/search", "/api/export/csv", "/api/results/private-dec-2026/track"]) {
     const response = await site(req(path, "POST"));
     assert.equal(response.status, 405, path);
   }
 }
+// This one informational POST is allowed only for signed-in users.
+const estimateRequest = () => new Request("https://clawfare.example/api/estimate", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    origins: ["LHR"], destinations: ["TPA"],
+    outboundFrom: "2028-02-28", outboundTo: "2028-02-28",
+    nights: 2, tripType: "round_trip", returnChoices: 3,
+    providers: ["serpapi"],
+  }),
+});
+const estimateResponse = await sites[0](estimateRequest());
+assert.equal(estimateResponse.status, 200);
+const estimate = await estimateResponse.json();
+assert.equal(estimate.liveCalls, 1);
+assert.equal(estimate.returnLookupsUpperBound, 3);
+assert.equal(estimate.canRun, false);
+assert.match(estimate.warnings.join(" "), /no provider has been contacted/);
+assert.equal((await sites[2](estimateRequest())).status, 401);
 assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM provider_http_reservations").get().n, 0);
+assert.equal(sql.prepare("SELECT COUNT(*) AS n FROM investigation_snapshots").get().n, 2);
 
 // Missing provider caps enforce denial even for authenticated callers.
 const paid = new D1ProviderHttpBudget(db, () => new Date("2026-11-16T12:00:00Z"));

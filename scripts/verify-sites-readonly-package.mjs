@@ -77,6 +77,25 @@ assert.equal((await worker.fetch(new Request("https://example.com/api/searches",
 assert.equal((await worker.fetch(new Request("https://example.com/api/search", {
   method: "POST",
 }), env)).status, 405);
+const authenticated = workerModule.createTrustedWorker({
+  getVerifiedEmail: async () => "owner@example.com",
+});
+const estimateResponse = await authenticated.fetch(new Request("https://example.com/api/estimate", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    origins: ["LHR"], destinations: ["TPA"],
+    outboundFrom: "2028-02-28", outboundTo: "2028-02-28",
+    nights: 2, tripType: "round_trip", returnChoices: 3,
+    providers: ["serpapi"],
+  }),
+}), env);
+assert.equal(estimateResponse.status, 200);
+const estimate = await estimateResponse.json();
+assert.equal(estimate.liveCalls, 1);
+assert.equal(estimate.returnLookupsUpperBound, 3);
+assert.equal(estimate.canRun, false);
+assert.equal(estimateResponse.headers.get("cache-control"), "private, no-store");
 assert.ok(paths.has("server/src/site-handler.mjs"));
 assert.ok(paths.has("server/src/public-sample.mjs"));
 assert.ok(paths.has("server/migrations/0001_provider_http_budget.sql"));

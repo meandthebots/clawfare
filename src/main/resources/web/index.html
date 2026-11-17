@@ -1100,7 +1100,9 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
   }
   function showEstimate(est, canRun) {
     if (!est) { $("estimate").innerHTML = ""; return; }
-    var bits = ["<b>" + est.liveCalls + "</b> live calls, <b>" + est.cachedCalls + "</b> already cached, <b>" + est.skippedCalls + "</b> skipped"];
+    var bits = hostedEstimate
+      ? ["<b>" + est.liveCalls + "</b> potential provider requests (not executed), <b>" + est.skippedCalls + "</b> skipped"]
+      : ["<b>" + est.liveCalls + "</b> live calls, <b>" + est.cachedCalls + "</b> already cached, <b>" + est.skippedCalls + "</b> skipped"];
     if (est.returnLookupsUpperBound) bits.push("up to <b>" + est.returnLookupsUpperBound + "</b> return lookups");
     var lines = (est.lines || []).slice(0, 12).map(function (l) { return "<li>" + esc(l) + "</li>"; }).join("");
     var warns = (est.warnings || []).map(function (w) { return "<div>" + esc(w) + "</div>"; }).join("");
@@ -1116,6 +1118,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
   // must not request or manufacture that token: authentication is enforced
   // by the trusted Sites gateway and the server's tenant-scoped API.
   var hostedReadOnly = window.__CLAWFARE_HOSTED_READ_ONLY__ === true;
+  var hostedEstimate = hostedReadOnly && window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ === true;
   var localSession = hostedReadOnly ? Promise.resolve(null) :
     fetch("/api/session", { cache: "no-store" }).then(function (r) {
       if (!r.ok) throw new Error("Local session unavailable");
@@ -1123,8 +1126,8 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     }).then(function (data) { return data.token; });
   var searchConsent = null;
   function api(path, body, consent) {
-    if (hostedReadOnly && body !== undefined) {
-      return Promise.resolve({ status: 405, body: { error: "Hosted preview is read-only." } });
+    if (hostedReadOnly && body !== undefined && !(hostedEstimate && path === "/api/estimate")) {
+      return Promise.resolve({ status: 405, body: { error: "Paid search and mutations are disabled in hosted mode." } });
     }
     return localSession.then(function (session) {
       var opts = { headers: { "Accept": "application/json" } };
@@ -1229,10 +1232,18 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
     var q = queryFromForm();
     searchConsent = null;
     api("/api/estimate", q).then(function (res) {
-      searchConsent = res.consent;
+      if (res.status !== 200) {
+        $("estimate").textContent = (res.body && res.body.error) || "Search estimate unavailable.";
+        $("btnRun").disabled = true;
+        return;
+      }
+      searchConsent = hostedEstimate ? null : res.consent;
       var est = res.body;
       var runnable = est && !((est.warnings || []).some(function (w) { return /Enter at least|Check the dates|Set a return|No outbound|Narrow/.test(w); })) && (q.cacheOnly || est.liveCalls > 0 || est.cachedCalls > 0 || est.returnLookupsUpperBound > 0);
-      showEstimate(est, !!runnable);
+      showEstimate(est, !hostedReadOnly && !!runnable);
+    }).catch(function () {
+      $("estimate").textContent = "Estimate request failed; no search was run.";
+      $("btnRun").disabled = true;
     });
   });
   $("btnRun").addEventListener("click", function () {
@@ -1392,10 +1403,12 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
   });
 
   if (hostedReadOnly) {
-    ["btnEstimate", "btnRun", "btnHtml", "btnCsv"].forEach(function (id) {
-      var el = $(id); if (el) { el.disabled = true; el.title = "Hosted preview: read-only"; }
+    ["btnRun", "btnHtml", "btnCsv"].concat(hostedEstimate ? [] : ["btnEstimate"]).forEach(function (id) {
+      var el = $(id); if (el) { el.disabled = true; el.title = "Hosted preview: paid searches and exports disabled"; }
     });
-    $("estimate").textContent = "Hosted read-only preview: explore saved flights and filters; live searches and exports are disabled.";
+    $("estimate").textContent = hostedEstimate
+      ? "Search estimates are available at no cost. Run search and all paid provider calls are still disabled."
+      : "Hosted read-only preview: explore saved flights and filters; live searches and exports are disabled.";
   }
   if (window.__SNAPSHOT__) {
     boot(window.__SNAPSHOT__);

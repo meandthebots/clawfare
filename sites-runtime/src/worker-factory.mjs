@@ -38,6 +38,7 @@ export function createClawfareWorkerFactory({ templateHtml, bundledPublicSample,
           const handle = createReadOnlySitesHandler({
             templateHtml,
             bundledPublicSample: fixture,
+            kotlinEngine: kotlin,
             db: env.DB,
             ownerKeySecret: env.OWNER_KEY_SECRET,
             // The hosting adapter, not the visitor, must authenticate.
