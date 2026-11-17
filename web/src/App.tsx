@@ -28,11 +28,16 @@ import type {
   SearchQuery,
 } from "./domain.ts";
 
-const HOSTED_READ_ONLY = window.__CLAWFARE_HOSTED_READ_ONLY__ === true;
-const HOSTED_ESTIMATE_ONLY = HOSTED_READ_ONLY && window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ === true;
+// URL selection affects only this browser client. It cannot grant server-side
+// access: every guest API response comes from a bundled synthetic fixture.
+const GUEST_MODE = new URLSearchParams(window.location.search).get("guest") === "1";
+const HOSTED_READ_ONLY = GUEST_MODE || window.__CLAWFARE_HOSTED_READ_ONLY__ === true;
+const HOSTED_ESTIMATE_ONLY = !GUEST_MODE && HOSTED_READ_ONLY &&
+  window.__CLAWFARE_HOSTED_ESTIMATE_ONLY__ === true;
 const client = createClawfareClient({
   hostedReadOnly: HOSTED_READ_ONLY,
   hostedEstimateOnly: HOSTED_ESTIMATE_ONLY,
+  guest: GUEST_MODE,
 });
 const styles = stylex.create({
   header: {
@@ -133,6 +138,8 @@ interface PortalTargets {
   legend: HTMLElement;
 }
 function initialResult(): ResultSet | null {
+  // A query-string guest request never exposes a pre-rendered personal snapshot.
+  if (GUEST_MODE) return null;
   return isResultSet(window.__SNAPSHOT__) ? window.__SNAPSHOT__ : null;
 }
 function defaultTab(data: ResultSet | null): ResultsTab {
@@ -521,7 +528,7 @@ export function App() {
   };
   const showVendors = async (it: Itinerary) => {
     if (!result) return;
-    if (result.scenarioLabel === "florida" || result.id === "florida-dec-2026") {
+    if (GUEST_MODE || result.scenarioLabel === "florida" || result.id === "florida-dec-2026") {
       setSelection(null);
       setTab("vendors");
       return;
@@ -665,6 +672,12 @@ export function App() {
         <p id="subtitle" {...stylex.props(styles.subtitle)}>
           {subtitle}
         </p>
+        {GUEST_MODE && (
+          <p id="guestMode" role="status" {...stylex.props(styles.subtitle)}>
+            Guest mode — illustrative flights, no account or credentials. No API
+            requests, D1 access, provider searches or bookings.
+          </p>
+        )}
         <div className="notes" id="notes" />
       </header>
       <main {...stylex.props(styles.main)}>
@@ -683,14 +696,17 @@ export function App() {
           runEnabled={pendingQuery !== null}
           hostedReadOnly={HOSTED_READ_ONLY}
           hostedEstimateOnly={HOSTED_ESTIMATE_ONLY}
+          guest={GUEST_MODE}
           estimate={estimate}
           estimateError={
             estimateError ||
-            (HOSTED_READ_ONLY
-              ? HOSTED_ESTIMATE_ONLY
-                ? "Search estimates are available at no cost. Run search and all paid provider calls are still disabled."
-                : "Hosted read-only preview: explore saved flights and filters; live searches and exports are disabled."
-              : "")
+            (GUEST_MODE
+              ? "Guest mode uses synthetic sample flights. Search estimates, live searches and exports are disabled."
+              : HOSTED_READ_ONLY
+                ? HOSTED_ESTIMATE_ONLY
+                  ? "Search estimates are available at no cost. Run search and all paid provider calls are still disabled."
+                  : "Hosted read-only preview: explore saved flights and filters; live searches and exports are disabled."
+                : "")
           }
           statusLines={statusLines}
         />
@@ -827,6 +843,7 @@ export function App() {
               cell={activeCell}
               onVendors={() => void showVendors(activeItinerary)}
               onTrack={() => void trackItinerary(activeItinerary)}
+              canTrack={!HOSTED_READ_ONLY}
             />
           )}
         </div>
