@@ -1,6 +1,5 @@
-import { createClawfareClient } from "./api";
-
 // @ts-nocheck
+import { createClawfareClient } from "./api";
 // TODO: Migrate the imperative fare-grid renderer to typed React components.
 // Extracted from the former monolithic JVM HTML. This transitional controller
 // retains all existing search, filtering, export, mobile touch and Sites rules.
