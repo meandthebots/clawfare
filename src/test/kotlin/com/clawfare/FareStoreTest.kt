@@ -274,7 +274,11 @@ class FareStoreTest {
         assertEquals(0, CommandLine(ClawfareCommand()).execute("fare"))
         assertEquals(0, CommandLine(ClawfareCommand()).execute("report"))
         assertEquals(0, CommandLine(ClawfareCommand()).execute("fare", "quota"))
-        assertEquals(0, CommandLine(ClawfareCommand()).execute("report", "json", SampleData.ID))
+        assertEquals(2, CommandLine(ClawfareCommand()).execute("report", "json", SampleData.ID))
+        assertEquals(
+            0,
+            CommandLine(ClawfareCommand()).execute("report", "json", SampleData.ID, "--private-diagnostic"),
+        )
         val itineraryCsv = File.createTempFile("clawfare-itins", ".csv")
         assertEquals(
             0,
