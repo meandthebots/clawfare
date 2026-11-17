@@ -38,10 +38,13 @@ python3 scripts/audit_legacy_coverage.py \
 ```
 
 Both reports derive their counts from the **same instrumented JVM tests**.
-The standalone Python audit verifies that at least one legacy CLI exclusion
-is present in the unfiltered report, that no exempt class leaks into the
-enforced filtered report, and calculates separate **line and branch**
-percentages for each class. It flags missing classes explicitly, uses
+The standalone Python audit verifies that at least one configured legacy CLI
+exemption is visible in the unfiltered report, calculates separate **line
+and branch** percentages for each class, and **explicitly reports any listed
+exemptions still present in the enforced filtered XML**. Kover 0.9.1 already
+reports several such class names with the original shared filter configuration;
+the audit exposes this as a discrepancy rather than claiming that those
+classes are absent from the gate. It flags missing classes explicitly, uses
 zero-denominator `n/a` rather than inventing 100%, and never interprets
 a class-level percentage as proof of a working end-to-end provider journey.
 CI uploads the two XML files, deterministic Markdown summary and JSON

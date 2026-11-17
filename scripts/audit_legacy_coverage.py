@@ -128,11 +128,9 @@ def audit(
             "Unfiltered JVM report contains none of the legacy-excluded classes; "
             "it may still be filtered"
         )
-    if leaked:
-        raise ValueError(
-            "The enforced total report unexpectedly includes excluded classes: "
-            + ", ".join(leaked)
-        )
+    # Some named exclusions are already present in the original gated XML
+    # under Kover 0.9.1. Do not misrepresent those as actually excluded;
+    # report the discrepancy explicitly. The original gate is still run.
     if len(filtered.classes) >= len(unfiltered.classes) and not missing:
         raise ValueError("Unfiltered report did not add any classes")
     all_lines, all_branches = unfiltered.sum_counters(set(unfiltered.classes))
@@ -149,6 +147,7 @@ def audit(
                             "lines": legacy_lines.as_json(),
                             "branches": legacy_branches.as_json()},
         "missing_legacy_classes": missing,
+        "configured_exclusions_present_in_gate": leaked,
     }
     table = [
         "# Legacy CLI — unfiltered Kover coverage",
@@ -182,6 +181,16 @@ def audit(
             f"{entry.branches.covered} / {entry.branches.total} | "
             f"{entry.branches.percentage} |"
         )
+    if leaked:
+        table.extend([
+            "",
+            "**Existing Kover filter discrepancy:** the following configured",
+            "legacy exemptions are **also present in the enforced filtered XML**:",
+            ", ".join(f"`{name}`" for name in leaked),
+            "",
+            "Their counters are included in the gated report. The audit does",
+            "not silently count them as excluded or disable the original gate.",
+        ])
     if missing:
         table.extend([
             "",

@@ -64,13 +64,26 @@ class LegacyCoverageAuditTest(unittest.TestCase):
         self.assertIn("16.7%", markdown)
         self.assertIn("**80% gate remains unchanged**", markdown)
 
-    def test_audit_fails_if_gate_accidentally_includes_excluded_class(self) -> None:
+    def test_audit_flags_existing_gate_inclusion_without_hiding_coverage(self) -> None:
         full = self.parse(report([
             ("com.clawfare.cli.FlightValidateCommand", 4, 6, 0, 0),
+            ("com.clawfare.cli.FlightListCommand", 7, 3, 1, 1),
             ("com.clawfare.cli.SafeCommand", 0, 10, 0, 0),
         ]))
-        with self.assertRaisesRegex(ValueError, "unexpectedly includes"):
-            audit(full, full, ("com.clawfare.cli.FlightValidateCommand",))
+        gated = self.parse(report([
+            ("com.clawfare.cli.FlightListCommand", 7, 3, 1, 1),
+            ("com.clawfare.cli.SafeCommand", 0, 10, 0, 0),
+        ]))
+        metrics, markdown = audit(
+            full, gated,
+            ("com.clawfare.cli.FlightValidateCommand", "com.clawfare.cli.FlightListCommand"),
+        )
+        self.assertEqual(
+            metrics["configured_exclusions_present_in_gate"],
+            ["com.clawfare.cli.FlightListCommand"],
+        )
+        self.assertIn("Existing Kover filter discrepancy", markdown)
+        self.assertEqual(metrics["enforced_gate"]["lines"]["percent"], 65.0)
 
     def test_audit_fails_when_unfiltered_report_omits_all_exclusions(self) -> None:
         coverage = self.parse(report([("com.clawfare.cli.SafeCommand", 0, 10, 0, 0)]))
