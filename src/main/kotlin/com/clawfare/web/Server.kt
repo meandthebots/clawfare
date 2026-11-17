@@ -23,6 +23,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCallPipeline
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -120,6 +121,15 @@ fun Application.clawfareModule() {
         }
     }
     routing {
+        // Host validation must cover GET routes as well as writes. Otherwise a
+        // hostile DNS name rebinding to 127.0.0.1 could read saved investigations
+        // through its own same-origin hostname despite the session/Origin checks.
+        intercept(ApplicationCallPipeline.Call) {
+            if (!local.acceptsHost(call.request.headers[HttpHeaders.Host])) {
+                denied(call, "Invalid local host.")
+                finish()
+            }
+        }
         val api = KtorClawfareApiRoutes(this)
         get("/") { call.respondText(Server.page(), ContentType.Text.Html) }
         api.get(GetEndpoints.getSession) {
