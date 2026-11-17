@@ -42,7 +42,8 @@ class MuseAuditRegressionTest {
         // shared request object in the current UI, not a deleted source file.
         val source = java.io.File("web/src/App.tsx").readText()
         val vendorFlow =
-            source.substringAfter("const showVendors = async (it: Itinerary) => {")
+            source
+                .substringAfter("const showVendors = async (it: Itinerary) => {")
                 .substringBefore("const trackItinerary = async (it: Itinerary) => {")
         assertTrue(vendorFlow.contains("const vendorRequest = {"))
         assertTrue(Regex("""markets:\s*\["uk",\s*"us"]""").containsMatchIn(vendorFlow))
