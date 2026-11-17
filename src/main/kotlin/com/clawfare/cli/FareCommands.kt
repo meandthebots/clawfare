@@ -703,12 +703,18 @@ class ReportJsonCommand : Callable<Int> {
     @Parameters(index = "0")
     lateinit var slug: String
 
-    @Option(names = ["--private-diagnostic"], description = ["Explicitly include booking URLs, notes and refund evidence in private re-importable JSON"])
+    @Option(
+        names = ["--private-diagnostic"],
+        description = ["Explicitly include booking URLs, notes and refund evidence in private re-importable JSON"],
+    )
     var privateDiagnostic: Boolean = false
 
     override fun call(): Int {
         if (!privateDiagnostic) {
-            System.err.println("JSON flight exports are re-importable private diagnostics. Specify --private-diagnostic to proceed; never post this output publicly.")
+            System.err.println(
+                "JSON flight exports are re-importable private diagnostics. " +
+                    "Specify --private-diagnostic to proceed; never post this output publicly.",
+            )
             return 2
         }
         parent.parent.ensureDb()
@@ -833,7 +839,10 @@ class ReportCsvCommand : Callable<Int> {
 
 /** Diagnostic exports may contain personal travel history and opaque replay tokens. */
 private fun warnPrivateDiagnosticExport() {
-    System.err.println("WARNING: private diagnostic export may contain personal trip data, provider tokens, booking URLs and seller evidence. Keep it on a private, access-controlled disk.")
+    System.err.println(
+        "WARNING: private diagnostic export may contain personal trip data, provider tokens, booking URLs " +
+            "and seller evidence. Keep it on a private, access-controlled disk.",
+    )
 }
 
 private fun queryFrom(command: FareEstimateCommand): SearchQuery =
