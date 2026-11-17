@@ -70,6 +70,15 @@ try {
   await desktop.keyboard.press("Enter");
   assert.ok(await desktop.locator("#panel").evaluate(el => el.classList.contains("open")),
     "Keyboard selection must open React grid details");
+  await desktop.locator("#pClose").click();
+  await desktop.locator("#tabs button[data-tab='itineraries']").click();
+  await desktop.waitForSelector("#itineraries tbody tr[data-p]");
+  await desktop.locator("#itineraries button[aria-label^='View details']").first().click();
+  assert.ok(await desktop.locator("#panel").evaluate(el => el.classList.contains("open")),
+    "React itinerary Details button must open the drawer");
+  await desktop.locator("#pClose").click();
+  await desktop.locator("#tabs button[data-tab='grid']").click();
+  await desktop.waitForSelector("#grid td.cell");
   await desktop.close();
   console.log("Clawfare mobile grid browser PASS: touchable first-column flights and add-ons open details; desktop remains intact");
 } finally {
