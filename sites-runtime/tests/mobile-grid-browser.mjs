@@ -63,7 +63,13 @@ try {
   assert.equal(await desktop.locator("#mobileGrid").evaluate(el => getComputedStyle(el).display), "none");
   await desktop.locator("#grid td.cell[data-p]").last().click();
   assert.ok(await desktop.locator("#panel").evaluate(el => el.classList.contains("open")),
-    "Existing desktop cell click behavior must remain intact");
+    "Desktop cell click behavior must remain intact");
+  await desktop.locator("#pClose").click();
+  const keyboardCell = desktop.locator("#grid td.cell button").first();
+  await keyboardCell.focus();
+  await desktop.keyboard.press("Enter");
+  assert.ok(await desktop.locator("#panel").evaluate(el => el.classList.contains("open")),
+    "Keyboard selection must open React grid details");
   await desktop.close();
   console.log("Clawfare mobile grid browser PASS: touchable first-column flights and add-ons open details; desktop remains intact");
 } finally {

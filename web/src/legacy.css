@@ -171,3 +171,7 @@ footer{color:var(--muted);font-size:12px;padding:0 28px 28px}
   .ph{padding:12px 14px}
   .pb{padding:12px 14px 28px}
 }
+
+/* React-rendered grid cells are semantic buttons, not clickable-only divs. */
+#grid td.cell button.in{width:100%;border:2px solid transparent;text-align:center}
+#grid td.cell button.in:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
