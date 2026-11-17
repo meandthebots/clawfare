@@ -117,6 +117,29 @@ set up a scheduled runner without a secure external persistent state store,
 encrypted secrets, concurrency controls and a spend cap shared across runs.
 A repository workflow alone cannot guarantee those properties.
 
+## Local browser access and DNS-rebinding boundary
+
+The JVM web UI binds to `127.0.0.1`, not a public network interface. Every
+HTTP request (including the initial HTML, sample, status, quota, saved results,
+and exports) requires a literal `Host` of `localhost` or `127.0.0.1`, with an
+optional port. Do not trust a hostname that merely *resolves* to loopback:
+an attacker-controlled DNS name can rebind to a local IP and otherwise read
+private data through the browser's same-origin policy. Proxy-supplied
+`X-Forwarded-Host` does not override this check.
+
+Mutation routes additionally require a same-origin local session token,
+JSON content type, and an origin match when browsers provide an `Origin`
+header. Paid searches require an explicit estimate-bound, short-lived,
+single-use confirmation token; local search requests are capped and
+serialized. These protections stop remote web pages from silently using a
+victim's browser to read investigations or spend provider quota.
+
+**Not in the trust boundary:** other local processes, privileged browser
+extensions and other users of the same OS account. Do not expose the JVM
+server through a reverse proxy, tunnel, port forward or public interface:
+the local token endpoint is not remote-user authentication. The ChatGPT
+Sites deployment uses a separate attested-identity and D1 security model.
+
 ## Limits and expectations
 
 API search results are not airline-issued refundable tickets. Never assume
