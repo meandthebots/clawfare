@@ -131,7 +131,14 @@ Mutation routes additionally require a same-origin local session token,
 JSON content type, and an origin match when browsers provide an `Origin`
 header. Paid searches require an explicit estimate-bound, short-lived,
 single-use confirmation token; local search requests are capped and
-serialized. These protections stop remote web pages from silently using a
+serialized. The JVM API **streams and bounds actual JSON bytes** before
+deserializing or invoking business logic: query, vendor and tracking requests
+are limited to 64 KiB, while HTML/CSV export requests allow 2 MiB. Requests
+over the route cap return HTTP 413 regardless of whether the client supplies
+a Content-Length header. Malformed JSON returns a generic HTTP 400 without
+echoing untrusted input; unexpected errors return generic HTTP 500 and do
+not include exception messages or provider payloads. Avoid relying on
+error-response strings for client diagnostics. These protections stop remote web pages from silently using a
 victim's browser to read investigations or spend provider quota.
 
 **Not in the trust boundary:** other local processes, privileged browser
