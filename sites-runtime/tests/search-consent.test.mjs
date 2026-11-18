@@ -5,7 +5,7 @@ import {
   D1SearchConsents, SearchConsentError, requireSameOrigin,
   INSERT_CONSENT_SQL, CONSUME_CONSENT_SQL,
 } from "../src/search-consent.mjs";
-import { READ_LOCAL_PROVIDER_CAPS_SQL } from "../src/provider-http-budget.mjs";
+import { READ_CONSENT_CAPS_SQL } from "../src/search-consent.mjs";
 
 const ownerA = "acct_" + "a".repeat(64);
 const ownerB = "acct_" + "b".repeat(64);
@@ -28,14 +28,14 @@ function fakeD1({ caps = [
     get writes() { return writes; },
     get reads() { return reads; },
     prepare(sql) {
-      if (![READ_LOCAL_PROVIDER_CAPS_SQL, INSERT_CONSENT_SQL, CONSUME_CONSENT_SQL].includes(sql)) {
+      if (![READ_CONSENT_CAPS_SQL, INSERT_CONSENT_SQL, CONSUME_CONSENT_SQL].includes(sql)) {
         throw new Error("Unexpected D1 statement");
       }
       return {
         bind(...args) {
           return {
             async all() {
-              if (sql !== READ_LOCAL_PROVIDER_CAPS_SQL) throw new Error("Unexpected all");
+              if (sql !== READ_CONSENT_CAPS_SQL) throw new Error("Unexpected all");
               reads++;
               return { results: caps };
             },
