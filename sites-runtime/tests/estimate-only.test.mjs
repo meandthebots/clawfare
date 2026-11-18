@@ -128,3 +128,27 @@ test("cache-only projection cannot imply a provider request was executed", async
   assert.equal(body.canRun, false);
   assert.match(body.warnings.join(" "), /no hosted provider-response cache/);
 });
+
+test("hosted parser rejects malformed hard constraints before Kotlin planning", async () => {
+  const { events, engine } = stub();
+  const malformed = [
+    { excludedAirlines: ["LONGCODE"] },
+    { excludedTransitAirports: ["LONDON"] },
+    { excludedTransitCountries: ["GBR"] },
+    { strictPerLegCabin: "yes" },
+    { strictOperatingCarrier: 1 },
+    { maxLiveCalls: -1 },
+    { market: "all" },
+    { currency: "EU" },
+    { investigation: "../secret" },
+    { adults: 20 },
+    { tripType: "one_way", nights: 3 },
+    { nights: 2, returnFrom: "2028-03-01" },
+    { nights: null, returnFrom: null, tripType: "round_trip" },
+  ];
+  for (const addition of malformed) {
+    const result = await estimateHostedSearch(req({ ...basicQuery, ...addition }), engine);
+    assert.equal(result.status, 400, JSON.stringify(addition));
+  }
+  assert.deepEqual(events, [], "untrusted hard constraints never reach Kotlin planning");
+});
