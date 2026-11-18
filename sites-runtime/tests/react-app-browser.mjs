@@ -99,6 +99,19 @@ try {
   await page.waitForSelector("#grid td.cell");
   assert.equal(await page.locator("#fCashRefund").isChecked(), false);
 
+  // New searches are intentionally blank: explicitly choose all billable
+  // provider candidates and a bounded route instead of assuming Florida.
+  assert.equal(await page.locator("#origins").inputValue(), "");
+  assert.equal(await page.locator("#destinations").inputValue(), "");
+  await page.locator("#origins").fill("LHR, LGW");
+  await page.locator("#destinations").fill("TPA");
+  await page.locator("#outFrom").fill("2027-04-12");
+  await page.locator("#outTo").fill("2027-04-12");
+  await page.locator("#nights").fill("8");
+  await page.locator("#pSerp").check();
+  await page.locator("#pSearch").check();
+  await page.locator("#pTp").check();
+  await page.locator("#pDuffel").check();
   await page.locator("#btnEstimate").click();
   await page.waitForFunction(() =>
     document.querySelector("#estimate")?.textContent?.includes("potential provider requests"));
