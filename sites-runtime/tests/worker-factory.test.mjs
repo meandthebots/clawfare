@@ -15,6 +15,7 @@ const bridge = {
     normalizeSearchForHost: query => query,
     planSearchForHost: query => query,
     projectBudgetForHost: query => query,
+    parseGoogleFlightsOffersForHost: body => body,
     toGbpForHost: amount => amount,
   } } } },
 };
