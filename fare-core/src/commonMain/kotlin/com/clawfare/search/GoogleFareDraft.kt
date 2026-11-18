@@ -68,6 +68,8 @@ fun buildGoogleFareDraft(
     returnDateHint: String? = null,
 ): GoogleFareDraft {
     require(query.adults in 1..9) { "Invalid passenger count" }
+    require(query.tripType == "one_way" || query.tripType == "round_trip") { "Invalid trip type" }
+    require(query.tripType != "one_way" || inbound == null) { "One-way fares cannot have a return offer" }
     val price = inbound?.price ?: outbound.price
     val valid = price?.takeIf { it.isFinite() && it > 0.0 }
     val returnLegs = inbound?.legs?.takeIf { it.isNotEmpty() }
