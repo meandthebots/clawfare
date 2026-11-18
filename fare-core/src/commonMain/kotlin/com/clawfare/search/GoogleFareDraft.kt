@@ -35,11 +35,12 @@ data class GoogleFareDraft(
         require(passengers in 1..9) { "Invalid party size" }
         require(priceCurrency.matches(Regex("[A-Z]{3}"))) { "Invalid original currency" }
         require(outbound.legs.isNotEmpty()) { "At least one outbound leg is required" }
-        require(originalPartyPrice == null && originalPerPersonPrice == null ||
+        val unpriced = originalPartyPrice == null && originalPerPersonPrice == null
+        val priced =
             originalPartyPrice != null && originalPerPersonPrice != null &&
-            originalPartyPrice.isFinite() && originalPartyPrice > 0.0 &&
-            originalPerPersonPrice.isFinite() && originalPerPersonPrice > 0.0
-        ) { "A priced fare must have positive total and per-person amounts" }
+                originalPartyPrice.isFinite() && originalPartyPrice > 0.0 &&
+                originalPerPersonPrice.isFinite() && originalPerPersonPrice > 0.0
+        require(unpriced || priced) { "A priced fare must have positive total and per-person amounts" }
         require(!returnMissing || returning == null) { "Missing return cannot have verified return legs" }
     }
 }
@@ -87,11 +88,12 @@ fun buildGoogleFareDraft(
         cabinRaw = query.cabin,
         fareBrand = inbound?.fareBrand ?: outbound.fareBrand,
         outbound = directionOf(outbound.legs, outbound.layovers, outbound.durationMinutes),
-        returning = if (inbound != null && returnLegs != null) {
-            directionOf(returnLegs, inbound.layovers, inbound.durationMinutes)
-        } else {
-            null
-        },
+        returning =
+            if (inbound != null && returnLegs != null) {
+                directionOf(returnLegs, inbound.layovers, inbound.durationMinutes)
+            } else {
+                null
+            },
         returnMissing = missing,
         returnDateHint = returnDateHint,
     )
