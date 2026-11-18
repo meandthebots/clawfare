@@ -21,11 +21,6 @@ jobs:
           node-version: '22'
       - run: npm install --no-audit --no-fund
         working-directory: web
-      - name: Diagnostic formatting patch for PR (temporary)
-        run: |
-          npx oxfmt src/App.tsx src/SearchControls.tsx src/searchForm.ts
-          git diff -- src/App.tsx src/SearchControls.tsx src/searchForm.ts
-        working-directory: web
       - run: npm run check
         working-directory: web
       - run: npm run test
