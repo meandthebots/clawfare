@@ -141,10 +141,21 @@ export function SearchControls({
         <label>Checked bags {input("bags", "bags", "number", { min: "0", max: "4" })}</label>
         <label>Long-haul cabin {select("cabin", "cabin", cabins)}</label>
         <label>Short-haul cabin {select("cabinShort", "cabinShort", cabins.slice(0, 3))}</label>
-        <label>Market (country) {input("market", "market", "text", { placeholder: "uk", maxLength: "2" })}</label>
-        <label>Currency {input("currency", "currency", "text", { placeholder: "GBP", maxLength: "3" })}</label>
-        <label>Investigation ID (optional) {input("investigation", "investigation", "text", { placeholder: "tokyo-spring" })}</label>
-        <label>Hard provider-call cap {input("maxLiveCalls", "maxLiveCalls", "number", { min: "0", max: "2000" })}</label>
+        <label>
+          Market (country){" "}
+          {input("market", "market", "text", { placeholder: "uk", maxLength: "2" })}
+        </label>
+        <label>
+          Currency {input("currency", "currency", "text", { placeholder: "GBP", maxLength: "3" })}
+        </label>
+        <label>
+          Investigation ID (optional){" "}
+          {input("investigation", "investigation", "text", { placeholder: "tokyo-spring" })}
+        </label>
+        <label>
+          Hard provider-call cap{" "}
+          {input("maxLiveCalls", "maxLiveCalls", "number", { min: "0", max: "2000" })}
+        </label>
         <label>
           Return choices{" "}
           {input("returnChoices", "returnChoices", "number", {
@@ -165,12 +176,29 @@ export function SearchControls({
       <fieldset className="checks" aria-label="Hard eligibility policy">
         <legend>Hard search constraints (applied before ranking, not table filters)</legend>
         <div className={"search " + stylex.props(styles.inputGrid).className}>
-          <label>Exclude airlines (IATA codes) {input("excludedAirlines", "excludedAirlines", "text", { placeholder: "LO, XX" })}</label>
-          <label>Exclude transit airports {input("excludedTransitAirports", "excludedTransitAirports", "text", { placeholder: "WAW, IST" })}</label>
-          <label>Exclude transit countries (ISO codes) {input("excludedTransitCountries", "excludedTransitCountries", "text", { placeholder: "PL, TR" })}</label>
+          <label>
+            Exclude airlines (IATA codes){" "}
+            {input("excludedAirlines", "excludedAirlines", "text", { placeholder: "LO, XX" })}
+          </label>
+          <label>
+            Exclude transit airports{" "}
+            {input("excludedTransitAirports", "excludedTransitAirports", "text", {
+              placeholder: "WAW, IST",
+            })}
+          </label>
+          <label>
+            Exclude transit countries (ISO codes){" "}
+            {input("excludedTransitCountries", "excludedTransitCountries", "text", {
+              placeholder: "PL, TR",
+            })}
+          </label>
         </div>
         {checked("strictPerLegCabin", "strictPerLegCabin", "Require verified cabin on every leg")}
-        {checked("strictOperatingCarrier", "strictOperatingCarrier", "Require verified operating carrier on every leg")}
+        {checked(
+          "strictOperatingCarrier",
+          "strictOperatingCarrier",
+          "Require verified operating carrier on every leg",
+        )}
         {checked("fetchReturns", "fetchReturns", "Fetch return selections", "round-trip only")}
         <div {...stylex.props(styles.muted)}>
           These restrictions change which fares can be retrieved and accepted; the filters below
@@ -245,7 +273,12 @@ export function SearchControls({
           <div key={index}>{line}</div>
         ))}
       </div>
-      <div id="estimate" role="status" aria-live="polite" className={"est " + stylex.props(styles.estimate).className}>
+      <div
+        id="estimate"
+        role="status"
+        aria-live="polite"
+        className={"est " + stylex.props(styles.estimate).className}
+      >
         {estimateError && <div>{estimateError}</div>}
         {estimate && (
           <>
