@@ -85,7 +85,11 @@ fun buildGoogleFareDraft(
         cabinRaw = query.cabin,
         fareBrand = inbound?.fareBrand ?: outbound.fareBrand,
         outbound = directionOf(outbound.legs, outbound.layovers, outbound.durationMinutes),
-        returning = returnLegs?.let { directionOf(it, inbound.layovers, inbound.durationMinutes) },
+        returning = if (inbound != null && returnLegs != null) {
+            directionOf(returnLegs, inbound.layovers, inbound.durationMinutes)
+        } else {
+            null
+        },
         returnMissing = missing,
         returnDateHint = returnDateHint,
     )
