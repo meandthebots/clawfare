@@ -382,12 +382,14 @@ export function App() {
     setEstimateError("");
   };
   const estimateCalls = async () => {
-    const query = buildSearchQuery(form);
     setPendingQuery(null);
     setSearchConsent(null);
     setEstimate(null);
     setEstimateError("");
     try {
+      // Parse the entire hard search policy before any server request.
+      // No malformed input reaches Kotlin's normalizer or a paid consent path.
+      const query = buildSearchQuery(form);
       const response = await client.estimate(query);
       if (!response.ok) {
         setEstimateError(response.error);
@@ -407,8 +409,8 @@ export function App() {
         setPendingQuery(query);
         setSearchConsent(response.consent);
       }
-    } catch {
-      setEstimateError("Estimate request failed; no search was run.");
+    } catch (error) {
+      setEstimateError(error instanceof Error ? error.message : "Estimate request failed; no search was run.");
     }
   };
   const runSearch = async () => {
