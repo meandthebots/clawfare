@@ -411,9 +411,13 @@ class GoogleFlightsProvider(
                 warnings += "$displayName returned no matching flight for the selected itinerary; seller options not attributed."
                 return emptyMap()
             }
-            if (roundTrip && match.departureToken != null && match.bookingToken == null) {
+            // Cross-module Kotlin data properties are not smart-cast; capture
+            // the immutable token locally before constructing typed params.
+            val selectedDepartureToken = match.departureToken
+            if (roundTrip && selectedDepartureToken != null && match.bookingToken == null) {
                 val ret =
-                    load(cache, params + ("departure_token" to match.departureToken), allowNetwork, warnings, stop) ?: return emptyMap()
+                    load(cache, params + ("departure_token" to selectedDepartureToken), allowNetwork, warnings, stop)
+                        ?: return emptyMap()
                 count(ret.fromCache)
                 val returns = parseGoogleFlightsOffers(ret.body)
                 val want = itinerary.returning?.legs.orEmpty()
