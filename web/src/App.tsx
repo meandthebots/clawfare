@@ -861,6 +861,7 @@ export function App() {
               onVendors={() => void showVendors(activeItinerary)}
               onTrack={() => void trackItinerary(activeItinerary)}
               canTrack={!HOSTED_READ_ONLY}
+              legacySample={result?.scenarioLabel === "florida"}
             />
           )}
         </div>
