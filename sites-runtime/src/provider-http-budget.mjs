@@ -151,3 +151,81 @@ export async function meteredProviderFetch(budget, url, init = {}, fetcher = fet
   );
   return response;
 }
+
+
+/**
+ * Read actual *local D1* cap consumption without contacting provider quota
+ * endpoints (those may themselves be billable). The external account quota
+ * is deliberately unknown. Reservation counts include failed/aborted calls.
+ */
+export const READ_LOCAL_PROVIDER_CAPS_SQL = [
+  "SELECT l.provider, l.daily_cap, l.monthly_cap,",
+  "  (SELECT COUNT(*) FROM provider_http_reservations r",
+  "   WHERE r.provider = l.provider AND r.utc_day = ?) AS daily_used,",
+  "  (SELECT COUNT(*) FROM provider_http_reservations r",
+  "   WHERE r.provider = l.provider AND r.utc_month = ?) AS monthly_used",
+  "FROM provider_http_limits l",
+].join("\n");
+
+const PROVIDER_MODES = Object.freeze({
+  serpapi: "live Google Flights (if authorized)",
+  searchapi: "live Google Flights (if authorized)",
+  travelpayouts: "cached calendar fares, not live",
+  duffel: "test/sandbox offers until separately verified as live",
+});
+
+/**
+ * The only caller may pass server-derived presence booleans, never secret
+ * values or user-supplied config. All states fail closed when egress is OFF.
+ */
+export async function readHostedProviderReadiness(
+  database,
+  { keyPresent = {}, networkEnabled = false, clock = () => new Date() } = {},
+) {
+  if (!database?.prepare) throw new TypeError("D1 binding required");
+  const current = clock();
+  if (!(current instanceof Date) || !Number.isFinite(current.getTime())) {
+    throw new TypeError("Invalid UTC clock");
+  }
+  const utc = current.toISOString();
+  const results = await database.prepare(READ_LOCAL_PROVIDER_CAPS_SQL)
+    .bind(utc.slice(0, 10), utc.slice(0, 7)).all();
+  const rows = new Map();
+  for (const row of results.results || []) {
+    if (!Object.hasOwn(PROVIDER_MODES, row.provider)) continue;
+    // D1 values are untrusted across migrations/admin edits. Invalid values
+    // must never be interpreted as permission to spend.
+    if (!Number.isSafeInteger(row.daily_cap) || row.daily_cap < 0 ||
+        (row.monthly_cap !== null && (!Number.isSafeInteger(row.monthly_cap) || row.monthly_cap < 0)) ||
+        !Number.isSafeInteger(row.daily_used) || row.daily_used < 0 ||
+        !Number.isSafeInteger(row.monthly_used) || row.monthly_used < 0) {
+      throw new Error("Invalid provider cap ledger data");
+    }
+    rows.set(row.provider, row);
+  }
+  return Object.keys(PROVIDER_MODES).map(provider => {
+    const row = rows.get(provider);
+    const hasKey = keyPresent[provider] === true;
+    const dailyRemaining = row ? Math.max(0, row.daily_cap - row.daily_used) : 0;
+    const monthlyRemaining = row && row.monthly_cap !== null
+      ? Math.max(0, row.monthly_cap - row.monthly_used) : Number.POSITIVE_INFINITY;
+    const remaining = row ? Math.min(dailyRemaining, monthlyRemaining) : null;
+    let reason;
+    if (!row) reason = "No D1 provider cap configured";
+    else if (row.daily_cap === 0 || row.monthly_cap === 0) reason = "D1 provider cap is zero";
+    else if (remaining === 0) reason = "D1 daily/monthly cap exhausted";
+    else if (!hasKey) reason = "Server-side provider credential absent";
+    else if (!networkEnabled) reason = "Hosted provider egress disabled by release switch";
+    else reason = "Local provider cap has capacity; external quota not checked";
+    return {
+      provider,
+      configured: Boolean(networkEnabled && hasKey && remaining !== null && remaining > 0),
+      remaining,
+      limit: row?.daily_cap ?? null,
+      used: row?.daily_used ?? null,
+      note: PROVIDER_MODES[provider] + "; " + reason +
+        (row?.monthly_cap == null ? "" : "; monthly remaining " + monthlyRemaining) +
+        "; external provider quota unknown (no remote request made)",
+    };
+  });
+}
