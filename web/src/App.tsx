@@ -622,13 +622,13 @@ export function App() {
     ? vendorMode
       ? "Out AM 1741 TPA 09:23 → MEX 11:50 · Back AM 1740 MEX 15:40 → TPA 19:49. All-in prices include one checked bag. Round trip beside two one-ways. Sample seller check, not a new lookup."
       : result.subtitle
-    : "London, Tampa, Sarasota, and a Mexico City add-on. Prices in GBP. API keys stay on the server.";
+    : "Compare flights across your chosen airports, dates and markets. Provider credentials stay on the server.";
   const renderView = () => {
     if (!result)
       return (
         <div className="empty">
-          Load the Florida sample, or estimate a search. Live providers are not called until you
-          confirm.
+          Enter airports and dates to estimate a search, or load the public flight sample. Searches
+          with billable providers require explicit approval before any request.
         </div>
       );
     if (tab === "grid" && result.addons.length > 0 && result.cells.length > 0)
@@ -641,6 +641,7 @@ export function App() {
           hideInfeasible={filter.hide}
           selectedKey={selectedKey}
           onSelect={openDetails}
+          legacySample={result.scenarioLabel === "florida"}
         />
       );
     if (tab === "grid" || tab === "itineraries")
@@ -860,6 +861,7 @@ export function App() {
               onVendors={() => void showVendors(activeItinerary)}
               onTrack={() => void trackItinerary(activeItinerary)}
               canTrack={!HOSTED_READ_ONLY}
+              legacySample={result?.scenarioLabel === "florida"}
             />
           )}
         </div>
