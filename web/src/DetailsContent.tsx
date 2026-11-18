@@ -251,7 +251,9 @@ function Timeline({
   legacySample: boolean;
 }) {
   const flightDates = [it.outboundDate, it.returnDate, addon?.outboundDate, addon?.returnDate]
-    .filter((value): value is string => typeof value === "string" && /^\\d{4}-\\d\\d-\\d\\d$/.test(value))
+    .filter(
+      (value): value is string => typeof value === "string" && /^\\d{4}-\\d\\d-\\d\\d$/.test(value),
+    )
     .map((date) => Date.parse(date + "T00:00:00Z"))
     .filter(Number.isFinite);
   if (!legacySample && flightDates.length === 0) {
@@ -267,7 +269,9 @@ function Timeline({
     : Math.max(...flightDates) + 86400000;
   const span = Math.round((end - start) / 86400000);
   if (span > 120) {
-    return <div className="muted">Timeline spans more than 120 days; view the flight dates below.</div>;
+    return (
+      <div className="muted">Timeline spans more than 120 days; view the flight dates below.</div>
+    );
   }
   const days = Array.from({ length: span + 1 }, (_, i) => new Date(start + i * 86400000));
   const pos = (iso: string) => ((Date.parse(iso + "T00:00:00Z") - start) / 86400000 / span) * 100;
@@ -292,8 +296,10 @@ function Timeline({
               key={iso}
               className={
                 (legacySample && iso === "2026-12-24" ? "xmas " : "") +
-                stylex.props(styles.timelineDay, legacySample && iso === "2026-12-24" && styles.timelineChristmas)
-                  .className
+                stylex.props(
+                  styles.timelineDay,
+                  legacySample && iso === "2026-12-24" && styles.timelineChristmas,
+                ).className
               }
             >
               {date.getUTCDate()}
