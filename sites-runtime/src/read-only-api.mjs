@@ -2,6 +2,7 @@
 // This is NOT a public entrypoint: Sites must supply an authenticated email
 // from a trusted identity gateway. Raw user headers are never accepted here.
 import { D1Investigations } from "./investigations.mjs";
+import { D1ProviderPersistence } from "./provider-persistence.mjs";
 import { ensureBundledPublicSample, loadPublicSample, publicSampleStorageEvidence } from "./public-sample.mjs";
 import { estimateHostedSearch } from "./search-estimate.mjs";
 import { readHostedProviderReadiness } from "./provider-http-budget.mjs";
@@ -152,6 +153,16 @@ export async function handleReadOnlyApi(
   if (resultPath) {
     const result = await store.loadSnapshot(ownerId, resultPath[1]);
     return result ? respond(result) : respond({ error: "Not found." }, 404);
+  }
+
+  // Authenticated, bounded, no-egress route-attempt evidence. An attempted
+  // route is incomplete coverage, never proof that no flights exist.
+  const attemptsPath = /^\/api\/attempts\/([a-f0-9]{32})$/.exec(url.pathname);
+  if (attemptsPath) {
+    const limit = parseLimit(url.searchParams);
+    if (limit == null) return respond({ error: "Invalid result limit." }, 400);
+    const persisted = new D1ProviderPersistence(db, { cryptoApi });
+    return respond(await persisted.listAttempts(ownerId, attemptsPath[1], limit));
   }
 
   const historyPath = /^\/api\/history\/([a-z0-9][a-z0-9_-]{0,99})\/([A-Za-z0-9._:-]{1,128})$/.exec(url.pathname);
