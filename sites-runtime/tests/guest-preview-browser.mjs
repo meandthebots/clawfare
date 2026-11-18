@@ -38,7 +38,14 @@ try {
   await page.locator("#pClose").click();
 
   // Exercise the real React query form and single-use guest estimate/confirm.
+  // The generic form is intentionally blank, even though the guest fixture
+  // is visible. Explicit inputs must still be parsed before an estimate.
   assert.equal(await page.locator("#btnRun").isDisabled(), true);
+  await page.locator("#origins").fill("LHR, LGW");
+  await page.locator("#destinations").fill("TPA, SRQ");
+  await page.locator("#outFrom").fill("2027-04-12");
+  await page.locator("#nights").fill("8");
+  await page.locator("#pSerp").check();
   await page.locator("#btnEstimate").click();
   await page.waitForFunction(() => !document.querySelector("#btnRun")?.disabled);
   assert.match(await page.locator("#estimate").textContent(), /Zero real provider calls/);
