@@ -6,7 +6,6 @@
  * Kotlin may supply canonicalQueryJson. Turning on consent alone does not
  * turn on any HTTP route; each provider HTTP request still needs D1 metering.
  */
-import { readHostedProviderReadiness } from "./provider-http-budget.mjs";
 
 const OWNER = /^acct_[a-f0-9]{64}$/;
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -24,6 +23,19 @@ export const INSERT_CONSENT_SQL = [
   " (nonce, owner_id, query_digest, limits_json, created_at, expires_at, state)",
   " VALUES (?, ?, ?, ?, ?, ?, 'issued')",
 ].join("\n");
+
+/**
+ * An advisory cap check when issuing consent. Every actual paid call still
+ * reserves atomically via D1ProviderHttpBudget at the moment of dispatch.
+ */
+export const READ_CONSENT_CAPS_SQL = [
+  "SELECT l.provider, l.daily_cap, l.monthly_cap,",
+  " (SELECT COUNT(*) FROM provider_http_reservations r",
+  " WHERE r.provider = l.provider AND r.utc_day = ?) AS daily_used,",
+  " (SELECT COUNT(*) FROM provider_http_reservations r",
+  " WHERE r.provider = l.provider AND r.utc_month = ?) AS monthly_used",
+  "FROM provider_http_limits l",
+].join("\\n");
 
 export const CONSUME_CONSENT_SQL = [
   "UPDATE hosted_search_consents",
@@ -94,10 +106,6 @@ function cleanLimits(callLimits) {
 }
 function bytesToHex(bytes) {
   return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
-}
-function hexToBytes(hex) {
-  if (!/^(?:[a-f0-9]{2})+$/.test(hex)) deny("invalid_token", "Malformed authorization token.");
-  return Uint8Array.from(hex.match(/../g), part => parseInt(part, 16));
 }
 function toBase64Url(bytes) {
   let raw = "";
@@ -201,18 +209,25 @@ export class D1SearchConsents {
       deny("invalid_lifetime", "Invalid consent lifetime.");
     }
     const { limits, total } = cleanLimits(callLimits);
-    const readiness = await readHostedProviderReadiness(this.db, {
-      keyPresent: this.credentialPresence, networkEnabled: true, clock: this.clock,
-    });
+    const now = safeNow(this.clock);
+    const utc = now.toISOString();
+    const { results: capRows } = await this.db.prepare(READ_CONSENT_CAPS_SQL)
+      .bind(utc.slice(0, 10), utc.slice(0, 7)).all();
+    const caps = new Map((capRows || []).map(row => [row.provider, row]));
     for (const provider of new Set(limits.map(limit => limit.provider))) {
-      const status = readiness.find(entry => entry.provider === provider);
+      const cap = caps.get(provider);
       const calls = limits.filter(entry => entry.provider === provider)
         .reduce((sum, entry) => sum + entry.count, 0);
-      if (!status?.configured || status.remaining < calls) {
+      const valid = cap && [cap.daily_cap, cap.daily_used, cap.monthly_used].every(
+        value => Number.isSafeInteger(value) && value >= 0,
+      ) && (cap.monthly_cap === null ||
+        Number.isSafeInteger(cap.monthly_cap) && cap.monthly_cap >= 0);
+      if (!valid || this.credentialPresence[provider] !== true ||
+          cap.daily_cap - cap.daily_used < calls ||
+          cap.monthly_cap !== null && cap.monthly_cap - cap.monthly_used < calls) {
         deny("quota_denied", "No configured local cap and credential for the entire provider plan.");
       }
     }
-    const now = safeNow(this.clock);
     const nonce = bytesToHex(this.cryptoApi.getRandomValues(new Uint8Array(16)));
     const payload = {
       version: VERSION, ownerId,
