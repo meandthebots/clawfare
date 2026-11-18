@@ -76,6 +76,14 @@ try {
   const desktop = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await desktop.setContent(html, { waitUntil: "load" });
   await desktop.waitForSelector("#grid td.cell");
+  const sourceTag = desktop.locator("#grid .tag").first();
+  assert.notEqual(await sourceTag.evaluate(el => getComputedStyle(el).backgroundColor),
+    "rgba(0, 0, 0, 0)", "Source tags need compiled StyleX backgrounds");
+  const feasibleTag = desktop.locator("#grid .badge.ba").first();
+  if (await feasibleTag.count()) {
+    assert.notEqual(await feasibleTag.evaluate(el => getComputedStyle(el).backgroundColor),
+      "rgba(0, 0, 0, 0)", "Cheapest feasible labels must remain visibly highlighted");
+  }
   const headerBackground = await desktop.locator("header").evaluate(
     el => getComputedStyle(el).backgroundImage);
   assert.match(headerBackground, /linear-gradient/,

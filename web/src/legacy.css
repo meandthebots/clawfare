@@ -297,49 +297,6 @@ tr.group td.gh {
 .flights {
   margin-top: 3px;
 }
-.tag {
-  display: inline-block;
-  font-size: 10.5px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--neutral-bg);
-  color: var(--neutral-ink);
-  margin: 2px 3px 0 0;
-  font-weight: 600;
-}
-.tag.biz {
-  background: var(--pink-bg);
-  color: var(--pink-ink);
-}
-.tag.pe {
-  background: var(--info-bg);
-  color: var(--info-ink);
-}
-.tag.ns {
-  background: var(--green-bg);
-  color: var(--green-ink);
-}
-.tag.lgw {
-  background: var(--amber-bg);
-  color: var(--amber-ink);
-}
-.tag.eu {
-  background: var(--info-bg);
-  color: var(--info-ink);
-  border: 1px solid var(--info-border);
-}
-.tag.mock {
-  background: var(--red-bg);
-  color: var(--red-ink);
-}
-.tag.cached {
-  background: var(--neutral-bg);
-  color: var(--neutral-ink);
-}
-.tag.live {
-  background: var(--green-bg);
-  color: var(--green-ink);
-}
 .lbtn {
   display: inline-block;
   text-decoration: none;
@@ -432,22 +389,6 @@ td.cell.best-green .in {
 td.cell.sel .in {
   outline: 3px solid var(--accent);
   outline-offset: 1px;
-}
-.badge {
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 999px;
-  padding: 0 6px;
-  margin-top: 2px;
-  display: inline-block;
-}
-.badge.ba {
-  background: var(--gold);
-  color: var(--gold-ink);
-}
-.badge.bg {
-  background: var(--green-solid);
-  color: #fff;
 }
 th.lhonly,
 td.lhonly {
