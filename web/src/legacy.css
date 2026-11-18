@@ -128,11 +128,6 @@ body {
   padding: 12px 16px;
   margin-bottom: 12px;
 }
-.search {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px 12px;
-}
 .search label,
 .filters label {
   display: flex;
@@ -218,41 +213,11 @@ button:disabled {
   border-color: var(--green-border);
   color: var(--green-ink);
 }
-.est {
-  font-size: 13px;
-  color: var(--muted);
-  margin-top: 8px;
-}
-.est li {
-  margin: 2px 0;
-}
-.toolbar,
-.filters {
+.toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 12px 16px;
   align-items: flex-end;
-}
-.seg {
-  display: inline-flex;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--card);
-}
-.seg button {
-  border: 0;
-  border-radius: 0;
-  background: var(--card);
-  padding: 6px 10px;
-  color: var(--muted);
-}
-.seg button + button {
-  border-left: 1px solid var(--line);
-}
-.seg button.on {
-  background: var(--accent);
-  color: #fff;
 }
 .sumcard {
   background: var(--card);

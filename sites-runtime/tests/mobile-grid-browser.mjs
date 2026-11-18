@@ -83,6 +83,19 @@ try {
   assert.ok(await desktop.locator("#panel").evaluate(el => el.classList.contains("open")),
     "Keyboard selection must open React grid details");
   await desktop.locator("#pClose").click();
+  // React filter segments must preserve state and display after CSS migration.
+  const nightFilter = desktop.locator("#nightSeg button[data-v]:not([data-v='all'])").first();
+  assert.ok(await nightFilter.count(), "Kotlin sample should populate night filters");
+  await nightFilter.click();
+  assert.equal(await nightFilter.getAttribute("aria-pressed"), "true");
+  await desktop.locator("#sortSeg button[data-v='price']").click();
+  assert.equal(await desktop.locator("#sortSeg button[data-v='price']").getAttribute("aria-pressed"), "true");
+  // An inline-flex item is blockified to flex when its parent is display:flex.
+  // Both represent a usable flex group; block means the StyleX rule was lost.
+  assert.equal(await desktop.locator("#sortSeg").evaluate(el => getComputedStyle(el).display), "flex");
+  await desktop.locator("#btnClear").click();
+  assert.equal(await desktop.locator("#sortSeg button[data-v='date']").getAttribute("aria-pressed"), "true");
+  await desktop.waitForSelector("#grid td.cell");
   await desktop.locator("#tabs button[data-tab='itineraries']").click();
   await desktop.waitForSelector("#itineraries tbody tr[data-p]");
   await desktop.locator("#itineraries button[aria-label^='View details']").first().click();

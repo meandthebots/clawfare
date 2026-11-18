@@ -11,6 +11,8 @@ const styles = stylex.create({
   providerChecks: { marginTop: "10px" },
   muted: { fontSize: "12px", color: "var(--muted)" },
   button: { cursor: "pointer" },
+  estimate: { fontSize: "13px", color: "var(--muted)", marginTop: "8px" },
+  estimateListItem: { margin: "2px 0" },
 });
 export interface SearchControlsProps {
   form: SearchForm;
@@ -214,12 +216,12 @@ export function SearchControls({
           </button>
         ))}
       </div>
-      <div id="statusLine" className="est">
+      <div id="statusLine" className={"est " + stylex.props(styles.estimate).className}>
         {statusLines.map((line, index) => (
           <div key={index}>{line}</div>
         ))}
       </div>
-      <div id="estimate" className="est">
+      <div id="estimate" className={"est " + stylex.props(styles.estimate).className}>
         {estimateError && <div>{estimateError}</div>}
         {estimate && (
           <>
@@ -257,7 +259,9 @@ export function SearchControls({
             {estimate.lines.length > 0 && (
               <ul>
                 {estimate.lines.slice(0, 12).map((line, index) => (
-                  <li key={index}>{line}</li>
+                  <li key={index} {...stylex.props(styles.estimateListItem)}>
+                    {line}
+                  </li>
                 ))}
               </ul>
             )}
