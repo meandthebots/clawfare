@@ -659,83 +659,6 @@ tr.stale td {
 .mxcell:hover {
   background: var(--group-bg);
 }
-.mobile-grid {
-  display: none;
-}
-.mobile-flight {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--card);
-  overflow: hidden;
-}
-.mobile-flight-main {
-  display: block;
-  width: 100%;
-  text-align: left;
-  border: 0;
-  border-radius: 0;
-  padding: 14px;
-  background: var(--mobile-header-bg);
-}
-.mobile-flight-main .mobile-title {
-  display: block;
-  font-weight: 700;
-  font-size: 15px;
-}
-.mobile-flight-main .mobile-price {
-  font-size: 14px;
-  font-weight: 700;
-  margin: 5px 0;
-}
-.mobile-flight-main .mobile-details {
-  display: block;
-  color: var(--link);
-  font-weight: 700;
-  margin-top: 6px;
-}
-.mobile-addon-list {
-  display: grid;
-  gap: 7px;
-  padding: 10px;
-}
-.mobile-addon {
-  width: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 5px 8px;
-  border: 1px solid var(--line);
-  padding: 10px;
-  text-align: left;
-}
-.mobile-addon .mobile-addon-label {
-  display: block;
-  flex: 1 1 50%;
-  min-width: 0;
-}
-.mobile-addon .mobile-addon-label small {
-  display: block;
-  color: var(--muted);
-}
-.mobile-addon .mobile-addon-total {
-  font-weight: 800;
-  white-space: nowrap;
-}
-.mobile-addon .mobile-addon-status {
-  flex: 1 0 100%;
-  font-size: 11px;
-  font-weight: 600;
-}
-.mobile-addon.s-ok {
-  background: var(--green-bg);
-}
-.mobile-addon.s-catch {
-  background: var(--amber-bg);
-}
-.mobile-addon.s-no {
-  background: var(--neutral-bg);
-}
 .mobile-flight button:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: -3px;
@@ -752,13 +675,6 @@ tr.stale td {
     max-height: none;
     border: 0;
     background: transparent;
-  }
-  .mobile-grid-view #grid {
-    display: none;
-  }
-  .mobile-grid-view .mobile-grid {
-    display: grid;
-    gap: 12px;
   }
   #panel {
     width: 100%;

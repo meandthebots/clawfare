@@ -14,6 +14,48 @@ const styles = stylex.create({
     font: "inherit",
     color: "inherit",
   },
+  desktopGrid: { display: { default: "table", "@media (max-width: 760px)": "none" } },
+  mobileGrid: {
+    display: { default: "none", "@media (max-width: 760px)": "grid" },
+    gap: { default: "0", "@media (max-width: 760px)": "12px" },
+  },
+  mobileFlight: {
+    border: "1px solid var(--line)",
+    borderRadius: "12px",
+    backgroundColor: "var(--card)",
+    overflow: "hidden",
+  },
+  mobileFlightMain: {
+    display: "block",
+    width: "100%",
+    textAlign: "left",
+    border: 0,
+    borderRadius: 0,
+    padding: "14px",
+    backgroundColor: "var(--mobile-header-bg)",
+  },
+  mobileTitle: { display: "block", fontWeight: 700, fontSize: "15px" },
+  mobilePrice: { fontSize: "14px", fontWeight: 700, margin: "5px 0" },
+  mobileDetails: { display: "block", color: "var(--accent)", fontWeight: 700, marginTop: "6px" },
+  mobileAddons: { display: "grid", gap: "7px", padding: "10px" },
+  mobileAddon: {
+    width: "100%",
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "5px 8px",
+    border: "1px solid var(--line)",
+    padding: "10px",
+    textAlign: "left",
+  },
+  mobileAddonOk: { backgroundColor: "var(--green-bg)" },
+  mobileAddonCatch: { backgroundColor: "var(--amber-bg)" },
+  mobileAddonNo: { backgroundColor: "var(--neutral-bg)" },
+  mobileAddonLabel: { display: "block", flex: "1 1 50%", minWidth: 0 },
+  mobileAddonDate: { display: "block", color: "var(--muted)" },
+  mobileAddonTotal: { fontWeight: 800, whiteSpace: "nowrap" },
+  mobileAddonStatus: { flex: "1 0 100%", fontSize: "11px", fontWeight: 600 },
   assistive: {
     position: "absolute",
     width: "1px",
@@ -276,7 +318,7 @@ export function GridView({
 
   return (
     <>
-      <table id="grid">
+      <table id="grid" className={stylex.props(styles.desktopGrid).className}>
         <thead>
           <tr>
             <th className="rowh">
@@ -358,31 +400,45 @@ export function GridView({
           })}
         </tbody>
       </table>
-      <div className="mobile-grid" id="mobileGrid" aria-label="Flight combinations">
+      <div
+        className={"mobile-grid " + stylex.props(styles.mobileGrid).className}
+        id="mobileGrid"
+        aria-label="Flight combinations"
+      >
         {rows.map((it) => {
           const title =
             it.origin + " → " + it.destination + " " + fmtRange(it.outboundDate, it.returnDate);
           return (
-            <article className="mobile-flight" key={it.id}>
+            <article
+              className={"mobile-flight " + stylex.props(styles.mobileFlight).className}
+              key={it.id}
+            >
               <button
-                className="mobile-flight-main"
+                className={"mobile-flight-main " + stylex.props(styles.mobileFlightMain).className}
                 type="button"
                 data-p={it.id}
                 data-a="LH"
                 aria-label={"Open long-haul details for " + title}
                 onClick={() => onSelect(it.id, "LH")}
               >
-                <span className="mobile-title">{title}</span>
+                <span className={"mobile-title " + stylex.props(styles.mobileTitle).className}>
+                  {title}
+                </span>
                 <span className="lhMeta">
                   {it.airlineSummary} · {it.cabin || it.cabinKey}
                 </span>
-                <span className="mobile-price">
+                <span className={"mobile-price " + stylex.props(styles.mobilePrice).className}>
                   {gbp(it.pricePerPerson)} pp ·{" "}
                   {gbp(it.pricePerPerson == null ? null : it.pricePerPerson * it.passengers)} total
                 </span>
-                <span className="mobile-details">View long-haul details</span>
+                <span className={"mobile-details " + stylex.props(styles.mobileDetails).className}>
+                  View long-haul details
+                </span>
               </button>
-              <div className="mobile-addon-list" aria-label="Add-on combinations">
+              <div
+                className={"mobile-addon-list " + stylex.props(styles.mobileAddons).className}
+                aria-label="Add-on combinations"
+              >
                 {addons.map((addon) => {
                   const k = keyFor(it.id, addon.id),
                     cell = map.get(k);
@@ -394,7 +450,15 @@ export function GridView({
                       data-p={it.id}
                       data-a={addon.id}
                       className={
-                        "mobile-addon s-" + cell.status + (selectedKey === k ? " sel" : "")
+                        "mobile-addon s-" +
+                        cell.status +
+                        (selectedKey === k ? " sel " : " ") +
+                        stylex.props(
+                          styles.mobileAddon,
+                          cell.status === "ok" && styles.mobileAddonOk,
+                          cell.status === "catch" && styles.mobileAddonCatch,
+                          cell.status === "no" && styles.mobileAddonNo,
+                        ).className
                       }
                       aria-label={
                         "Open Mexico " +
@@ -406,12 +470,28 @@ export function GridView({
                       }
                       onClick={() => onSelect(it.id, addon.id)}
                     >
-                      <span className="mobile-addon-label">
+                      <span
+                        className={
+                          "mobile-addon-label " + stylex.props(styles.mobileAddonLabel).className
+                        }
+                      >
                         Mexico {addon.id}
-                        <small>{fmtRange(addon.outboundDate, addon.returnDate)}</small>
+                        <small {...stylex.props(styles.mobileAddonDate)}>
+                          {fmtRange(addon.outboundDate, addon.returnDate)}
+                        </small>
                       </span>
-                      <span className="mobile-addon-total">{gbp(cell.total)}</span>
-                      <span className="mobile-addon-status">
+                      <span
+                        className={
+                          "mobile-addon-total " + stylex.props(styles.mobileAddonTotal).className
+                        }
+                      >
+                        {gbp(cell.total)}
+                      </span>
+                      <span
+                        className={
+                          "mobile-addon-status " + stylex.props(styles.mobileAddonStatus).className
+                        }
+                      >
                         {statusLabel(cell)}
                         {feasible.has(k) ? " · Cheapest feasible" : ""}
                         {works.has(k) ? " · Cheapest works" : ""}
