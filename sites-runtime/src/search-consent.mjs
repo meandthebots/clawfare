@@ -35,7 +35,7 @@ export const READ_CONSENT_CAPS_SQL = [
   " (SELECT COUNT(*) FROM provider_http_reservations r",
   " WHERE r.provider = l.provider AND r.utc_month = ?) AS monthly_used",
   "FROM provider_http_limits l",
-].join("\\n");
+].join("\n");
 
 export const CONSUME_CONSENT_SQL = [
   "UPDATE hosted_search_consents",
