@@ -627,8 +627,8 @@ export function App() {
     if (!result)
       return (
         <div className="empty">
-          Enter airports and dates to estimate a search, or load the public flight sample.
-          Searches with billable providers require explicit approval before any request.
+          Enter airports and dates to estimate a search, or load the public flight sample. Searches
+          with billable providers require explicit approval before any request.
         </div>
       );
     if (tab === "grid" && result.addons.length > 0 && result.cells.length > 0)
