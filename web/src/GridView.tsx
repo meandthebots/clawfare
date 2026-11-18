@@ -105,6 +105,7 @@ export interface GridViewProps {
   hideInfeasible: boolean;
   selectedKey: string | null;
   onSelect: (primaryId: string, addonId: string) => void;
+  legacySample?: boolean;
 }
 const keyFor = (primary: string, addon?: string | null): string =>
   primary + String.fromCharCode(0) + (addon ?? "");
@@ -298,7 +299,13 @@ export function GridView({
   hideInfeasible,
   selectedKey,
   onSelect,
+  legacySample = false,
 }: GridViewProps) {
+  const addonLabel = (addon: Itinerary): string =>
+    legacySample
+      ? "Mexico " + addon.id
+      : addon.origin + " → " + addon.destination + " " + addon.id;
+  const primaryLabel = legacySample ? "long-haul" : "primary flight";
   const { map, feasible, works } = useMemo(() => {
     const map = new Map(cells.map((cell) => [keyFor(cell.primaryId, cell.addonId), cell]));
     const feasible = new Set<string>(),
@@ -366,7 +373,7 @@ export function GridView({
           className={"in " + buttonClass}
           aria-label={
             "Open " +
-            (addon ? "Mexico " + addon.id : "long-haul") +
+            (addon ? addonLabel(addon) : primaryLabel) +
             " details for " +
             it.id +
             ": " +
@@ -414,11 +421,14 @@ export function GridView({
         <thead>
           <tr>
             <th className="rowh">
-              Long-haul option<span className="sub">flights, per person, couple total</span>
+              {legacySample ? "Long-haul option" : "Primary flight"}
+              <span className="sub">
+                {legacySample ? "flights, per person, couple total" : "fare per person and party total"}
+              </span>
             </th>
             {addons.map((addon) => (
               <th key={addon.id}>
-                Mexico {addon.id}
+                {addonLabel(addon)}
                 <LinkIcon links={addon.links} />
                 <span className="sub">
                   {fmtRange(addon.outboundDate, addon.returnDate)} · {addon.nights ?? ""}n
@@ -427,7 +437,10 @@ export function GridView({
               </th>
             ))}
             <th className="lhonly">
-              Long-haul only<span className="sub">couple, no add-on</span>
+              {legacySample ? "Long-haul only" : "Primary only"}
+              <span className="sub">
+                {legacySample ? "couple, no add-on" : "party total, no add-on"}
+              </span>
             </th>
           </tr>
         </thead>
@@ -470,7 +483,7 @@ export function GridView({
                     <div className="lhTop lhMeta">
                       <span>{it.airlineSummary}</span>
                       <span>
-                        couple{" "}
+                        {legacySample ? "couple" : "party total"}{" "}
                         {gbp(it.pricePerPerson == null ? null : it.pricePerPerson * it.passengers)}
                       </span>
                     </div>
@@ -510,7 +523,7 @@ export function GridView({
                 type="button"
                 data-p={it.id}
                 data-a="LH"
-                aria-label={"Open long-haul details for " + title}
+                aria-label={"Open " + primaryLabel + " details for " + title}
                 onClick={() => onSelect(it.id, "LH")}
               >
                 <span className={"mobile-title " + stylex.props(styles.mobileTitle).className}>
@@ -524,7 +537,7 @@ export function GridView({
                   {gbp(it.pricePerPerson == null ? null : it.pricePerPerson * it.passengers)} total
                 </span>
                 <span className={"mobile-details " + stylex.props(styles.mobileDetails).className}>
-                  View long-haul details
+                  View {primaryLabel} details
                 </span>
               </button>
               <div
@@ -553,8 +566,8 @@ export function GridView({
                         ).className
                       }
                       aria-label={
-                        "Open Mexico " +
-                        addon.id +
+                        "Open " +
+                        addonLabel(addon) +
                         " combination details: " +
                         statusLabel(cell) +
                         ", " +
@@ -567,7 +580,7 @@ export function GridView({
                           "mobile-addon-label " + stylex.props(styles.mobileAddonLabel).className
                         }
                       >
-                        Mexico {addon.id}
+                        {addonLabel(addon)}
                         <small {...stylex.props(styles.mobileAddonDate)}>
                           {fmtRange(addon.outboundDate, addon.returnDate)}
                         </small>
