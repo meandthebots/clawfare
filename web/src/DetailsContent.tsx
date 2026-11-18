@@ -243,13 +243,25 @@ function Timeline({
   it,
   addon,
   cell,
+  legacySample,
 }: {
   it: Itinerary;
   addon: Itinerary | null;
   cell: ComboCell;
+  legacySample: boolean;
 }) {
-  const start = Date.parse("2026-12-16T00:00:00Z");
-  const end = Date.parse("2027-01-01T00:00:00Z");
+  const flightDates = [it.outboundDate, it.returnDate, addon?.outboundDate, addon?.returnDate]
+    .filter((value): value is string => typeof value === "string" && /^\\d{4}-\\d\\d-\\d\\d$/.test(value))
+    .map((date) => Date.parse(date + "T00:00:00Z"))
+    .filter(Number.isFinite);
+  // The original sample timeline remains pixel-identical. Other trips use
+  // their own departure/return dates, never December 2026.
+  const start = legacySample
+    ? Date.parse("2026-12-16T00:00:00Z")
+    : Math.min(...flightDates) - 86400000;
+  const end = legacySample
+    ? Date.parse("2027-01-01T00:00:00Z")
+    : Math.max(...flightDates) + 86400000;
   const span = Math.round((end - start) / 86400000);
   const days = Array.from({ length: span + 1 }, (_, i) => new Date(start + i * 86400000));
   const pos = (iso: string) => ((Date.parse(iso + "T00:00:00Z") - start) / 86400000 / span) * 100;
@@ -258,7 +270,7 @@ function Timeline({
       Math.round((Date.parse(to + "T00:00:00Z") - Date.parse(from + "T00:00:00Z")) / 86400000) + 1;
     return Math.max(4, (days / span) * 100);
   };
-  const marker = pos("2026-12-24") + 100 / (span + 1) / 2;
+  const marker = legacySample ? pos("2026-12-24") + 100 / (span + 1) / 2 : null;
   const barClass = cell.status === "no" ? " bad" : "";
   return (
     <div className="sec">
@@ -273,8 +285,8 @@ function Timeline({
             <div
               key={iso}
               className={
-                (iso === "2026-12-24" ? "xmas " : "") +
-                stylex.props(styles.timelineDay, iso === "2026-12-24" && styles.timelineChristmas)
+                (legacySample && iso === "2026-12-24" ? "xmas " : "") +
+                stylex.props(styles.timelineDay, legacySample && iso === "2026-12-24" && styles.timelineChristmas)
                   .className
               }
             >
@@ -285,10 +297,12 @@ function Timeline({
       </div>
       {it.returnDate && (
         <div className={"tl-row " + stylex.props(styles.timelineRow).className}>
-          <div
-            className={"tl-mark " + stylex.props(styles.timelineMarker).className}
-            style={{ left: marker + "%" }}
-          />
+          {marker !== null && (
+            <div
+              className={"tl-mark " + stylex.props(styles.timelineMarker).className}
+              style={{ left: marker + "%" }}
+            />
+          )}
           <div
             className={
               "tl-bar couple" +
@@ -305,16 +319,18 @@ function Timeline({
               width: width(it.outboundDate, it.returnDate) + "%",
             }}
           >
-            Florida
+            {legacySample ? "Florida" : it.origin + " → " + it.destination}
           </div>
         </div>
       )}
       {addon?.returnDate && (
         <div className={"tl-row " + stylex.props(styles.timelineRow).className}>
-          <div
-            className={"tl-mark " + stylex.props(styles.timelineMarker).className}
-            style={{ left: marker + "%" }}
-          />
+          {marker !== null && (
+            <div
+              className={"tl-mark " + stylex.props(styles.timelineMarker).className}
+              style={{ left: marker + "%" }}
+            />
+          )}
           <div
             className={
               "tl-bar mex" +
@@ -331,11 +347,11 @@ function Timeline({
               width: width(addon.outboundDate, addon.returnDate) + "%",
             }}
           >
-            Mexico {addon.id}
+            {legacySample ? "Mexico " + addon.id : addon.origin + " → " + addon.destination}
           </div>
         </div>
       )}
-      <div className="muted">Red line is Christmas Eve.</div>
+      {legacySample && <div className="muted">Red line is Christmas Eve.</div>}
     </div>
   );
 }
@@ -398,6 +414,7 @@ export interface DetailsContentProps {
   onVendors: () => void;
   onTrack: () => void;
   canTrack?: boolean;
+  legacySample?: boolean;
 }
 export function DetailsContent({
   it,
@@ -406,6 +423,7 @@ export function DetailsContent({
   onVendors,
   onTrack,
   canTrack = true,
+  legacySample = false,
 }: DetailsContentProps) {
   const total = (flight: Itinerary) =>
     flight.pricePerPerson == null ? null : flight.pricePerPerson * flight.passengers;
@@ -413,7 +431,7 @@ export function DetailsContent({
     <>
       {cell && (
         <>
-          <Timeline it={it} addon={addon} cell={cell} />
+          <Timeline it={it} addon={addon} cell={cell} legacySample={legacySample} />
           <Reasons cell={cell} />
         </>
       )}
@@ -452,7 +470,9 @@ export function DetailsContent({
         <table className={"price " + stylex.props(styles.detailTable).className}>
           <tbody>
             <tr>
-              <td {...stylex.props(styles.priceCell)}>Long-haul × {it.passengers}</td>
+              <td {...stylex.props(styles.priceCell)}>
+                {legacySample ? "Long-haul" : "Primary flights"} × {it.passengers}
+              </td>
               <td {...stylex.props(styles.priceCell, styles.priceAmount)}>{gbp(total(it))}</td>
             </tr>
             {addon && (
