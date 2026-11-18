@@ -16,6 +16,7 @@ const bridge = {
     planSearchForHost: query => query,
     projectBudgetForHost: query => query,
     parseGoogleFlightsOffersForHost: body => body,
+    buildGoogleFareDraftForHost: request => request,
     toGbpForHost: amount => amount,
   } } } },
 };
@@ -41,6 +42,7 @@ test("assembly requires the Kotlin compiler export, public fixture and host veri
   const factory = create();
   assert.equal(factory.kotlin.toGbpOrNull(10, 2), 10);
   assert.equal(factory.kotlin.parseGoogleFlightsOffersJson('{"best_flights":[]}'), '{"best_flights":[]}');
+  assert.equal(factory.kotlin.buildGoogleFareDraftJson('{"id":"example"}'), '{"id":"example"}');
   assert.throws(() => factory.createTrustedWorker({}), /Verified Sites identity/);
   assert.throws(() => createClawfareWorkerFactory({
     templateHtml, bundledPublicSample: sample, kotlinBundle: {},
