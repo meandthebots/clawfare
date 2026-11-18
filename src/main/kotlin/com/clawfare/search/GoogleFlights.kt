@@ -5,7 +5,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.URLEncoder
 
@@ -47,16 +46,6 @@ fun extractError(body: String): String? {
     }
 }
 
-data class ParsedOffer(
-    val price: Double?,
-    val legs: List<Leg>,
-    val layovers: List<Layover>,
-    val durationMinutes: Int?,
-    val departureToken: String?,
-    val bookingToken: String?,
-    val fareBrand: String? = null,
-)
-
 /**
  * HTTP 200 alone is not evidence of zero availability. A recognized Google
  * flights response has flight arrays (possibly empty), or an explicit empty
@@ -67,35 +56,6 @@ private fun recognizedFlightResponse(body: String): Boolean {
     val keys = listOf("best_flights", "other_flights")
     if (keys.any { it in root }) return keys.all { it !in root || root[it] is JsonArray }
     return failureKind(200, body) == FailureKind.EMPTY
-}
-
-fun parseGoogleFlightsOffers(body: String): List<ParsedOffer> {
-    val root = AppJson.parseToJsonElement(body) as? JsonObject ?: return emptyList()
-    val lists =
-        listOf("best_flights", "other_flights").flatMap { key ->
-            root[key]?.let { runCatching { it.jsonArray }.getOrNull() } ?: JsonArray(emptyList())
-        }
-    return lists.mapNotNull { el ->
-        val obj = el as? JsonObject ?: return@mapNotNull null
-        val flights = obj["flights"]?.let { runCatching { it.jsonArray }.getOrNull() } ?: return@mapNotNull null
-        val legs = flights.mapNotNull { parseLeg(it as? JsonObject ?: return@mapNotNull null) }
-        if (legs.isEmpty()) return@mapNotNull null
-        val layovers =
-            obj["layovers"]?.let { runCatching { it.jsonArray }.getOrNull() }.orEmpty().mapNotNull { node ->
-                val o = node as? JsonObject ?: return@mapNotNull null
-                val mins = o.int("duration") ?: return@mapNotNull null
-                Layover(o.str("id") ?: o.str("name") ?: "", mins)
-            }
-        ParsedOffer(
-            price = obj.dbl("price"),
-            legs = legs,
-            layovers = layovers,
-            durationMinutes = obj.int("total_duration"),
-            departureToken = obj.str("departure_token"),
-            bookingToken = obj.str("booking_token"),
-            fareBrand = obj.str("fare_brand") ?: obj.str("fare_brand_name"),
-        )
-    }
 }
 
 /** Compatibility view of priced, single-ticket options only. The full metadata
@@ -141,45 +101,6 @@ fun parseSearchApiQuota(body: String): QuotaView {
     val limit = obj?.int("monthly_credits") ?: obj?.int("credits_limit") ?: obj?.int("monthly_allowance")
     val used = obj?.int("credits_used") ?: obj?.int("searches_used")
     return QuotaView("searchapi", configured = true, remaining = remaining, limit = limit, used = used)
-}
-
-private fun parseLeg(obj: JsonObject): Leg? {
-    val dep = obj["departure_airport"] as? JsonObject ?: return null
-    val arr = obj["arrival_airport"] as? JsonObject ?: return null
-    val (depDate, depTime) = splitStamp(dep)
-    val (arrDate, arrTime) = splitStamp(arr)
-    val number = obj.str("flight_number") ?: return null
-    val airline = obj.str("airline") ?: ""
-    val code = GoogleFlightsLink.splitFlight(number, "").first.ifBlank { airline.take(2).uppercase() }
-    // Keep the marketed name for display but never claim it proves the actual operator.
-    val operatingEvidence = obj.str("plane_and_crew_by")
-    val operating = operatingEvidence ?: airline
-    return Leg(
-        flightNumber = number,
-        airline = airline.ifBlank { AIRLINE_NAMES[code] ?: code },
-        airlineCode = code,
-        operatingCarrier = operating,
-        from = dep.str("id") ?: return null,
-        to = arr.str("id") ?: return null,
-        departTime = depTime,
-        arriveTime = arrTime,
-        departDate = depDate,
-        arriveDate = arrDate,
-        durationMinutes = obj.int("duration"),
-        cabin = obj.str("travel_class"),
-        aircraft = obj.str("airplane"),
-        operatingCarrierVerified = !operatingEvidence.isNullOrBlank(),
-    )
-}
-
-private fun splitStamp(airport: JsonObject): Pair<String, String> {
-    val time = airport.str("time").orEmpty()
-    val date = airport.str("date")
-    if (time.length >= 16 && time[4] == '-') {
-        return time.take(10) to normalizeTime(time.substring(11))
-    }
-    if (!date.isNullOrBlank()) return date.take(10) to normalizeTime(time)
-    return "" to normalizeTime(time)
 }
 
 private fun JsonObject.str(key: String): String? = this[key]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() && it != "null" }
@@ -489,9 +410,13 @@ class GoogleFlightsProvider(
                 warnings += "$displayName returned no matching flight for the selected itinerary; seller options not attributed."
                 return emptyMap()
             }
-            if (roundTrip && match.departureToken != null && match.bookingToken == null) {
+            // Cross-module Kotlin data properties are not smart-cast; capture
+            // the immutable token locally before constructing typed params.
+            val selectedDepartureToken = match.departureToken
+            if (roundTrip && selectedDepartureToken != null && match.bookingToken == null) {
                 val ret =
-                    load(cache, params + ("departure_token" to match.departureToken), allowNetwork, warnings, stop) ?: return emptyMap()
+                    load(cache, params + ("departure_token" to selectedDepartureToken), allowNetwork, warnings, stop)
+                        ?: return emptyMap()
                 count(ret.fromCache)
                 val returns = parseGoogleFlightsOffers(ret.body)
                 val want = itinerary.returning?.legs.orEmpty()
