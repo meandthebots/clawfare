@@ -43,6 +43,17 @@ object ClawfareJs {
         return AppJson.encodeToString(CallBudget.serializer(), projectCallBudget(query, providers))
     }
 
+    /**
+     * Parse a provider response on the hosted SERVER using the exact same
+     * offer/segment parser as JVM. Contains opaque tokens: never return this
+     * JSON to visitors or persist it as a public investigation snapshot.
+     */
+    fun parseGoogleFlightsOffersJson(responseJson: String): String =
+        AppJson.encodeToString(
+            kotlinx.serialization.builtins.ListSerializer(ParsedOffer.serializer()),
+            parseGoogleFlightsOffers(responseJson),
+        )
+
     fun toGbpOrNull(
         amount: Double,
         unitsPerGbp: Double,
@@ -73,3 +84,8 @@ fun toGbpForHost(
     amount: Double,
     unitsPerGbp: Double,
 ): Double? = ClawfareJs.toGbpOrNull(amount, unitsPerGbp)
+
+/** Server-only provider parsing. Opaque departure/booking tokens are private. */
+@JsExport
+fun parseGoogleFlightsOffersForHost(responseJson: String): String =
+    ClawfareJs.parseGoogleFlightsOffersJson(responseJson)
