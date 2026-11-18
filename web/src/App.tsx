@@ -410,7 +410,9 @@ export function App() {
         setSearchConsent(response.consent);
       }
     } catch (error) {
-      setEstimateError(error instanceof Error ? error.message : "Estimate request failed; no search was run.");
+      setEstimateError(
+        error instanceof Error ? error.message : "Estimate request failed; no search was run.",
+      );
     }
   };
   const runSearch = async () => {
