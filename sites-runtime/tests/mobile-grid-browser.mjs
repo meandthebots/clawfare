@@ -64,6 +64,10 @@ try {
   assert.equal(await mobile.locator("#pBody .tl-bar").first().evaluate(el => getComputedStyle(el).height),
     "20px", "A flight bar must keep its visible 20px height");
 
+  assert.equal(await mobile.locator("#pBody .seglist").first().evaluate(el => getComputedStyle(el).borderCollapse),
+    "collapse", "Flight segment table needs compiled StyleX table layout");
+  assert.equal(await mobile.locator("#pBody .price td").first().evaluate(el => getComputedStyle(el).borderBottomStyle),
+    "dashed", "Price breakdown cells must retain the StyleX separator");
   assert.match(await mobile.locator("#pBody").textContent(), /Cancellation \/ refund evidence/);
   assert.ok(await mobile.locator("#btnVendorsFor").isVisible(),
     "React details drawer must retain the seller comparison action");
