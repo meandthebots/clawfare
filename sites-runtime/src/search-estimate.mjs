@@ -106,6 +106,56 @@ function requestBoundaryProblem(query) {
   if (query.tripType != null && !["one_way", "round_trip"].includes(query.tripType)) {
     return "Unsupported trip type.";
   }
+  // Never pass malformed hard-eligibility policies to the Kotlin normalizer,
+  // which intentionally canonicalizes trusted JVM CLI inputs.
+  const codeList = (value, pattern, max) => Array.isArray(value) &&
+    value.length <= max && value.every(item => typeof item === "string" && pattern.test(item));
+  if (query.excludedAirlines != null &&
+      !codeList(query.excludedAirlines, /^[a-zA-Z0-9]{2,3}$/, 32)) {
+    return "Invalid excluded airline codes.";
+  }
+  if (query.excludedTransitAirports != null &&
+      !codeList(query.excludedTransitAirports, /^[a-zA-Z]{3}$/, 32)) {
+    return "Invalid excluded transit airport codes.";
+  }
+  if (query.excludedTransitCountries != null &&
+      !codeList(query.excludedTransitCountries, /^[a-zA-Z]{2}$/, 32)) {
+    return "Invalid excluded transit country codes.";
+  }
+  if (query.strictPerLegCabin != null && typeof query.strictPerLegCabin !== "boolean" ||
+      query.strictOperatingCarrier != null && typeof query.strictOperatingCarrier !== "boolean" ||
+      query.fetchReturns != null && typeof query.fetchReturns !== "boolean" ||
+      query.cacheOnly != null && typeof query.cacheOnly !== "boolean") {
+    return "Strict cabin, operating carrier, fetch-returns and cache-only flags must be booleans.";
+  }
+  if (query.market != null && (typeof query.market !== "string" ||
+      !/^[a-zA-Z]{2}$/.test(query.market))) return "Invalid two-letter provider market.";
+  if (query.currency != null && (typeof query.currency !== "string" ||
+      !/^[a-zA-Z]{3}$/.test(query.currency))) return "Invalid three-letter currency.";
+  if (query.investigation != null && (typeof query.investigation !== "string" ||
+      !/^[a-z0-9][a-z0-9_-]{0,99}$/.test(query.investigation))) {
+    return "Invalid investigation ID.";
+  }
+  if (query.maxLiveCalls != null &&
+      (!Number.isSafeInteger(query.maxLiveCalls) || query.maxLiveCalls < 0 ||
+       query.maxLiveCalls > MAX_BASE_CALLS)) {
+    return "Invalid per-query HTTP call cap.";
+  }
+  if (query.adults != null && (!Number.isInteger(query.adults) ||
+      query.adults < 1 || query.adults > 9)) return "Invalid adult count.";
+  if (query.checkedBags != null && (!Number.isInteger(query.checkedBags) ||
+      query.checkedBags < 0 || query.checkedBags > 4)) return "Invalid checked bag count.";
+  if (query.tripType === "one_way" &&
+      (query.nights != null || query.returnFrom || query.returnTo)) {
+    return "One-way queries cannot carry return dates or nights.";
+  }
+  if (query.nights != null && (query.returnFrom || query.returnTo)) {
+    return "Choose a trip length or return dates, not both.";
+  }
+  if (query.returnTo && !query.returnFrom) return "Return start date is required.";
+  if (query.tripType === "round_trip" && query.nights == null && !query.returnFrom) {
+    return "Round-trip queries need nights or a return date range.";
+  }
   return null;
 }
 
