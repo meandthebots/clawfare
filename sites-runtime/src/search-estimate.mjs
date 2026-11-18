@@ -23,7 +23,7 @@ function json(value, status = 200) {
   });
 }
 
-async function limitedBody(request) {
+export async function limitedBody(request) {
   const rawLength = request.headers.get("content-length");
   if (rawLength != null && (/[^0-9]/.test(rawLength) || Number(rawLength) > MAX_BODY_BYTES)) {
     return { error: "Search estimate body is too large.", status: 413 };
@@ -70,7 +70,7 @@ function isValidDate(value) {
   return Number.isFinite(when.getTime()) && when.toISOString().slice(0, 10) === value;
 }
 
-function requestBoundaryProblem(query) {
+export function requestBoundaryProblem(query) {
   const isAirports = list => Array.isArray(list) && list.length <= 8 &&
     list.every(s => typeof s === "string" && /^[A-Za-z]{3}$/.test(s));
   if (!isAirports(query.origins) || !isAirports(query.destinations)) {
