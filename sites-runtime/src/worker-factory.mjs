@@ -48,6 +48,13 @@ export function createClawfareWorkerFactory({ templateHtml, bundledPublicSample,
               travelpayouts: Boolean(env.TRAVELPAYOUTS_API_TOKEN),
               duffel: Boolean(env.DUFFEL_ACCESS_TOKEN),
             },
+            // Search PREPARATION alone can be separately enabled by server-only
+            // configuration. This does not enable POST /api/search or any paid Fetch.
+            searchPrepareConfig: {
+              enabled: env.SEARCH_PREPARE_ENABLED === "true",
+              consentSigningSecret: env.SEARCH_CONSENT_SIGNING_SECRET,
+              providerKeyPresent: Boolean(env.SERPAPI_API_KEY),
+            },
             // The hosting adapter, not the visitor, must authenticate.
             getVerifiedEmail: req => getVerifiedEmail(req, context),
           });
