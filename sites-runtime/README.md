@@ -245,3 +245,47 @@ per-tenant rate limit and actual Sites identity tests are complete.
 - Provide real Kotlin/JS runtime integration and external-provider test doubles.
 - Test the actual D1 binding under concurrent hosted invocations before
   production egress is enabled.
+
+## Dormant signed search-consent foundation (issue #67)
+
+Migration `0004_search_consents.sql` and `src/search-consent.mjs` introduce a
+**non-exposed, disabled-by-default** D1-backed approval capability, used only
+by a future provider search route:
+
+1. The trusted Sites gateway authenticates the viewer and derives the opaque
+   `acct_<sha256>` owner key. The compiled Kotlin planner produces the exact
+   canonical unconfirmed query JSON and a fully bounded call plan.
+2. When explicitly enabled in a future server integration, `issue` verifies
+   that the server has a provider credential, that D1 daily/monthly caps can
+   cover **every planned call** and that the whole plan is no more than 16
+   provider requests. This does **not** reserve billing quota or contact a
+   provider. The signing key is a distinct server-only secret (not the owner
+   derivation secret); never send it to a browser.
+3. A signed consent token is bound to the canonical query's SHA-256 digest,
+   opaque owner, exact provider/category call bounds, policy version, expiry
+   (at most five minutes) and random nonce. Only the nonce and metadata are
+   saved in D1; no raw flight query, fare tokens or credentials.
+4. On confirmation the authenticated, same-origin application boundary
+   validates the signature, exact query, policy, owner and expiry and performs
+   **one atomic conditional D1 UPDATE ... RETURNING** to consume the nonce
+   before any HTTP is attempted. Replays, double clicks and Worker restarts
+   cannot authorize another search. A failed call is never silently retried
+   with a reused approval.
+5. **Before every network request**, the search executor must independently
+   cross-check the per-query category/count limits and use
+   `D1ProviderHttpBudget.reserve`. An approved quote is not permission to
+   exceed D1 caps, redirect to a new provider host or issue seller/order
+   calls. Persisting a quote does not debit a provider quota.
+
+**Not yet implemented:** No hosted API route calls this module. The Worker
+still hard-disables `/api/search`, and this package does not allow a browser
+to issue or consume a quote. Future #67/#68/#121/#122 work must integrate the
+compiled Kotlin plan, authenticated prepare route, explicit user confirmation,
+actual per-request limit accounting and the synthetic end-to-end test before
+enabling the egress switch. Never deploy a live-provider secret, enable paid
+calls or treat a successful preview build as permission to spend. Existing
+Site identity and D1 isolation must still be checked under #63.
+
+Regression tests:
+`node --test sites-runtime/tests/search-consent.test.mjs`
+and `python3 -m unittest discover -s sites-runtime/tests -p 'test_*.py'`.
