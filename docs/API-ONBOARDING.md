@@ -147,6 +147,20 @@ only once. Cache-only seller lookups are exempt from the paid call cap, but
 still allow at most two distinct markets. A zero-call budget rejects every
 live seller lookup, including an empty market list, before granting consent.
 
+For the localhost JVM web server, confirmed live flight searches and seller
+lookups also share a **process-local 64-network-call hourly limit** by default.
+Set `CLAWFARE_WEB_MAX_HOURLY_NETWORK_CALLS` to an explicit integer between
+0 and 1000 to adjust it (0 disables all live web calls). After matching the
+estimate/consent token, the web server reserves the entire worst-case call
+count before dispatch; requests exceeding the remaining allowance return
+HTTP 429 and `Retry-After`. Cache-only searches, seller cache reads, and
+unconfirmed estimates do not consume the hourly allowance. The allowance is
+atomic across simultaneous web requests and does not refund attempts that fail
+or return partial results. It resets one hour after the first reservation in
+a window. A server restart resets this **supplementary** limit; the durable
+provider HTTP journal and its operator-defined daily/monthly limits remain
+the cross-process and crash-safe controls (see #19).
+
 The JVM API **streams and bounds actual JSON bytes** before
 deserializing or invoking business logic: query, vendor and tracking requests
 are limited to 64 KiB, while HTML/CSV export requests allow 2 MiB. Requests
