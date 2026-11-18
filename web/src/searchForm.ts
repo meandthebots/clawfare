@@ -165,31 +165,45 @@ export function buildSearchQuery(form: SearchForm): SearchQuery {
       }
     }
   }
-  const providers = ([
-    ["serpapi", form.serpapi],
-    ["searchapi", form.searchapi],
-    ["travelpayouts", form.travelpayouts],
-    ["duffel", form.duffel],
-  ] as const).filter(([, enabled]) => enabled).map(([id]) => id);
+  const providers = (
+    [
+      ["serpapi", form.serpapi],
+      ["searchapi", form.searchapi],
+      ["travelpayouts", form.travelpayouts],
+      ["duffel", form.duffel],
+    ] as const
+  )
+    .filter(([, enabled]) => enabled)
+    .map(([id]) => id);
   if (!providers.length) fail("serpapi", "Select at least one provider to plan a search.");
   const searchWidth = outboundDays * origins.length * destinations.length * providers.length;
   if (searchWidth > 2000) {
-    fail("outTo", "Search matrix exceeds 2,000 base provider calls. Narrow airports, dates or providers.");
+    fail(
+      "outTo",
+      "Search matrix exceeds 2,000 base provider calls. Narrow airports, dates or providers.",
+    );
   }
   const market = form.market.trim().toLowerCase();
-  if (!/^[a-z]{2}$/.test(market)) fail("market", "Market must be a two-letter country code (e.g. uk).");
+  if (!/^[a-z]{2}$/.test(market))
+    fail("market", "Market must be a two-letter country code (e.g. uk).");
   const currency = form.currency.trim().toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) fail("currency", "Currency must be a three-letter ISO code.");
   const investigation = form.investigation.trim();
   if (investigation && !/^[a-z0-9][a-z0-9_-]{0,99}$/.test(investigation)) {
-    fail("investigation", "Investigation ID must be lowercase letters, numbers, hyphens or underscores.");
+    fail(
+      "investigation",
+      "Investigation ID must be lowercase letters, numbers, hyphens or underscores.",
+    );
   }
   const adults = integer(form.adults, "adults", 1, 9)!;
   const checkedBags = integer(form.bags, "bags", 0, 4)!;
   const returnChoices = integer(form.returnChoices, "returnChoices", 1, 8)!;
   const maxLiveCalls = integer(form.maxLiveCalls, "maxLiveCalls", 0, 2000, true);
   if (!form.cacheOnly && maxLiveCalls != null && searchWidth > maxLiveCalls) {
-    fail("maxLiveCalls", "Call cap is below the base-search upper bound. Raise the cap or narrow the query.");
+    fail(
+      "maxLiveCalls",
+      "Call cap is below the base-search upper bound. Raise the cap or narrow the query.",
+    );
   }
   return {
     origins,
@@ -207,8 +221,18 @@ export function buildSearchQuery(form: SearchForm): SearchQuery {
     strictOperatingCarrier: form.strictOperatingCarrier,
     checkedBags,
     excludedAirlines: codes(form.excludedAirlines, "excludedAirlines", /^[A-Za-z0-9]{2,3}$/, 32),
-    excludedTransitAirports: codes(form.excludedTransitAirports, "excludedTransitAirports", /^[A-Za-z]{3}$/, 32),
-    excludedTransitCountries: codes(form.excludedTransitCountries, "excludedTransitCountries", /^[A-Za-z]{2}$/, 32),
+    excludedTransitAirports: codes(
+      form.excludedTransitAirports,
+      "excludedTransitAirports",
+      /^[A-Za-z]{3}$/,
+      32,
+    ),
+    excludedTransitCountries: codes(
+      form.excludedTransitCountries,
+      "excludedTransitCountries",
+      /^[A-Za-z]{2}$/,
+      32,
+    ),
     currency,
     market,
     investigation: investigation || null,
