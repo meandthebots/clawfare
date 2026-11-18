@@ -14,9 +14,11 @@ npm run build
 
 The Vite production build is a **single HTML file**, intentionally. The JVM
 server, offline HTML exports and the ChatGPT Sites source package all consume
-`build/frontend/web/index.html`. The compiled JS/CSS is inlined; no CDN or
-independent static-asset route is required. The export/snapshot marker and
-read-only Sites flags remain unchanged.
+`build/frontend/web/index.html`. The compiled JS/CSS is inlined by
+`scripts/inline-web-bundle.mjs` **after** StyleX emits its atomic CSS.
+Inlining inside Vite's `generateBundle` phase can omit late StyleX rules.
+No CDN or independent static-asset route is required. The export/snapshot
+marker and read-only Sites flags remain unchanged.
 
 The React app owns search and filter controls, result tabs, flight and add-on
 grids, itinerary and vendor tables, investigation state, saved-search retrieval,
@@ -26,7 +28,13 @@ live in `src/domain.ts` and `src/api.ts`. Filter and query mapping live in
 `src/filters.ts`, `src/filterForm.ts`, and `src/searchForm.ts`.
 The old imperative DOM controller and its `@ts-nocheck` suppression are gone.
 
-The UI defaults to dark mode on first paint. The header toggle saves an explicit\nlight/dark preference in `localStorage` under `clawfare-theme`; an early HTML\nscript restores it before the single-file bundle loads. Theme colours are\ncentralised as CSS custom properties in `src/legacy.css` and consumed by StyleX\nwhere needed. This is a user preference, independent of OS appearance.\n\nThe UI uses StyleX atomic classes. Some pre-existing complex fare-table,
+The UI defaults to dark mode on first paint. The header toggle saves an explicit
+light/dark preference in `localStorage` under `clawfare-theme`; an early HTML
+script restores it before the single-file bundle loads. Theme colours are
+centralised as CSS custom properties in `src/legacy.css` and consumed by StyleX
+where needed. This is a user preference, independent of OS appearance.
+
+The UI uses StyleX atomic classes. Some pre-existing complex fare-table,
 timeline, and mobile interaction selectors remain in `src/legacy.css`; these
 are compatibility styles under incremental migration, not a second runtime
 controller. Keep React as the only owner of result and control DOM state.

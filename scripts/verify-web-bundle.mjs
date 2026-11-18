@@ -7,6 +7,9 @@ assert.equal(html.split(marker).length, 2, "HTML export and Sites must have exac
 assert.match(html, /__CLAWFARE_HOSTED_READ_ONLY__/, "hosted safety mode must survive compilation");
 assert.match(html, /\/api\/sample/, "API sample loader must survive compilation");
 assert.match(html, /mobile-flight/, "mobile cards must survive compilation");
+assert.match(html, /background-image\s*:\s*var\(--header-gradient\)/, "compiled theme-aware StyleX gradient must be in the offline CSS");
+assert.doesNotMatch(html, /(?:src|href)=(["'])\/?assets\//,
+  "standalone HTML must not reference a Vite asset");
 assert.match(html, /id="root"/, "React mount point must be present");
 assert.doesNotMatch(html, /src="\/assets\//, "external assets break standalone reports");
 console.log("Clawfare self-contained React HTML verification PASS");
