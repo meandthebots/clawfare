@@ -4,6 +4,7 @@
 import { D1Investigations } from "./investigations.mjs";
 import { ensureBundledPublicSample, loadPublicSample, publicSampleStorageEvidence } from "./public-sample.mjs";
 import { estimateHostedSearch } from "./search-estimate.mjs";
+import { readHostedProviderReadiness } from "./provider-http-budget.mjs";
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -65,7 +66,7 @@ export async function ownerKeyFromVerifiedEmail(email, secret, cryptoApi = globa
 export async function handleReadOnlyApi(
   request,
   { db, getVerifiedEmail, ownerKeySecret, cryptoApi = globalThis.crypto,
-    bundledPublicSample = null, kotlinEngine = null },
+    bundledPublicSample = null, kotlinEngine = null, providerKeyPresence = null },
 ) {
   if (typeof getVerifiedEmail !== "function") {
     throw new Error("Trusted identity gateway integration is required");
@@ -103,11 +104,24 @@ export async function handleReadOnlyApi(
   if (isEstimate) return estimateHostedSearch(request, kotlinEngine);
   const store = new D1Investigations(db, { cryptoApi });
 
-  if (url.pathname === "/api/status") {
-    return respond({ cacheDir: "d1", searchesDir: "d1", providers: [] });
-  }
-  if (url.pathname === "/api/quota") {
-    return respond([]);
+  if (url.pathname === "/api/status" || url.pathname === "/api/quota") {
+    // The default library test/preview remains an explicit no-provider
+    // environment. The assembled Worker supplies server-derived key presence
+    // and reads actual D1 local cap usage without provider HTTP.
+    let providers = [];
+    if (providerKeyPresence !== null) {
+      try {
+        providers = await readHostedProviderReadiness(db, {
+          keyPresent: providerKeyPresence,
+          networkEnabled: false, // No consent/search path exists in this release.
+        });
+      } catch {
+        return respond({ error: "Hosted D1 provider-cap status unavailable; searches remain disabled." }, 503);
+      }
+    }
+    return url.pathname === "/api/status"
+      ? respond({ cacheDir: "d1", searchesDir: "d1", providers })
+      : respond(providers);
   }
   if (url.pathname === "/api/storage") {
     // Read the actual D1 row and verify its digest; do not initialize,

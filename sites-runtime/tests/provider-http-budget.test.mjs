@@ -4,6 +4,8 @@ import {
   D1ProviderHttpBudget,
   classifyProviderRequest,
   meteredProviderFetch,
+  readHostedProviderReadiness,
+  READ_LOCAL_PROVIDER_CAPS_SQL,
 } from "../src/provider-http-budget.mjs";
 
 function fakeDatabase(log, accepted = true) {
@@ -136,4 +138,48 @@ test("deny before egress on exhausted caps and record transport errors", async (
     /synthetic network failure/,
   );
   assert.deepEqual(outcomes, [["r4", "serpapi", "base_search", null, "transport_error"]]);
+});
+
+test("hosted readiness reports D1 caps without remote quota calls or exposing keys", async () => {
+  let queried = 0;
+  const rows = [
+    { provider: "serpapi", daily_cap: 8, monthly_cap: 100, daily_used: 3, monthly_used: 96 },
+    { provider: "searchapi", daily_cap: 0, monthly_cap: null, daily_used: 0, monthly_used: 0 },
+    { provider: "duffel", daily_cap: 10, monthly_cap: null, daily_used: 10, monthly_used: 11 },
+  ];
+  const db = { prepare(sql) {
+    assert.equal(sql, READ_LOCAL_PROVIDER_CAPS_SQL);
+    return { bind(day, month) {
+      assert.equal(day, "2026-11-18");
+      assert.equal(month, "2026-11");
+      return { async all() { queried++; return { results: rows }; } };
+    } };
+  } };
+  const options = {
+    keyPresent: { serpapi: true, searchapi: true, duffel: true, travelpayouts: false },
+    clock: () => new Date("2026-11-18T12:30:00Z"),
+  };
+  const disabled = await readHostedProviderReadiness(db, options);
+  assert.deepEqual(disabled.map(r => [r.provider, r.configured, r.remaining]), [
+    ["serpapi", false, 4], ["searchapi", false, 0],
+    ["travelpayouts", false, null], ["duffel", false, 0],
+  ]);
+  assert.ok(disabled[0].note.includes("egress disabled"));
+  assert.ok(disabled[0].note.includes("external provider quota unknown"));
+  assert.ok(disabled[1].note.includes("cap is zero"));
+  assert.ok(disabled[2].note.includes("No D1 provider cap"));
+  assert.ok(disabled[3].note.includes("cap exhausted"));
+  const enabled = await readHostedProviderReadiness(db, { ...options, networkEnabled: true });
+  assert.equal(enabled[0].configured, true, "readiness only, never permission to dispatch HTTP");
+  assert.equal(enabled[1].configured, false);
+  assert.equal(enabled[3].configured, false);
+  assert.equal(queried, 2);
+});
+test("invalid or corrupt cap records fail closed", async () => {
+  const db = { prepare() { return { bind() { return {
+    async all() { return { results: [
+      { provider: "serpapi", daily_cap: -5, monthly_cap: null, daily_used: 0, monthly_used: 0 },
+    ] }; },
+  }; } }; } };
+  await assert.rejects(readHostedProviderReadiness(db), /Invalid provider cap ledger/);
 });

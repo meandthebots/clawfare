@@ -41,6 +41,13 @@ export function createClawfareWorkerFactory({ templateHtml, bundledPublicSample,
             kotlinEngine: kotlin,
             db: env.DB,
             ownerKeySecret: env.OWNER_KEY_SECRET,
+            // Only booleans leave this trusted Worker boundary, never keys.
+            providerKeyPresence: {
+              serpapi: Boolean(env.SERPAPI_API_KEY),
+              searchapi: Boolean(env.SEARCHAPI_API_KEY),
+              travelpayouts: Boolean(env.TRAVELPAYOUTS_API_TOKEN),
+              duffel: Boolean(env.DUFFEL_ACCESS_TOKEN),
+            },
             // The hosting adapter, not the visitor, must authenticate.
             getVerifiedEmail: req => getVerifiedEmail(req, context),
           });

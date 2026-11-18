@@ -67,8 +67,14 @@ test("server retains the Kotlin UI and invokes an explicit identity verifier", a
   assert.match(await homepage.text(), /window.__CLAWFARE_HOSTED_READ_ONLY__ = true/);
   const status = await worker.fetch(req("/api/status"), env);
   assert.equal(status.status, 200);
-  assert.deepEqual((await status.json()).providers, []);
-  assert.equal(verifiedCalls, 1);
+  const readiness = (await status.json()).providers;
+  assert.equal(readiness.length, 4);
+  assert.ok(readiness.every(p => p.configured === false && p.remaining === null));
+  assert.ok(readiness.every(p => /No D1 provider cap/.test(p.note)));
+  const quota = await worker.fetch(req("/api/quota"), env);
+  assert.equal(quota.status, 200);
+  assert.deepEqual(await quota.json(), readiness);
+  assert.equal(verifiedCalls, 2); // both status and quota authenticate independently
   assert.equal((await worker.fetch(req("/api/search", { method: "POST" }), env)).status, 405);
   assert.equal((await worker.fetch(req("/unknown"), env)).status, 404);
   assert.equal((await worker.fetch(req("/signin-with-chatgpt"), env)).status, 404);
