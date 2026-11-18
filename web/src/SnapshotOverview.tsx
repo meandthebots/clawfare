@@ -129,10 +129,12 @@ function SummaryCard({
   label,
   hit,
   onSelect,
+  legacySample,
 }: {
   label: string;
   hit: Hit | null;
   onSelect: SnapshotOverviewProps["onSelect"];
+  legacySample: boolean;
 }) {
   if (!hit)
     return (
@@ -151,7 +153,11 @@ function SummaryCard({
     hit.it.airlineSummary +
     " " +
     fmtRange(hit.it.outboundDate, hit.it.returnDate) +
-    (hit.addon ? " + Mexico " + hit.addon.id : "");
+    (hit.addon
+      ? legacySample
+        ? " + Mexico " + hit.addon.id
+        : " + " + hit.addon.origin + " → " + hit.addon.destination + " " + hit.addon.id
+      : "");
   return (
     <div
       className={"sumcard " + stylex.props(styles.summaryCard).className}
@@ -252,7 +258,11 @@ function Legend({ result, tab }: Pick<SnapshotOverviewProps, "result" | "tab">) 
           <i className={"sw " + stylex.props(styles.swatch, styles.legendWorks).className} />
           Cheapest that fully works
         </span>
-        <span>Cell = 2 × long-haul + 1 × Mexico. 🔗 opens the booking link.</span>
+        <span>
+          {result.scenarioLabel === "florida"
+            ? "Cell = 2 × long-haul + 1 × Mexico. 🔗 opens the booking link."
+            : "Cell = primary itinerary plus optional add-on at each component's traveler count. Booking links require verification."}
+        </span>
       </>
     );
   if (tab === "vendors")
@@ -309,12 +319,28 @@ export function SnapshotOverview({
         label={result.addons.length ? "Cheapest feasible combination" : "Cheapest"}
         hit={feasible}
         onSelect={onSelect}
+        legacySample={result.scenarioLabel === "florida"}
       />
       {result.addons.length > 0 && (
-        <SummaryCard label="Cheapest fully works" hit={works} onSelect={onSelect} />
+        <SummaryCard
+          label="Cheapest fully works"
+          hit={works}
+          onSelect={onSelect}
+          legacySample={result.scenarioLabel === "florida"}
+        />
       )}
-      <SummaryCard label="Cheapest nonstop" hit={nonstop} onSelect={onSelect} />
-      <SummaryCard label="Cheapest European premium" hit={european} onSelect={onSelect} />
+      <SummaryCard
+        label="Cheapest nonstop"
+        hit={nonstop}
+        onSelect={onSelect}
+        legacySample={result.scenarioLabel === "florida"}
+      />
+      <SummaryCard
+        label="Cheapest European premium"
+        hit={european}
+        onSelect={onSelect}
+        legacySample={result.scenarioLabel === "florida"}
+      />
     </>
   );
 }
