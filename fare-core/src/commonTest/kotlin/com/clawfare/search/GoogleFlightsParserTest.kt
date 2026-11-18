@@ -80,7 +80,7 @@ class GoogleFlightsParserTest {
         assertEquals("BA" to "123", splitFlightCode("BA 123", ""))
         assertEquals("B6" to "789", splitFlightCode("B6789", ""))
         assertEquals("JL" to "8", splitFlightCode("JL 8", ""))
-        assertEquals("NH" to "NH8", splitFlightCode("NH8", "NH"))
+        assertEquals("NH" to "8", splitFlightCode("NH8", "NH"))
     }
 
     @Test
