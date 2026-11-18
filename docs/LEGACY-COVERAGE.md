@@ -106,12 +106,33 @@ Run the isolated suite with:
 ```
 
 No provider endpoints are contacted; every booking URL is under
-`example.invalid`. This raises `FlightImportDbCommand` to **95.4% LINE / 84.7% BRANCH**
-coverage (GitHub Actions, 2026-11-17). Its exclusion has been retired and
-is subject to the existing per-class 80% regression gate. These tests do
-not yet verify
-transactional rollback for a partially failing `import-db` command, which
-remains follow-up work under #23.
+`example.invalid`. The original suite raised `FlightImportDbCommand` to
+**95.4% LINE / 84.7% BRANCH** coverage (GitHub Actions, 2026-11-17).
+Its exclusion has been retired, and the per-class 80% regression gate
+still applies.
+
+### Atomic destination rollback
+
+The `flight import-db` command now runs the **entire destination import
+inside one Exposed/SQLite transaction**, rather than committing each
+`InvestigationQueries`, `FlightQueries`, and `PriceHistoryQueries`
+call individually. Exceptions during source reads or destination writes
+abort that transaction and produce a nonzero command exit status;
+the source JDBC connection is always closed.
+
+Three additional synthetic test cases inject an actual SQLite trigger
+failure **after earlier writes have occurred**: on the second flight,
+on the second historical price record, and on a later re-import into
+an already-populated destination. Each checks that no partially imported
+data survives and that retrying after removing the failure succeeds.
+The existing 80% per-class line-and-branch ratchet still protects the
+command.
+
+This is a **single-command database transaction**, not a crash-proof
+distributed transaction spanning source and destination files or a guarantee
+about foreign programs writing the same SQLite database concurrently.
+No user databases, live provider endpoints, or real traveller data are
+used in tests.
 
 This is a measured starting point, **not completion of issue #23**.
 Next: increase coverage of individual existing `Inv*`, `Flight*` and

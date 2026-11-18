@@ -171,6 +171,14 @@ class FlightImportDbRegressionTest {
         }
     }
 
+    private fun targetSql(statement: String) {
+        DriverManager.getConnection("jdbc:sqlite:$target").use { connection ->
+            connection.createStatement().use { sql ->
+                sql.execute(statement)
+            }
+        }
+    }
+
     @Test
     fun dryRunLeavesBothTargetAndSourceUntouched() {
         val source = source()
@@ -420,5 +428,87 @@ class FlightImportDbRegressionTest {
         // Picocli parent command and any target database mutation.
         assertEquals(1, FlightImportDbCommand().call())
         assertTrue(InvestigationQueries.listAll().isEmpty())
+    }
+
+    @Test
+    fun failingSecondFlightRollsBackAllEarlierInvestigationsFlightsAndPrices() {
+        val source = source()
+        targetSql(
+            """
+            CREATE TRIGGER reject_second_flight
+            BEFORE INSERT ON flights
+            WHEN NEW.id = 'flight-beta'
+            BEGIN SELECT RAISE(ABORT, 'fixture second flight rejected'); END
+            """.trimIndent(),
+        )
+
+        assertEquals(1, execute(source.toString()))
+        assertTrue(InvestigationQueries.listAll().isEmpty(), "Both investigations must roll back.")
+        assertNull(FlightQueries.getById("flight-alpha"), "Earlier flight must also roll back.")
+        assertNull(FlightQueries.getById("flight-beta"))
+        assertTrue(PriceHistoryQueries.getByFlightId("flight-alpha").isEmpty())
+
+        targetSql("DROP TRIGGER reject_second_flight")
+        assertEquals(0, execute(source.toString()), "Import must be retryable after removing the failure.")
+        assertEquals(2, InvestigationQueries.listAll().size)
+        assertNotNull(FlightQueries.getById("flight-alpha"))
+        assertNotNull(FlightQueries.getById("flight-beta"))
+        assertEquals(2, PriceHistoryQueries.getByFlightId("flight-alpha").size)
+    }
+
+    @Test
+    fun failingSecondPriceObservationRollsBackNewInvestigationAndFlight() {
+        val source = source()
+        targetSql(
+            """
+            CREATE TRIGGER reject_second_history
+            BEFORE INSERT ON price_history
+            WHEN NEW.checked_at = '2026-01-02T00:00:00Z'
+            BEGIN SELECT RAISE(ABORT, 'fixture second price rejected'); END
+            """.trimIndent(),
+        )
+
+        assertEquals(1, execute(source.toString(), "--investigation", "fixture-alpha"))
+        assertNull(InvestigationQueries.getBySlug("fixture-alpha"))
+        assertNull(FlightQueries.getById("flight-alpha"))
+        assertTrue(PriceHistoryQueries.getByFlightId("flight-alpha").isEmpty())
+
+        targetSql("DROP TRIGGER reject_second_history")
+        assertEquals(0, execute(source.toString(), "--investigation", "fixture-alpha"))
+        assertEquals(
+            listOf(120.0, 119.5),
+            PriceHistoryQueries.getByFlightId("flight-alpha").map { it.amount },
+        )
+    }
+
+    @Test
+    fun failingReimportKeepsExistingHistoryUntouchedAndCanBeRetried() {
+        val source = source()
+        val args = arrayOf(source.toString(), "--investigation", "fixture-alpha")
+        assertEquals(0, execute(*args))
+        addNewObservation(source)
+        targetSql(
+            """
+            CREATE TRIGGER reject_new_history
+            BEFORE INSERT ON price_history
+            WHEN NEW.checked_at = '2026-01-03T00:00:00Z'
+            BEGIN SELECT RAISE(ABORT, 'fixture later price rejected'); END
+            """.trimIndent(),
+        )
+
+        assertEquals(1, execute(*args))
+        assertNotNull(InvestigationQueries.getBySlug("fixture-alpha"))
+        assertNotNull(FlightQueries.getById("flight-alpha"))
+        assertEquals(
+            listOf(120.0, 119.5),
+            PriceHistoryQueries.getByFlightId("flight-alpha").map { it.amount },
+        )
+
+        targetSql("DROP TRIGGER reject_new_history")
+        assertEquals(0, execute(*args))
+        assertEquals(
+            listOf(120.0, 119.5, 118.25),
+            PriceHistoryQueries.getByFlightId("flight-alpha").map { it.amount },
+        )
     }
 }
