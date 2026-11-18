@@ -1,5 +1,70 @@
+import * as stylex from "@stylexjs/stylex";
 import type { BookLink, ComboCell, Direction, Itinerary } from "./domain.ts";
 import { bookingUrl, directionLine, fmtRange, gbp, stopsLabel } from "./GridView.tsx";
+
+const styles = stylex.create({
+  links: { display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" },
+  bookNote: {
+    marginTop: "10px",
+    padding: "8px 10px",
+    borderRadius: "8px",
+    backgroundColor: "var(--notice-bg)",
+    border: "1px solid var(--notice-border)",
+    fontSize: "12px",
+    color: "var(--notice-ink)",
+  },
+  box: {
+    border: "1px solid var(--line)",
+    borderRadius: "10px",
+    padding: "10px 12px",
+    marginBottom: "10px",
+  },
+  boxTitle: {
+    fontWeight: 700,
+    marginBottom: "4px",
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "8px",
+  },
+  reasons: { margin: 0, paddingLeft: "18px" },
+  reasonNo: { color: "var(--red-ink)" },
+  reasonCatch: { color: "var(--amber-ink)" },
+  reasonOk: { color: "var(--green-ink)" },
+  timelineDays: { display: "grid", fontSize: "10px", color: "var(--muted)", textAlign: "center" },
+  timelineDay: { padding: "2px 0", borderLeft: "1px solid var(--neutral-bg)" },
+  timelineChristmas: { color: "var(--red-ink)", fontWeight: 800 },
+  timelineRow: {
+    position: "relative",
+    height: "24px",
+    margin: "5px 0",
+    backgroundColor: "var(--header-bg)",
+    borderRadius: "6px",
+  },
+  timelineMarker: {
+    position: "absolute",
+    top: "-2px",
+    bottom: "-2px",
+    width: "2px",
+    backgroundColor: "var(--red-ink)",
+  },
+  timelineBar: {
+    position: "absolute",
+    top: "2px",
+    height: "20px",
+    borderRadius: "5px",
+    fontSize: "11px",
+    color: "#fff",
+    fontWeight: 700,
+    display: "flex",
+    alignItems: "center",
+    padding: "0 6px",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+  },
+  timelineFlorida: { backgroundColor: "var(--accent)" },
+  timelineMexico: { backgroundColor: "var(--orange)" },
+  timelineNo: { backgroundColor: "var(--red)" },
+});
 
 function money(value: number | null | undefined, currency?: string | null): string {
   if (value == null || !Number.isFinite(value)) return "Unknown";
@@ -55,7 +120,7 @@ export function isCashRefundVerified(it: Itinerary, now = Date.now()): boolean {
 }
 function BookLinks({ links }: { links: BookLink[] }) {
   return (
-    <div className="links">
+    <div className={"links " + stylex.props(styles.links).className}>
       {links.map((link, index) => {
         const url = bookingUrl(link);
         return url ? (
@@ -83,8 +148,8 @@ function DirectionBox({
   direction: Direction;
 }) {
   return (
-    <div className="box">
-      <div className="t">
+    <div className={"box " + stylex.props(styles.box).className}>
+      <div className={"t " + stylex.props(styles.boxTitle).className}>
         <span>{title}</span>
         <span>{stopsLabel(it)}</span>
       </div>
@@ -137,19 +202,19 @@ function Reasons({ cell }: { cell: ComboCell }) {
   return (
     <div className="sec">
       <h3>Why</h3>
-      <ul className="reasons">
+      <ul className={"reasons " + stylex.props(styles.reasons).className}>
         {cell.reasonsNo.map((reason, i) => (
-          <li className="no" key={"no" + i}>
+          <li className={"no " + stylex.props(styles.reasonNo).className} key={"no" + i}>
             ✗ {reason}
           </li>
         ))}
         {cell.catches.map((reason, i) => (
-          <li className="catch" key={"catch" + i}>
+          <li className={"catch " + stylex.props(styles.reasonCatch).className} key={"catch" + i}>
             ⚠ {reason}
           </li>
         ))}
         {cell.oks.map((reason, i) => (
-          <li className="ok" key={"ok" + i}>
+          <li className={"ok " + stylex.props(styles.reasonOk).className} key={"ok" + i}>
             ✓ {reason}
           </li>
         ))}
@@ -181,21 +246,43 @@ function Timeline({
   return (
     <div className="sec">
       <h3>Timeline</h3>
-      <div className="tl-days" style={{ gridTemplateColumns: "repeat(" + days.length + ", 1fr)" }}>
+      <div
+        className={"tl-days " + stylex.props(styles.timelineDays).className}
+        style={{ gridTemplateColumns: "repeat(" + days.length + ", 1fr)" }}
+      >
         {days.map((date) => {
           const iso = date.toISOString().slice(0, 10);
           return (
-            <div key={iso} className={iso === "2026-12-24" ? "xmas" : ""}>
+            <div
+              key={iso}
+              className={
+                (iso === "2026-12-24" ? "xmas " : "") +
+                stylex.props(styles.timelineDay, iso === "2026-12-24" && styles.timelineChristmas)
+                  .className
+              }
+            >
               {date.getUTCDate()}
             </div>
           );
         })}
       </div>
       {it.returnDate && (
-        <div className="tl-row">
-          <div className="tl-mark" style={{ left: marker + "%" }} />
+        <div className={"tl-row " + stylex.props(styles.timelineRow).className}>
           <div
-            className={"tl-bar couple" + barClass}
+            className={"tl-mark " + stylex.props(styles.timelineMarker).className}
+            style={{ left: marker + "%" }}
+          />
+          <div
+            className={
+              "tl-bar couple" +
+              barClass +
+              " " +
+              stylex.props(
+                styles.timelineBar,
+                styles.timelineFlorida,
+                cell.status === "no" && styles.timelineNo,
+              ).className
+            }
             style={{
               left: pos(it.outboundDate) + "%",
               width: width(it.outboundDate, it.returnDate) + "%",
@@ -206,10 +293,22 @@ function Timeline({
         </div>
       )}
       {addon?.returnDate && (
-        <div className="tl-row">
-          <div className="tl-mark" style={{ left: marker + "%" }} />
+        <div className={"tl-row " + stylex.props(styles.timelineRow).className}>
           <div
-            className={"tl-bar mex" + barClass}
+            className={"tl-mark " + stylex.props(styles.timelineMarker).className}
+            style={{ left: marker + "%" }}
+          />
+          <div
+            className={
+              "tl-bar mex" +
+              barClass +
+              " " +
+              stylex.props(
+                styles.timelineBar,
+                styles.timelineMexico,
+                cell.status === "no" && styles.timelineNo,
+              ).className
+            }
             style={{
               left: pos(addon.outboundDate) + "%",
               width: width(addon.outboundDate, addon.returnDate) + "%",
@@ -312,8 +411,8 @@ export function DetailsContent({
         {it.notes && <div className="muted">{it.notes}</div>}
         <BookLinks links={it.links} />
         {addon && (
-          <div className="box">
-            <div className="t">
+          <div className={"box " + stylex.props(styles.box).className}>
+            <div className={"t " + stylex.props(styles.boxTitle).className}>
               <span>
                 Add-on {addon.id} · {addon.airlineSummary}
               </span>
@@ -355,7 +454,7 @@ export function DetailsContent({
         </table>
       </div>
       <RefundDetails it={it} />
-      <div className="booknote">
+      <div className={"booknote " + stylex.props(styles.bookNote).className}>
         Links open for <b>1 adult</b>. Set the passenger count on Google Flights before choosing a
         booking option.{" "}
         {it.sourceLabel === "mock"

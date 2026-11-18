@@ -59,6 +59,11 @@ try {
   assert.ok((await mobile.locator("#pTitle").textContent()).includes(" + " + addonId),
     "Tapping a Mexico add-on must open the selected combination");
   assert.match(await mobile.locator("#pBody").textContent(), /Price/);
+  assert.equal(await mobile.locator("#pBody .tl-days").evaluate(el => getComputedStyle(el).display),
+    "grid", "The timeline ruler must retain compiled StyleX layout");
+  assert.equal(await mobile.locator("#pBody .tl-bar").first().evaluate(el => getComputedStyle(el).height),
+    "20px", "A flight bar must keep its visible 20px height");
+
   assert.match(await mobile.locator("#pBody").textContent(), /Cancellation \/ refund evidence/);
   assert.ok(await mobile.locator("#btnVendorsFor").isVisible(),
     "React details drawer must retain the seller comparison action");
