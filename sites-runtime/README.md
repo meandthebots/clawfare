@@ -289,3 +289,44 @@ Site identity and D1 isolation must still be checked under #63.
 Regression tests:
 `node --test sites-runtime/tests/search-consent.test.mjs`
 and `python3 -m unittest discover -s sites-runtime/tests -p 'test_*.py'`.
+
+## Dormant SerpApi prepare/consent API (issue #122)
+
+`POST /api/prepare-search` is a **non-billable preparation-only** endpoint
+behind the trusted Worker configuration switch
+`SEARCH_PREPARE_ENABLED === "true"`; the default is OFF and returns 405.
+The Site's read-only HTML and `POST /api/search` remain unchanged/disabled.
+
+For synthetic integration tests only, set a distinct server-held
+`SEARCH_CONSENT_SIGNING_SECRET` (at least 32 bytes), a server-only
+`SERPAPI_API_KEY` and nonzero D1 daily/monthly caps. Never put either
+secret in the browser, GitHub Actions logs or public sample. The Worker
+passes credential presence as a boolean and derives the owner from verified
+ChatGPT identity; no client header or query field can substitute for identity.
+
+On a same-origin authenticated POST with an at-most-16-KiB JSON search query:
+
+1. Validate and bound all submitted search policy fields before passing
+   them to the **compiled Kotlin/JS flight planner**.
+2. Support exactly one provider, SerpApi, with an explicitly specified
+   `maxLiveCalls` between 1 and 16; reject cache-only, any pre-confirmed
+   query, invalid or excessive date pairs and all other providers.
+3. Compute the conservative upper bound: one base request per outbound/return
+   date pair and origin/destination route, plus up to `returnChoices` follow-up
+   return requests per base request. Do not subtract hypothetical cache hits.
+   Seller/booking-option/quota requests are **not authorized** by this quote.
+4. Require provider credential presence and local D1 capacity for the
+   entire worst-case request plan. Let `D1SearchConsents` issue a
+   five-minute HMAC-signed, single-use, owner/query/provider/category-bound
+   token. The exact Kotlin-normalized query is returned to the authenticated
+   browser so any later confirmation must match its digest.
+5. Return explicit worst-case counts and a warning that vendor quota/cost
+   remains unknown. The response sets `canExecuteHere: false` and performs
+   **zero** provider HTTP requests.
+
+This capability does **not** consume an approval, reserve a provider call,
+save a result, enable the Run button or connect paid provider transport.
+Follow-on #122/#124 work must implement the separately gated synchronous
+or idempotent-job search execution path, count and atomically reserve every
+HTTP attempt, and gate release under #63/#135. Do not enable paid egress
+merely because `SEARCH_PREPARE_ENABLED` is set.
