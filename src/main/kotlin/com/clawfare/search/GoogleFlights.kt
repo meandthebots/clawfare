@@ -695,9 +695,7 @@ fun flightMatch(
 fun itineraryId(
     outbound: List<Leg>,
     returning: List<Leg>?,
-): String {
-    return "itin-" + sha256(googleFlightFamilyKey(outbound, returning)).take(10)
-}
+): String = "itin-" + sha256(googleFlightFamilyKey(outbound, returning)).take(10)
 
 fun marketParams(market: String): Pair<String, String> =
     when (market) {
