@@ -111,6 +111,17 @@ try {
   await desktop.waitForSelector("#grid td.cell");
   await desktop.locator("#tabs button[data-tab='vendors']").click();
   await desktop.waitForSelector("#vendors tbody tr");
+  const trustBadge = desktop.locator("#vendors span.trust").first();
+  const darkTrustBackground = await trustBadge.evaluate(el => getComputedStyle(el).backgroundColor);
+  assert.notEqual(darkTrustBackground, "rgba(0, 0, 0, 0)",
+    "Seller trust badge needs a compiled StyleX background");
+  assert.equal(await desktop.locator("#themeToggle").getAttribute("aria-pressed"), "true");
+  await desktop.locator("#themeToggle").click();
+  assert.equal(await desktop.locator("#themeToggle").getAttribute("aria-pressed"), "false");
+  const lightTrustBackground = await trustBadge.evaluate(el => getComputedStyle(el).backgroundColor);
+  assert.notEqual(lightTrustBackground, darkTrustBackground,
+    "Seller trust colours must react to light/dark theme tokens");
+  await desktop.locator("#themeToggle").click();
   const firstNote = desktop.locator("#vendors textarea.noteedit").first();
   await firstNote.fill("React vendor note regression");
   await firstNote.blur();
