@@ -302,9 +302,7 @@ export function GridView({
   legacySample = false,
 }: GridViewProps) {
   const addonLabel = (addon: Itinerary): string =>
-    legacySample
-      ? "Mexico " + addon.id
-      : addon.origin + " → " + addon.destination + " " + addon.id;
+    legacySample ? "Mexico " + addon.id : addon.origin + " → " + addon.destination + " " + addon.id;
   const primaryLabel = legacySample ? "long-haul" : "primary flight";
   const { map, feasible, works } = useMemo(() => {
     const map = new Map(cells.map((cell) => [keyFor(cell.primaryId, cell.addonId), cell]));
@@ -423,7 +421,9 @@ export function GridView({
             <th className="rowh">
               {legacySample ? "Long-haul option" : "Primary flight"}
               <span className="sub">
-                {legacySample ? "flights, per person, couple total" : "fare per person and party total"}
+                {legacySample
+                  ? "flights, per person, couple total"
+                  : "fare per person and party total"}
               </span>
             </th>
             {addons.map((addon) => (
