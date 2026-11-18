@@ -67,8 +67,10 @@ export const INITIAL_SEARCH: Readonly<SearchForm> = Object.freeze({
 });
 
 export class SearchFormError extends Error {
-  constructor(readonly field: keyof SearchForm, message: string) {
+  readonly field: keyof SearchForm;
+  constructor(field: keyof SearchForm, message: string) {
     super(message);
+    this.field = field;
     this.name = "SearchFormError";
   }
 }
