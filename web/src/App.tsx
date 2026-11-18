@@ -641,6 +641,7 @@ export function App() {
           hideInfeasible={filter.hide}
           selectedKey={selectedKey}
           onSelect={openDetails}
+          legacySample={result.scenarioLabel === "florida"}
         />
       );
     if (tab === "grid" || tab === "itineraries")
