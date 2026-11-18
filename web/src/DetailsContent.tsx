@@ -254,6 +254,9 @@ function Timeline({
     .filter((value): value is string => typeof value === "string" && /^\\d{4}-\\d\\d-\\d\\d$/.test(value))
     .map((date) => Date.parse(date + "T00:00:00Z"))
     .filter(Number.isFinite);
+  if (!legacySample && flightDates.length === 0) {
+    return <div className="muted">Timeline unavailable: flight dates were not provided.</div>;
+  }
   // The original sample timeline remains pixel-identical. Other trips use
   // their own departure/return dates, never December 2026.
   const start = legacySample
@@ -263,6 +266,9 @@ function Timeline({
     ? Date.parse("2027-01-01T00:00:00Z")
     : Math.max(...flightDates) + 86400000;
   const span = Math.round((end - start) / 86400000);
+  if (span > 120) {
+    return <div className="muted">Timeline spans more than 120 days; view the flight dates below.</div>;
+  }
   const days = Array.from({ length: span + 1 }, (_, i) => new Date(start + i * 86400000));
   const pos = (iso: string) => ((Date.parse(iso + "T00:00:00Z") - start) / 86400000 / span) * 100;
   const width = (from: string, to: string) => {
