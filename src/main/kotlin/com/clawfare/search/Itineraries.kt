@@ -167,21 +167,7 @@ object Filters {
     private fun carrierMatch(
         leg: Leg,
         token: String,
-    ): Boolean {
-        val requested = token.trim()
-        if (requested.isEmpty()) return false
-        val aliases =
-            when (requested.uppercase()) {
-                "AI", "AIR INDIA" -> setOf("AI", "Air India")
-                "VN", "VIETNAM AIRLINES" -> setOf("VN", "Vietnam Airlines")
-                "LO", "LOT", "LOT POLISH AIRLINES" -> setOf("LO", "LOT", "LOT Polish Airlines")
-                else ->
-                    AIRLINE_NAMES[requested.uppercase()]?.let { setOf(requested, it) }
-                        ?: setOf(requested)
-            }
-        val observed = listOf(leg.airlineCode, leg.airline, leg.operatingCarrier)
-        return observed.any { actual -> aliases.any { alias -> actual.trim().equals(alias, ignoreCase = true) } }
-    }
+    ): Boolean = isKnownCarrierMatch(leg, token)
 
     /**
      * Short-haul (non-transatlantic) legs may sit in a lower cabin than the long-haul search.
