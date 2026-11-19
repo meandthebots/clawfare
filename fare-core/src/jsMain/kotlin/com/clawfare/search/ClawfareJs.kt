@@ -87,6 +87,14 @@ object ClawfareJs {
         )
     }
 
+    /** Canonical UI ResultSet assembly; returns token-free fare and coverage evidence. */
+    fun assembleHostedOneWayJson(requestJson: String): String {
+        val request = AppJson.decodeFromString(HostedFareResultRequest.serializer(), requestJson)
+        return AppJson.encodeToString(
+            HostedFareAssembly.serializer(), assembleHostedOneWayResult(request),
+        )
+    }
+
     fun toGbpOrNull(
         amount: Double,
         unitsPerGbp: Double,
@@ -132,3 +140,8 @@ fun buildGoogleFareDraftForHost(requestJson: String): String =
 @JsExport
 fun evaluateOfferEligibilityForHost(requestJson: String): String =
     ClawfareJs.evaluateOfferEligibilityJson(requestJson)
+
+/** Server-only, one-way Kotlin ResultSet construction; no opaque provider tokens. */
+@JsExport
+fun assembleHostedOneWayForHost(requestJson: String): String =
+    ClawfareJs.assembleHostedOneWayJson(requestJson)
