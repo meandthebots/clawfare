@@ -5,6 +5,7 @@ import { D1Investigations } from "./investigations.mjs";
 import { D1ProviderPersistence } from "./provider-persistence.mjs";
 import { ensureBundledPublicSample, loadPublicSample, publicSampleStorageEvidence } from "./public-sample.mjs";
 import { estimateHostedSearch } from "./search-estimate.mjs";
+import { prepareSerpApiSearch } from "./serpapi-prepare.mjs";
 import { readHostedProviderReadiness } from "./provider-http-budget.mjs";
 
 const JSON_HEADERS = {
@@ -67,7 +68,8 @@ export async function ownerKeyFromVerifiedEmail(email, secret, cryptoApi = globa
 export async function handleReadOnlyApi(
   request,
   { db, getVerifiedEmail, ownerKeySecret, cryptoApi = globalThis.crypto,
-    bundledPublicSample = null, kotlinEngine = null, providerKeyPresence = null },
+    bundledPublicSample = null, kotlinEngine = null, providerKeyPresence = null,
+    searchPrepareConfig = null },
 ) {
   if (typeof getVerifiedEmail !== "function") {
     throw new Error("Trusted identity gateway integration is required");
@@ -79,7 +81,9 @@ export async function handleReadOnlyApi(
   // other mutation, provider search, write or consent-granting route exists.
   const isEstimate = url.pathname === "/api/estimate" && request.method === "POST" &&
     kotlinEngine != null;
-  if (request.method !== "GET" && !isEstimate) {
+  const isPrepare = url.pathname === "/api/prepare-search" && request.method === "POST" &&
+    searchPrepareConfig?.enabled === true && kotlinEngine != null;
+  if (request.method !== "GET" && !isEstimate && !isPrepare) {
     return respond({ error: "Hosted preview: paid searches and mutations are disabled." }, 405,
       { allow: url.pathname === "/api/estimate" && kotlinEngine != null ? "POST" : "GET" });
   }
@@ -103,6 +107,9 @@ export async function handleReadOnlyApi(
   // Authentication precedes parsing and Kotlin planning. The estimator
   // creates no token, no reservation, no network request and no D1 write.
   if (isEstimate) return estimateHostedSearch(request, kotlinEngine);
+  if (isPrepare) return prepareSerpApiSearch(request, {
+    ...searchPrepareConfig, db, ownerId, kotlinEngine, cryptoApi,
+  });
   const store = new D1Investigations(db, { cryptoApi });
 
   if (url.pathname === "/api/status" || url.pathname === "/api/quota") {
