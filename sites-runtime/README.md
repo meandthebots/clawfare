@@ -290,45 +290,53 @@ Regression tests:
 `node --test sites-runtime/tests/search-consent.test.mjs`
 and `python3 -m unittest discover -s sites-runtime/tests -p 'test_*.py'`.
 
-## Dormant metered SerpApi transport (issue #122)
+## Tenant-private provider evidence and cache (issue #123)
 
-`src/serpapi-metered-transport.mjs` implements the first **server-only,
-unmounted** provider transport. Its top-level `enabled` option defaults to
-`false`, and no browser, API or Worker handler imports or calls it. In
-particular, `POST /api/search` remains HTTP 405, regardless of this source
-module's presence.
+Migration `0005_hosted_provider_cache.sql` adds two separate stores. These
+are **dormant infrastructure**, not a provider search API. The Worker still
+rejects paid search POSTs and no provider credentials or external requests
+are introduced by this migration.
 
-A future trusted HTTP orchestrator may pass a verified opaque owner key, the
-**exact** canonical Kotlin/JS search JSON, a signed short-lived single-use
-consent, the server-held SerpApi credential and D1. The function:
+- `hosted_provider_search_attempts`: written before each authorized route
+  dispatch and transitioned *once* from `attempted` to a terminal
+  `complete`, `empty`, `partial` or `failed` state. A Worker crash leaves
+  `attempted`; missing rows and partial/failed attempts are **not** evidence
+  that flights were unavailable. An attempted route cannot be dispatched again
+  using the same authenticated owner/consent nonce/provider/route digest.
+  Counts distinguish provider returns, hard-policy exclusions, cache hits,
+  metered HTTP attempts and loaded requests. Only controlled error categories
+  are saved, never provider response bodies or exception strings.
+- `hosted_provider_offer_cache`: optional, explicitly licensed per-provider
+  storage of *sanitized parsed offer summaries only*, not raw HTTP bodies.
+  `D1ProviderPersistence.cacheBaseOffers` defaults to deny; the caller must
+  establish provider-specific `cachingPermitted: true` and that the response
+  is recognized and complete. Entries are isolated by opaque authenticated
+  owner, provider, canonical Kotlin query + token-free base-call parameters,
+  and parser revision (SHA-256 digest). Maximum 100 offers, 64 KiB/entry,
+  30-minute TTL. Reading an entry always returns `sourceLabel: cached`,
+  `livePrice: false`, the original observation timestamp/currency and the
+  expiration, never an assertion of current bookability. Expired entries are
+  treated as cache misses and cannot generate HTTP automatically.
+- There is **no persistent cache of booking/departure tokens or seller offers**.
+  Raw Kotlin parser fields are allowlisted into a new value object; unknown
+  properties and opaque token fields are discarded before D1 writes. Return
+  selection must be refreshed by a separately approved, metered call; a
+  cached outbound alone is not a verified round trip.
+- `D1Investigations.saveResultWithPrices` performs the token-checked,
+  512-KiB-bound ResultSet snapshot and up to 200 immutable,
+  original-currency observations in a single D1 batch. An invalid observation
+  aborts before any write; duplicate observations use stable IDs. The old
+  independent snapshot and history APIs remain available.
+- Authenticated read-only `GET /api/attempts/{consentNonce}` exposes only
+  owner-scoped, bounded sanitized coverage rows. No provider cache body or
+  mutable endpoint is exposed directly to browsers. The returned attempt
+  nonce is not a consent token and cannot authorize a new call.
 
-1. Replans the query with compiled Kotlin/JS, checks byte-for-byte equality
-   with the approved canonical JSON, and refuses round trips, return tokens,
-   multiple providers, cache-only, unknown cabins or any one-way matrix
-   requiring more than 16 requests. This first slice does not pretend that
-   an outbound result is an independently verified round-trip offer.
-2. Atomically consumes the owner/query-bound consent nonce in D1. The
-   consent must authorize exactly the projected `serpapi/base_search` count,
-   with no other categories, before any request is sent.
-3. Sequentially constructs a fixed, allowlisted SerpApi Google Flights GET
-   URL from typed Kotlin fields and the server's secret. Each request is
-   atomically reserved against actual D1 daily/monthly provider caps by
-   `D1ProviderHttpBudget` **before** Fetch. Network errors, aborts and
-   malformed responses do not refund quota; no implicit retries occur.
-4. Rejects 3xx manual redirects, HTTP 401/403/429/5xx, malformed JSON and
-   responses exceeding 256 KiB. Each attempt has a bounded 15-second default
-   timeout and an absolute 30-second configured maximum.
-5. Invokes the compiled Kotlin Google Flights parser but returns only
-   token-free coarse diagnostics: route, completion state, returned offer
-   count, completed/attempted call counts and a controlled error code. It
-   does **not** expose parsed provider tokens, a public ResultSet, booking
-   availability or airline refundability. A partial batch is not 'no fares'.
+Provider-specific terms, source retention limits, live result assembly,
+billing reservations, and the authenticated quote/confirm/search flow remain
+dependent on #121/#122/#124, #25, and the hosted rollout gate #135.
+Do not flip the egress release switch on the basis of this cache module.
 
-The transport is intentionally **not** a complete user search. Before any
-owner-approved live rollout, compose it with the durable attempt ledger and
-snapshots (#123), Kotlin eligibility/ResultSet construction (#121), the
-prepared-quote and execution API (#122), the explicitly confirmed frontend
-flow (#124), trusted Site auth verification (#63), and synthetic release
-gates (#135). Until then, do not enable any paid egress or give the browser
-the SerpApi credential. Run offline tests with
-`node --test sites-runtime/tests/serpapi-metered-transport.test.mjs`.
+Deterministic offline tests:
+`node --test sites-runtime/tests/*.test.mjs` and
+`python3 -m unittest discover -s sites-runtime/tests -p 'test_*.py' -v`.

@@ -91,6 +91,11 @@ function checkedSnapshot(result) {
     throw new TypeError("Expected a token-free Kotlin ResultSet");
   }
   const payload = JSON.stringify(result);
+  // A ResultSet may contain booking URLs, but it must never carry private
+  // provider response tokens (even in nested objects or URL query params).
+  if (/["'](?:departureToken|bookingToken|apiKey|accessToken|tokens)["']\s*:|(?:api[_-]?key|access[_-]?token|departure[_-]?token|booking[_-]?token)=/i.test(payload)) {
+    throw new TypeError("Provider tokens are forbidden in saved result snapshots");
+  }
   if (!payload || new TextEncoder().encode(payload).length > MAX_SNAPSHOT_BYTES) {
     throw new RangeError("Investigation snapshot exceeds hosting limit");
   }
@@ -101,6 +106,33 @@ async function stableObservationId(fields, cryptoApi) {
   const canonical = JSON.stringify(fields);
   const digest = await cryptoApi.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function priceObservationParams(ownerId, slug, observation, cryptoApi) {
+  assertKey(ownerId, OWNER, "authenticated owner ID");
+  assertKey(slug, SLUG, "investigation slug");
+  if (!observation || typeof observation !== "object" || Array.isArray(observation)) {
+    throw new TypeError("Invalid price observation");
+  }
+  const itineraryId = assertKey(observation.itineraryId, ITINERARY, "itinerary ID");
+  const provider = assertKey(observation.provider, PROVIDER, "provider");
+  const label = observation.sourceLabel;
+  if (!LABELS.has(label) || typeof observation.livePrice !== "boolean" ||
+      (label !== "live" && observation.livePrice)) {
+    throw new TypeError("Invalid fare provenance");
+  }
+  const capturedAt = utcTimestamp(observation.capturedAt);
+  const currency = assertKey(observation.originalCurrency, CURRENCY, "original currency");
+  const amount = observation.amountDecimal;
+  if (typeof amount !== "string" || !DECIMAL.test(amount) ||
+      !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+    throw new TypeError("Invalid original fare amount");
+  }
+  const fields = [ownerId, slug, itineraryId, provider, label,
+    observation.livePrice, capturedAt, currency, amount];
+  const id = await stableObservationId(fields, cryptoApi);
+  return [ownerId, slug, id, itineraryId, provider, label, observation.livePrice ? 1 : 0,
+    capturedAt, currency, amount];
 }
 
 export class D1Investigations {
@@ -136,31 +168,40 @@ export class D1Investigations {
     return result.results || [];
   }
 
-  async recordPrice(ownerId, slug, observation) {
+  /**
+   * Save a Kotlin ResultSet and its original-currency price observations as
+   * one D1 transaction. A failure cannot leave an orphaned partial history.
+   * Repeated observations have stable IDs and are inserted once.
+   */
+  async saveResultWithPrices(ownerId, result, observations = []) {
     assertKey(ownerId, OWNER, "authenticated owner ID");
-    assertKey(slug, SLUG, "investigation slug");
-    if (!observation || typeof observation !== "object") throw new TypeError("Invalid price observation");
-    const itineraryId = assertKey(observation.itineraryId, ITINERARY, "itinerary ID");
-    const provider = assertKey(observation.provider, PROVIDER, "provider");
-    const label = observation.sourceLabel;
-    if (!LABELS.has(label) || typeof observation.livePrice !== "boolean" ||
-        (label !== "live" && observation.livePrice)) {
-      throw new TypeError("Invalid fare provenance");
+    const payload = checkedSnapshot(result);
+    if (!Array.isArray(observations) || observations.length > 200) {
+      throw new RangeError("Invalid bounded price observation batch");
     }
-    const capturedAt = utcTimestamp(observation.capturedAt);
-    const currency = assertKey(observation.originalCurrency, CURRENCY, "original currency");
-    const amount = observation.amountDecimal;
-    if (typeof amount !== "string" || !DECIMAL.test(amount) ||
-        !Number.isFinite(Number(amount)) || Number(amount) <= 0) {
-      throw new TypeError("Invalid original fare amount");
+    if (typeof this.db.batch !== "function") {
+      throw new TypeError("D1 transactional batch required to save result with prices");
     }
-    const fields = [ownerId, slug, itineraryId, provider, label, observation.livePrice, capturedAt, currency, amount];
-    const id = await stableObservationId(fields, this.crypto);
-    await this.db.prepare(INSERT_PRICE_OBSERVATION_SQL)
-      .bind(ownerId, slug, id, itineraryId, provider, label, observation.livePrice ? 1 : 0,
-        capturedAt, currency, amount)
-      .run();
-    return id;
+    const updatedAt = nowIso(this.clock);
+    const fetchedAt = result.fetchedAt == null ? null : utcTimestamp(result.fetchedAt);
+    // Fully parse the entire input before assembling or executing writes.
+    const priceRows = [];
+    for (const observation of observations) {
+      priceRows.push(await priceObservationParams(ownerId, result.id, observation, this.crypto));
+    }
+    const statements = [
+      this.db.prepare(UPSERT_INVESTIGATION_SQL)
+        .bind(ownerId, result.id, payload, result.title, fetchedAt, updatedAt),
+      ...priceRows.map(row => this.db.prepare(INSERT_PRICE_OBSERVATION_SQL).bind(...row)),
+    ];
+    await this.db.batch(statements);
+    return { id: result.id, observationIds: priceRows.map(row => row[2]) };
+  }
+
+  async recordPrice(ownerId, slug, observation) {
+    const params = await priceObservationParams(ownerId, slug, observation, this.crypto);
+    await this.db.prepare(INSERT_PRICE_OBSERVATION_SQL).bind(...params).run();
+    return params[2];
   }
 
   async priceHistory(ownerId, slug, itineraryId, limit = 50) {
