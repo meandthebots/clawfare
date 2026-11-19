@@ -220,14 +220,21 @@ test("hosted execution requires a fresh trusted capability; default OFF never PO
     async (input) => {
       calls.push(String(input));
       return Response.json({
-        cacheDir: "d1", searchesDir: "d1", providers: [],
+        cacheDir: "d1",
+        searchesDir: "d1",
+        providers: [],
         hostedSearch: { canExecuteOneWayGbpSerpApi: false },
       });
     },
   );
-  const query = { ...sampleQuery, tripType: "one_way" as const,
-    fetchReturns: false, origins: ["LHR"], destinations: ["NRT"],
-    providers: ["serpapi"] };
+  const query = {
+    ...sampleQuery,
+    tripType: "one_way" as const,
+    fetchReturns: false,
+    origins: ["LHR"],
+    destinations: ["NRT"],
+    providers: ["serpapi"],
+  };
   const prepared = await client.prepareHostedSearch(query);
   assert.equal(prepared.ok, false);
   assert.deepEqual(calls, ["/api/status"]);
@@ -238,40 +245,72 @@ test("hosted execution requires a fresh trusted capability; default OFF never PO
 
 test("hosted explicit consent posts the unmodified server canonical query, without session or identity header", async () => {
   const calls: { path: string; init?: RequestInit }[] = [];
-  const q = { ...sampleQuery, tripType: "one_way" as const,
-    fetchReturns: false, outboundFrom: "2027-04-12",
-    origins: ["LHR"], destinations: ["NRT"], providers: ["serpapi"] };
+  const q = {
+    ...sampleQuery,
+    tripType: "one_way" as const,
+    fetchReturns: false,
+    outboundFrom: "2027-04-12",
+    origins: ["LHR"],
+    destinations: ["NRT"],
+    providers: ["serpapi"],
+  };
   const canonical = { ...q, outboundTo: "2027-04-12", market: "uk", maxLiveCalls: 1 };
   const quote = {
     canonicalQuery: canonical,
     consentToken: "server-signed-once-only-consent-value",
-    expiresAt: "2027-04-01T12:00:00Z", totalCallsUpperBound: 1,
-    baseCallsUpperBound: 1, returnLookupsUpperBound: 0, canExecuteHere: true,
+    expiresAt: "2027-04-01T12:00:00Z",
+    totalCallsUpperBound: 1,
+    baseCallsUpperBound: 1,
+    returnLookupsUpperBound: 0,
+    canExecuteHere: true,
     cost: { vendorBillingKnown: false, message: "May consume provider quota." },
   };
   const result = {
-    id: "search-real", title: "LHR → NRT", itineraries: [
-      { id: "serpapi-one", pricePerPerson: 1220, sourceLabel: "live",
-        livePrice: true, outboundDate: "2027-04-12" },
-    ], addons: [], cells: [], vendors: [], warnings: [],
+    id: "search-real",
+    title: "LHR → NRT",
+    itineraries: [
+      {
+        id: "serpapi-one",
+        pricePerPerson: 1220,
+        sourceLabel: "live",
+        livePrice: true,
+        outboundDate: "2027-04-12",
+      },
+    ],
+    addons: [],
+    cells: [],
+    vendors: [],
+    warnings: [],
   };
   const client = createClawfareClient(
     { hostedReadOnly: true, hostedEstimateOnly: true },
     async (input, init) => {
       const path = String(input);
       calls.push({ path, init });
-      if (path === "/api/status") return Response.json({
-        cacheDir: "d1", searchesDir: "d1", providers: [],
-        hostedSearch: { canExecuteOneWayGbpSerpApi: true },
-      });
+      if (path === "/api/status")
+        return Response.json({
+          cacheDir: "d1",
+          searchesDir: "d1",
+          providers: [],
+          hostedSearch: { canExecuteOneWayGbpSerpApi: true },
+        });
       if (path === "/api/prepare-search") return Response.json(quote);
       if (path === "/api/search") {
         assert.deepEqual(JSON.parse(String(init?.body)), {
-          canonicalQuery: canonical, consentToken: quote.consentToken,
+          canonicalQuery: canonical,
+          consentToken: quote.consentToken,
         });
-        return Response.json({ ok: true, result, providerObservations: [{
-          provider: "serpapi", state: "completed", baseCallsLoaded: 1,
-        }] });
+        return Response.json({
+          ok: true,
+          result,
+          providerObservations: [
+            {
+              provider: "serpapi",
+              state: "completed",
+              baseCallsLoaded: 1,
+            },
+          ],
+        });
       }
       throw new Error("Unexpected API request: " + path);
     },
@@ -285,9 +324,10 @@ test("hosted explicit consent posts the unmodified server canonical query, witho
   if (!executed.ok) throw new Error("Expected completed search");
   assert.equal(executed.data.result.itineraries.length, 1);
   assert.equal(executed.data.result.id, "search-real");
-  assert.deepEqual(calls.map(c => c.path), [
-    "/api/status", "/api/prepare-search", "/api/status", "/api/search",
-  ]);
+  assert.deepEqual(
+    calls.map((c) => c.path),
+    ["/api/status", "/api/prepare-search", "/api/status", "/api/search"],
+  );
   for (const call of calls) {
     assert.equal(String(call.init?.headers).includes("X-Clawfare-Session"), false);
     assert.equal(String(call.init?.headers).includes("oai-authenticated-user-email"), false);
@@ -303,16 +343,22 @@ test("hosted quote is rejected if backend returns a malformed or non-executable 
   const client = createClawfareClient(
     { hostedReadOnly: true, hostedEstimateOnly: true },
     async (input) => {
-      if (String(input) === "/api/status") return Response.json({
-        cacheDir: "d1", searchesDir: "d1", providers: [],
-        hostedSearch: { canExecuteOneWayGbpSerpApi: true },
-      });
+      if (String(input) === "/api/status")
+        return Response.json({
+          cacheDir: "d1",
+          searchesDir: "d1",
+          providers: [],
+          hostedSearch: { canExecuteOneWayGbpSerpApi: true },
+        });
       posts++;
       return Response.json({ canonicalQuery: {}, canExecuteHere: false });
     },
   );
   const quote = await client.prepareHostedSearch({
-    ...sampleQuery, origins: ["LHR"], destinations: ["NRT"], providers: ["serpapi"],
+    ...sampleQuery,
+    origins: ["LHR"],
+    destinations: ["NRT"],
+    providers: ["serpapi"],
   });
   assert.equal(quote.ok, false);
   assert.equal(posts, 1);
@@ -321,23 +367,35 @@ test("hosted quote is rejected if backend returns a malformed or non-executable 
 test("capability revoked between quote and execution prevents the second POST", async () => {
   let enabled = true;
   let requests = 0;
-  const query = { ...sampleQuery, tripType: "one_way" as const,
-    fetchReturns: false, origins: ["LHR"], destinations: ["NRT"],
-    providers: ["serpapi"] };
+  const query = {
+    ...sampleQuery,
+    tripType: "one_way" as const,
+    fetchReturns: false,
+    origins: ["LHR"],
+    destinations: ["NRT"],
+    providers: ["serpapi"],
+  };
   const mockQuote = {
-    canonicalQuery: query, consentToken: "signed-revoked-consent-unique",
-    expiresAt: "2027-01-01T00:00:00Z", canExecuteHere: true,
-    totalCallsUpperBound: 1, baseCallsUpperBound: 1, returnLookupsUpperBound: 0,
+    canonicalQuery: query,
+    consentToken: "signed-revoked-consent-unique",
+    expiresAt: "2027-01-01T00:00:00Z",
+    canExecuteHere: true,
+    totalCallsUpperBound: 1,
+    baseCallsUpperBound: 1,
+    returnLookupsUpperBound: 0,
     cost: { vendorBillingKnown: false, message: "unknown billing" },
   };
   const client = createClawfareClient(
     { hostedReadOnly: true, hostedEstimateOnly: true },
     async (input) => {
       const path = String(input);
-      if (path === "/api/status") return Response.json({
-        cacheDir: "d1", searchesDir: "d1", providers: [],
-        hostedSearch: { canExecuteOneWayGbpSerpApi: enabled },
-      });
+      if (path === "/api/status")
+        return Response.json({
+          cacheDir: "d1",
+          searchesDir: "d1",
+          providers: [],
+          hostedSearch: { canExecuteOneWayGbpSerpApi: enabled },
+        });
       requests++;
       if (path === "/api/prepare-search") return Response.json(mockQuote);
       throw new Error("Execution was attempted after capability revocation");

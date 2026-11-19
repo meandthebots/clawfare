@@ -60,7 +60,14 @@ export function SearchControls({
 }: SearchControlsProps) {
   const update = <K extends keyof SearchForm>(field: K, value: SearchForm[K]) => {
     if (field === "tripType" && value === "one_way") {
-      onChange({ ...form, tripType: "one_way", nights: "", retFrom: "", retTo: "", fetchReturns: false });
+      onChange({
+        ...form,
+        tripType: "one_way",
+        nights: "",
+        retFrom: "",
+        retTo: "",
+        fetchReturns: false,
+      });
       return;
     }
     onChange({ ...form, [field]: value });
@@ -84,8 +91,9 @@ export function SearchControls({
       <input
         id={id}
         type="checkbox"
-        checked={field === "fetchReturns" && form.tripType === "one_way"
-          ? false : Boolean(form[field])}
+        checked={
+          field === "fetchReturns" && form.tripType === "one_way" ? false : Boolean(form[field])
+        }
         disabled={field === "fetchReturns" && form.tripType === "one_way"}
         onChange={(event) => update(field, event.target.checked as never)}
       />{" "}
@@ -228,7 +236,11 @@ export function SearchControls({
           aria-busy={isSearching}
           onClick={onSearch}
         >
-          {isSearching ? "Searching…" : hostedExecutionAvailable ? "Confirm and run search" : "Run search"}
+          {isSearching
+            ? "Searching…"
+            : hostedExecutionAvailable
+              ? "Confirm and run search"
+              : "Run search"}
         </button>
         <button type="button" id="btnSample" onClick={onSample}>
           Load Florida sample

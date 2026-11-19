@@ -23,12 +23,6 @@ jobs:
         working-directory: web
       - run: npm run check
         working-directory: web
-      - name: Print canonical oxfmt diff for agent conflict resolution (temporary)
-        if: always()
-        run: |
-          npm run format
-          git diff -- src/App.tsx src/SearchControls.tsx src/api.ts src/api.test.ts
-        working-directory: web
       - run: npm run test
         working-directory: web
       - run: npm run build

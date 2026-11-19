@@ -88,7 +88,11 @@ export interface HostedSearchExecution {
 }
 
 export interface ClawfareClient {
-  request(path: ApiRoute | "/api/prepare-search", body?: unknown, consent?: string | null): Promise<ApiResponse<unknown>>;
+  request(
+    path: ApiRoute | "/api/prepare-search",
+    body?: unknown,
+    consent?: string | null,
+  ): Promise<ApiResponse<unknown>>;
   sample(): Promise<Parsed<ResultSet>>;
   searches(): Promise<Parsed<SavedInvestigation[]>>;
   status(): Promise<Parsed<HostedStatus>>;
@@ -113,7 +117,10 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
 
   // Never consult the network, cookies, credentials or local-session endpoint
   // in guest mode. These are only in-memory, public fixture responses.
-  function guestResponse(path: ApiRoute | "/api/prepare-search", body?: unknown): ApiResponse<unknown> {
+  function guestResponse(
+    path: ApiRoute | "/api/prepare-search",
+    body?: unknown,
+  ): ApiResponse<unknown> {
     const response = (status: number, value: unknown): ApiResponse<unknown> => ({
       status,
       body: value,
@@ -164,9 +171,10 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     // Defense in depth: only same-origin, explicitly known API routes.
     if (!allowedRoute(path)) throw new Error("Unsupported Clawfare API route.");
     if (guest) return guestResponse(path, body);
-    const hostedAllowedPost = allowEstimate &&
+    const hostedAllowedPost =
+      allowEstimate &&
       (path === "/api/estimate" ||
-        hostedExecutionRoute && (path === "/api/prepare-search" || path === "/api/search"));
+        (hostedExecutionRoute && (path === "/api/prepare-search" || path === "/api/search")));
     if (hosted && body !== undefined && !hostedAllowedPost) {
       return {
         status: 405,
@@ -233,7 +241,8 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
   const isStorage = (value: unknown): value is StorageDiagnostic =>
     isRecord(value) && value.backend === "d1" && typeof value.sampleStored === "boolean";
   const hostedDisabled = <T>(): Parsed<T> => ({
-    ok: false, status: 405,
+    ok: false,
+    status: 405,
     error: "This authenticated Site has not enabled paid hosted search.",
   });
   async function serverAllowsHostedExecution(): Promise<boolean> {
@@ -242,7 +251,8 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     return status.ok && status.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true;
   }
   const isQuote = (value: unknown): value is HostedSearchQuote =>
-    isRecord(value) && isRecord(value.canonicalQuery) &&
+    isRecord(value) &&
+    isRecord(value.canonicalQuery) &&
     Array.isArray(value.canonicalQuery.origins) &&
     Array.isArray(value.canonicalQuery.destinations) &&
     typeof value.canonicalQuery.outboundFrom === "string" &&
@@ -253,23 +263,35 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     Number.isSafeInteger(value.baseCallsUpperBound) &&
     Number.isSafeInteger(value.returnLookupsUpperBound) &&
     value.canExecuteHere === true &&
-    isRecord(value.cost) && typeof value.cost.message === "string" &&
+    isRecord(value.cost) &&
+    typeof value.cost.message === "string" &&
     typeof value.cost.vendorBillingKnown === "boolean";
   const isExecution = (value: unknown): value is HostedSearchExecution =>
-    isRecord(value) && typeof value.ok === "boolean" &&
-    isResultSet(value.result) && Array.isArray(value.providerObservations) &&
+    isRecord(value) &&
+    typeof value.ok === "boolean" &&
+    isResultSet(value.result) &&
+    Array.isArray(value.providerObservations) &&
     (value.error === undefined || typeof value.error === "string");
   return Object.freeze({
     request,
     async prepareHostedSearch(query: SearchQuery) {
-      if (!await serverAllowsHostedExecution()) return hostedDisabled<HostedSearchQuote>();
+      if (!(await serverAllowsHostedExecution())) return hostedDisabled<HostedSearchQuote>();
       return decode(await request("/api/prepare-search", query, null, true), isQuote);
     },
     async executeHostedSearch(quote: HostedSearchQuote) {
-      if (!await serverAllowsHostedExecution()) return hostedDisabled<HostedSearchExecution>();
-      return decode(await request("/api/search", {
-        canonicalQuery: quote.canonicalQuery, consentToken: quote.consentToken,
-      }, null, true), isExecution);
+      if (!(await serverAllowsHostedExecution())) return hostedDisabled<HostedSearchExecution>();
+      return decode(
+        await request(
+          "/api/search",
+          {
+            canonicalQuery: quote.canonicalQuery,
+            consentToken: quote.consentToken,
+          },
+          null,
+          true,
+        ),
+        isExecution,
+      );
     },
     async sample() {
       return decode(await generated.getSample(), isResultSet);

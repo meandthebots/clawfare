@@ -301,7 +301,8 @@ export function App() {
       .then((response) => {
         if (!active || !response.ok) return;
         setHostedExecutionEnabled(
-          !GUEST_MODE && HOSTED_ESTIMATE_ONLY &&
+          !GUEST_MODE &&
+            HOSTED_ESTIMATE_ONLY &&
             response.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true,
         );
         setStatusLines(
@@ -443,18 +444,26 @@ export function App() {
     if (HOSTED_READ_ONLY) {
       const quote = hostedQuote;
       if (!quote || !hostedExecutionEnabled || searchLock.current) return;
-      if (!Number.isFinite(Date.parse(quote.expiresAt)) ||
-          Date.parse(quote.expiresAt) <= Date.now()) {
+      if (
+        !Number.isFinite(Date.parse(quote.expiresAt)) ||
+        Date.parse(quote.expiresAt) <= Date.now()
+      ) {
         setHostedQuote(null);
         setEstimateError("The one-use approval expired. Estimate again.");
         return;
       }
       const confirmed = window.confirm(
         "Run the exact one-way SerpApi search approved by the server?\n\n" +
-          "Up to " + quote.totalCallsUpperBound + " provider requests may consume paid quota.\n" +
-          "Base requests: " + quote.baseCallsUpperBound +
-          ", return lookups: " + quote.returnLookupsUpperBound + ".\n" +
-          quote.cost.message + "\n\nThis confirmation is single-use and cannot be retried.",
+          "Up to " +
+          quote.totalCallsUpperBound +
+          " provider requests may consume paid quota.\n" +
+          "Base requests: " +
+          quote.baseCallsUpperBound +
+          ", return lookups: " +
+          quote.returnLookupsUpperBound +
+          ".\n" +
+          quote.cost.message +
+          "\n\nThis confirmation is single-use and cannot be retried.",
       );
       if (!confirmed) return;
       searchLock.current = true;
@@ -466,8 +475,9 @@ export function App() {
         if (response.ok) {
           acceptResult(response.data.result);
           setEstimateError(
-            response.data.ok ? "Real search saved as " + response.data.result.id + "." :
-              "Incomplete provider search saved as " + response.data.result.id + ".",
+            response.data.ok
+              ? "Real search saved as " + response.data.result.id + "."
+              : "Incomplete provider search saved as " + response.data.result.id + ".",
           );
           void refreshSaved().catch(() => {});
         } else setEstimateError(response.error);
@@ -791,12 +801,12 @@ export function App() {
             (GUEST_MODE
               ? "Guest mode uses synthetic sample flights. Search estimates, live searches and exports are disabled."
               : HOSTED_READ_ONLY && hostedExecutionEnabled
-              ? "One-way GBP SerpApi search can run after explicit confirmation; provider requests may consume quota."
-              : HOSTED_READ_ONLY
-                ? HOSTED_ESTIMATE_ONLY
-                  ? "Search estimates are available at no cost. Run search and all paid provider calls are still disabled."
-                  : "Hosted read-only preview: explore saved flights and filters; live searches and exports are disabled."
-                : "")
+                ? "One-way GBP SerpApi search can run after explicit confirmation; provider requests may consume quota."
+                : HOSTED_READ_ONLY
+                  ? HOSTED_ESTIMATE_ONLY
+                    ? "Search estimates are available at no cost. Run search and all paid provider calls are still disabled."
+                    : "Hosted read-only preview: explore saved flights and filters; live searches and exports are disabled."
+                  : "")
           }
           statusLines={statusLines}
         />
