@@ -6,6 +6,7 @@ import { D1ProviderPersistence } from "./provider-persistence.mjs";
 import { ensureBundledPublicSample, loadPublicSample, publicSampleStorageEvidence } from "./public-sample.mjs";
 import { estimateHostedSearch } from "./search-estimate.mjs";
 import { prepareSerpApiSearch } from "./serpapi-prepare.mjs";
+import { executeHostedSearchRequest } from "./hosted-search-execute.mjs";
 import { readHostedProviderReadiness } from "./provider-http-budget.mjs";
 
 const JSON_HEADERS = {
@@ -69,7 +70,7 @@ export async function handleReadOnlyApi(
   request,
   { db, getVerifiedEmail, ownerKeySecret, cryptoApi = globalThis.crypto,
     bundledPublicSample = null, kotlinEngine = null, providerKeyPresence = null,
-    searchPrepareConfig = null },
+    searchPrepareConfig = null, searchExecuteConfig = null },
 ) {
   if (typeof getVerifiedEmail !== "function") {
     throw new Error("Trusted identity gateway integration is required");
@@ -83,7 +84,11 @@ export async function handleReadOnlyApi(
     kotlinEngine != null;
   const isPrepare = url.pathname === "/api/prepare-search" && request.method === "POST" &&
     searchPrepareConfig?.enabled === true && kotlinEngine != null;
-  if (request.method !== "GET" && !isEstimate && !isPrepare) {
+  const isExecute = url.pathname === "/api/search" && request.method === "POST" &&
+    searchExecuteConfig?.enabled === true &&
+    searchExecuteConfig?.approvedForPaidCalls === true &&
+    kotlinEngine != null;
+  if (request.method !== "GET" && !isEstimate && !isPrepare && !isExecute) {
     return respond({ error: "Hosted preview: paid searches and mutations are disabled." }, 405,
       { allow: url.pathname === "/api/estimate" && kotlinEngine != null ? "POST" : "GET" });
   }
@@ -110,6 +115,9 @@ export async function handleReadOnlyApi(
   if (isPrepare) return prepareSerpApiSearch(request, {
     ...searchPrepareConfig, db, ownerId, kotlinEngine, cryptoApi,
   });
+  if (isExecute) return executeHostedSearchRequest(request, {
+    ...searchExecuteConfig, db, ownerId, kotlinEngine, cryptoApi,
+  });
   const store = new D1Investigations(db, { cryptoApi });
 
   if (url.pathname === "/api/status" || url.pathname === "/api/quota") {
@@ -121,7 +129,8 @@ export async function handleReadOnlyApi(
       try {
         providers = await readHostedProviderReadiness(db, {
           keyPresent: providerKeyPresence,
-          networkEnabled: false, // No consent/search path exists in this release.
+          networkEnabled: searchExecuteConfig?.enabled === true &&
+            searchExecuteConfig?.approvedForPaidCalls === true,
         });
       } catch {
         return respond({ error: "Hosted D1 provider-cap status unavailable; searches remain disabled." }, 503);

@@ -22,6 +22,7 @@ export function createReadOnlySitesHandler({
   kotlinEngine = null,
   providerKeyPresence = null,
   searchPrepareConfig = null,
+  searchExecuteConfig = null,
 }) {
   if (!db?.prepare || typeof getVerifiedEmail !== "function" ||
       typeof ownerKeySecret !== "string" ||
@@ -61,7 +62,7 @@ export function createReadOnlySitesHandler({
       return handleReadOnlyApi(request, {
         db, getVerifiedEmail, ownerKeySecret, cryptoApi,
         bundledPublicSample: trustedSample, kotlinEngine, providerKeyPresence,
-        searchPrepareConfig,
+        searchPrepareConfig, searchExecuteConfig,
       });
     }
     if (path === "/favicon.ico") return new Response(null, { status: 204 });

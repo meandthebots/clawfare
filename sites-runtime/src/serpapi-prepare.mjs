@@ -89,7 +89,7 @@ function parseKotlinPlan(kotlinEngine, input) {
 
 export async function prepareSerpApiSearch(request, {
   db, ownerId, kotlinEngine, consentSigningSecret,
-  providerKeyPresent = false, enabled = false, clock = () => new Date(),
+  providerKeyPresent = false, enabled = false, executionAvailable = false, clock = () => new Date(),
   cryptoApi = globalThis.crypto,
 }) {
   // Feature flag is server-derived and OFF by default; it is *not* a browser
@@ -114,6 +114,10 @@ export async function prepareSerpApiSearch(request, {
   if (input.parsed.confirmed === true) return invalid("Confirmed flag cannot grant hosted approval.");
   const plan = parseKotlinPlan(kotlinEngine, input.parsed);
   if (plan.error) return invalid(plan.error, plan.status);
+  if (executionAvailable && (plan.query.tripType !== "one_way" ||
+      plan.query.currency !== "GBP" || plan.query.fetchReturns !== false)) {
+    return invalid("Hosted execution currently supports one-way GBP SerpApi fares only.", 422);
+  }
   if (!providerKeyPresent || !db?.prepare) {
     return invalid("SerpApi credential or hosted D1 storage unavailable.", 503);
   }
@@ -150,7 +154,9 @@ export async function prepareSerpApiSearch(request, {
       vendorBillingKnown: false,
       message: "Each attempted provider request may consume quota; account charges and remaining remote quota are unknown.",
     },
-    canExecuteHere: false,
-    message: "Prepared only. The hosted execution route is still disabled.",
+    canExecuteHere: executionAvailable === true,
+    message: executionAvailable
+      ? "Explicit confirmation and this signed one-use consent are required before provider requests."
+      : "Prepared only. The hosted execution route is still disabled.",
   });
 }
