@@ -124,3 +124,47 @@ test("missing or unsafe price provenance fails closed before D1 writes", async (
   }
   assert.equal(calls.length, 0);
 });
+
+test("saveResultWithPrices commits snapshot and observations as one D1 batch", async () => {
+  const { db, calls } = fakeDatabase();
+  let batchStatements = null;
+  db.batch = async statements => {
+    batchStatements = statements;
+    return statements.map(() => ({ success: true }));
+  };
+  const result = await store(db).saveResultWithPrices(owner, snapshot, [
+    observation, { ...observation, amountDecimal: "124.00" },
+  ]);
+  assert.equal(result.id, snapshot.id);
+  assert.equal(result.observationIds.length, 2);
+  assert.notEqual(result.observationIds[0], result.observationIds[1]);
+  assert.equal(batchStatements.length, 3);
+  assert.equal(calls[0].statement, UPSERT_INVESTIGATION_SQL);
+  assert.equal(calls[1].statement, INSERT_PRICE_OBSERVATION_SQL);
+  assert.equal(calls[2].statement, INSERT_PRICE_OBSERVATION_SQL);
+  assert.ok(!JSON.stringify(calls).includes("private-departure"));
+});
+
+test("batch persistence validates all observations before any D1 statement", async () => {
+  const { db, calls } = fakeDatabase();
+  let batchCalled = false;
+  db.batch = async () => { batchCalled = true; };
+  const s = store(db);
+  await assert.rejects(s.saveResultWithPrices(owner, snapshot, [
+    observation, { ...observation, amountDecimal: "-1.00" },
+  ]), /original fare amount/);
+  assert.equal(batchCalled, false);
+  assert.equal(calls.length, 0);
+  await assert.rejects(s.saveResultWithPrices(owner, snapshot, Array(201).fill(observation)),
+    /bounded price observation batch/);
+  await assert.rejects(s.saveResultWithPrices(owner, {
+    ...snapshot, itineraries: [{
+      id: "lh-1", bookingToken: "dont-save-this",
+    }],
+  }, [observation]), /Provider tokens are forbidden/);
+  assert.equal(batchCalled, false);
+  assert.equal(calls.length, 0);
+  await assert.rejects(new D1Investigations(db, { cryptoApi: webcrypto })
+    .saveResultWithPrices(owner, { ...snapshot, tokens: {} }, []), /ResultSet/);
+  assert.equal(calls.length, 0);
+});

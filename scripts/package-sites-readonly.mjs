@@ -26,7 +26,7 @@ const expectedModules = [
   "hosted-page.mjs", "site-handler.mjs", "read-only-api.mjs",
   "investigations.mjs", "public-sample.mjs", "provider-http-budget.mjs",
   "kotlin-engine.mjs", "worker-factory.mjs", "search-estimate.mjs",
-  "search-consent.mjs",
+  "search-consent.mjs", "provider-persistence.mjs",
 ];
 for (const path of [fixtureSource, htmlSource, ...expectedModules.map(name => "sites-runtime/src/" + name)]) {
   if (!existsSync(path)) throw new Error("Missing required Sites source: " + path);
@@ -61,6 +61,7 @@ for (const name of [
   "0002_investigation_snapshots.sql",
   "0003_public_sample_fixtures.sql",
   "0004_search_consents.sql",
+  "0005_hosted_provider_cache.sql",
 ]) write("server/migrations/" + name, readFileSync("sites-runtime/migrations/" + name));
 write("server/kotlin/fare-core.cjs", readFileSync(join(webpackDir, webpackFiles[0])));
 // A genuine Worker ESM entry factory with the exact Kotlin HTML and fixture
