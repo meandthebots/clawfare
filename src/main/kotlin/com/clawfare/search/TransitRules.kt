@@ -134,32 +134,14 @@ object TransitRules {
         excludedAirports: List<String>,
         excludedCountries: List<String>,
         countries: Map<String, String> = reference.countries,
-    ): String? {
-        val explicit = excludedAirports.map { it.uppercase() }.toSet()
-        val forbidden = excludedCountries.map { it.uppercase() }.toSet()
-        val directions = listOf(itinerary.outbound) + listOfNotNull(itinerary.returning)
-        // Disjoint legs imply an unreported transfer rather than a through itinerary.
-        if (directions.any { direction ->
-                direction.legs.zipWithNext().any { (before, after) ->
-                    before.to.isBlank() || after.from.isBlank() || !before.to.equals(after.from, ignoreCase = true)
-                }
-            }
-        ) {
-            return "disconnected_legs"
-        }
-        val connections =
-            directions.flatMap { direction ->
-                direction.legs.dropLast(1).map { it.to.uppercase() } + direction.layovers.map { it.airport.uppercase() }
-            }
-        for (code in connections) {
-            if (code in explicit) return "excluded_transit_airport"
-            if (forbidden.isNotEmpty()) {
-                val country = countries[code] ?: return "unknown_transit_country"
-                if (country in forbidden) return "excluded_transit_country"
-            }
-        }
-        return null
-    }
+    ): String? =
+        sharedTransitRejectionReason(
+            itinerary.outbound,
+            itinerary.returning,
+            excludedAirports,
+            excludedCountries,
+            countries,
+        )
 
     fun parseOurAirports(file: File): Map<String, String> = file.bufferedReader().use { parseOurAirports(it) }
 

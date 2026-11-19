@@ -74,6 +74,19 @@ object ClawfareJs {
         return AppJson.encodeToString(GoogleFareDraft.serializer(), draft)
     }
 
+    /**
+     * Pure audited eligibility results. The caller supplies a trusted
+     * airport-country reference; unknown transit countries fail closed.
+     * This bridge contains no network, seller/refund/booking or token access.
+     */
+    fun evaluateOfferEligibilityJson(requestJson: String): String {
+        val input = AppJson.decodeFromString(EligibilityEvaluationRequest.serializer(), requestJson)
+        return AppJson.encodeToString(
+            EligibilityEvaluation.serializer(),
+            evaluatePortableEligibility(input),
+        )
+    }
+
     fun toGbpOrNull(
         amount: Double,
         unitsPerGbp: Double,
@@ -114,3 +127,8 @@ fun parseGoogleFlightsOffersForHost(responseJson: String): String =
 @JsExport
 fun buildGoogleFareDraftForHost(requestJson: String): String =
     ClawfareJs.buildGoogleFareDraftJson(requestJson)
+
+/** Exact same carrier, transit, operator and cabin rules as the JVM. */
+@JsExport
+fun evaluateOfferEligibilityForHost(requestJson: String): String =
+    ClawfareJs.evaluateOfferEligibilityJson(requestJson)

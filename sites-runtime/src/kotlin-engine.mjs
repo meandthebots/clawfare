@@ -12,6 +12,7 @@ export function kotlinEngineFromBundle(bundle) {
     "projectBudgetForHost",
     "parseGoogleFlightsOffersForHost",
     "buildGoogleFareDraftForHost",
+    "evaluateOfferEligibilityForHost",
     "toGbpForHost",
   ];
   if (!search || methods.some(name => typeof search[name] !== "function")) {
@@ -24,6 +25,7 @@ export function kotlinEngineFromBundle(bundle) {
       search.projectBudgetForHost(queryJson, providersJson),
     parseGoogleFlightsOffersJson: body => search.parseGoogleFlightsOffersForHost(body),
     buildGoogleFareDraftJson: request => search.buildGoogleFareDraftForHost(request),
+    evaluateOfferEligibilityJson: request => search.evaluateOfferEligibilityForHost(request),
     toGbpOrNull: (amount, unitsPerGbp) => search.toGbpForHost(amount, unitsPerGbp),
   });
 }
