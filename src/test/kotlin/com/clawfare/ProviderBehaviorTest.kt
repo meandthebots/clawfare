@@ -49,7 +49,7 @@ class ProviderBehaviorTest {
         val second = provider.search(query, cache, allowNetwork = true)
         assertEquals(2, http.calls.size)
         assertEquals("cached", second.itineraries[0].sourceLabel)
-        assertTrue(second.itineraries[0].livePrice)
+        assertFalse(second.itineraries[0].livePrice, "A disk cache hit must never claim a newly live fare")
         val cachedText =
             cache.root
                 .walk()

@@ -290,26 +290,53 @@ Regression tests:
 `node --test sites-runtime/tests/search-consent.test.mjs`
 and `python3 -m unittest discover -s sites-runtime/tests -p 'test_*.py'`.
 
-## Shared provider fare eligibility (issue #121)
+## Tenant-private provider evidence and cache (issue #123)
 
-The compiled Kotlin/JS host now exports
-`evaluateOfferEligibilityJson` from `fare-core/commonMain`.
-The JVM `OfferEligibility`, `TransitRules` and airline display filters reuse
-the same pure algorithm for observed operating-carrier verification,
-carrier-code/alias matching, per-leg cabin classes, disconnected segments
-and transit exclusions.
+Migration `0005_hosted_provider_cache.sql` adds two separate stores. These
+are **dormant infrastructure**, not a provider search API. The Worker still
+rejects paid search POSTs and no provider credentials or external requests
+are introduced by this migration.
 
-The bridge accepts `EligibilityEvaluationRequest` containing a typed
-`SearchQuery`, observed outbound/return `Direction` segments and an
-optional **trusted** `airportCountries` reference. Unlike the JVM, the
-hosted Worker has no OurAirports CSV loader. A future authenticated executor
-must provide a versioned and reviewed country reference or leave
-`airportCountries` empty. Empty/missing coverage with country exclusions
-fails closed (`unknown_transit_country`), **not** an inferred eligible fare.
+- `hosted_provider_search_attempts`: written before each authorized route
+  dispatch and transitioned *once* from `attempted` to a terminal
+  `complete`, `empty`, `partial` or `failed` state. A Worker crash leaves
+  `attempted`; missing rows and partial/failed attempts are **not** evidence
+  that flights were unavailable. An attempted route cannot be dispatched again
+  using the same authenticated owner/consent nonce/provider/route digest.
+  Counts distinguish provider returns, hard-policy exclusions, cache hits,
+  metered HTTP attempts and loaded requests. Only controlled error categories
+  are saved, never provider response bodies or exception strings.
+- `hosted_provider_offer_cache`: optional, explicitly licensed per-provider
+  storage of *sanitized parsed offer summaries only*, not raw HTTP bodies.
+  `D1ProviderPersistence.cacheBaseOffers` defaults to deny; the caller must
+  establish provider-specific `cachingPermitted: true` and that the response
+  is recognized and complete. Entries are isolated by opaque authenticated
+  owner, provider, canonical Kotlin query + token-free base-call parameters,
+  and parser revision (SHA-256 digest). Maximum 100 offers, 64 KiB/entry,
+  30-minute TTL. Reading an entry always returns `sourceLabel: cached`,
+  `livePrice: false`, the original observation timestamp/currency and the
+  expiration, never an assertion of current bookability. Expired entries are
+  treated as cache misses and cannot generate HTTP automatically.
+- There is **no persistent cache of booking/departure tokens or seller offers**.
+  Raw Kotlin parser fields are allowlisted into a new value object; unknown
+  properties and opaque token fields are discarded before D1 writes. Return
+  selection must be refreshed by a separately approved, metered call; a
+  cached outbound alone is not a verified round trip.
+- `D1Investigations.saveResultWithPrices` performs the token-checked,
+  512-KiB-bound ResultSet snapshot and up to 200 immutable,
+  original-currency observations in a single D1 batch. An invalid observation
+  aborts before any write; duplicate observations use stable IDs. The old
+  independent snapshot and history APIs remain available.
+- Authenticated read-only `GET /api/attempts/{consentNonce}` exposes only
+  owner-scoped, bounded sanitized coverage rows. No provider cache body or
+  mutable endpoint is exposed directly to browsers. The returned attempt
+  nonce is not a consent token and cannot authorize a new call.
 
-`EligibilityEvaluation` returns only `eligible` and a stable exclusion
-reason; no credentials, booking tokens or refundability claims are involved.
-Until the full Kotlin ResultSet assembler and hosted executor are wired,
-this remains an internal, no-egress bridge. Cross-target tests in
-`PortableEligibilityTest` exercise country exclusions, airline aliases,
-unknown operating carriers and strict business cabin requirements.
+Provider-specific terms, source retention limits, live result assembly,
+billing reservations, and the authenticated quote/confirm/search flow remain
+dependent on #121/#122/#124, #25, and the hosted rollout gate #135.
+Do not flip the egress release switch on the basis of this cache module.
+
+Deterministic offline tests:
+`node --test sites-runtime/tests/*.test.mjs` and
+`python3 -m unittest discover -s sites-runtime/tests -p 'test_*.py' -v`.

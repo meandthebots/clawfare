@@ -55,6 +55,26 @@ object ClawfareJs {
         )
 
     /**
+     * Portable token-free fare normalization for the hosted SERVER.
+     * Opaque ParsedOffer booking/departure tokens are intentionally omitted.
+     */
+    fun buildGoogleFareDraftJson(requestJson: String): String {
+        val request = AppJson.decodeFromString(GoogleFareDraftRequest.serializer(), requestJson)
+        val draft =
+            buildGoogleFareDraft(
+                id = request.id,
+                provider = request.provider,
+                query = request.query,
+                outbound = request.outbound,
+                inbound = request.inbound,
+                fetchedAt = request.fetchedAt,
+                servedFromCache = request.servedFromCache,
+                returnDateHint = request.returnDateHint,
+            )
+        return AppJson.encodeToString(GoogleFareDraft.serializer(), draft)
+    }
+
+    /**
      * Pure audited eligibility results. The caller supplies a trusted
      * airport-country reference; unknown transit countries fail closed.
      * This bridge contains no network, seller/refund/booking or token access.
@@ -102,6 +122,11 @@ fun toGbpForHost(
 @JsExport
 fun parseGoogleFlightsOffersForHost(responseJson: String): String =
     ClawfareJs.parseGoogleFlightsOffersJson(responseJson)
+
+/** Token-free Kotlin draft for a provider response; not a public ResultSet. */
+@JsExport
+fun buildGoogleFareDraftForHost(requestJson: String): String =
+    ClawfareJs.buildGoogleFareDraftJson(requestJson)
 
 /** Exact same carrier, transit, operator and cabin rules as the JVM. */
 @JsExport

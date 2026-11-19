@@ -11,6 +11,7 @@ export function kotlinEngineFromBundle(bundle) {
     "planSearchForHost",
     "projectBudgetForHost",
     "parseGoogleFlightsOffersForHost",
+    "buildGoogleFareDraftForHost",
     "evaluateOfferEligibilityForHost",
     "toGbpForHost",
   ];
@@ -23,6 +24,7 @@ export function kotlinEngineFromBundle(bundle) {
     projectBudgetJson: (queryJson, providersJson) =>
       search.projectBudgetForHost(queryJson, providersJson),
     parseGoogleFlightsOffersJson: body => search.parseGoogleFlightsOffersForHost(body),
+    buildGoogleFareDraftJson: request => search.buildGoogleFareDraftForHost(request),
     evaluateOfferEligibilityJson: request => search.evaluateOfferEligibilityForHost(request),
     toGbpOrNull: (amount, unitsPerGbp) => search.toGbpForHost(amount, unitsPerGbp),
   });
