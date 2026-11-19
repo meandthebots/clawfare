@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { createClawfareClient } from "./api.ts";
+import { createClawfareClient, type HostedSearchQuote } from "./api.ts";
 import { DetailsContent } from "./DetailsContent.tsx";
 import { FilterControls } from "./FilterControls.tsx";
 import { initialFilters, suggestedFilters, type FilterControlsState } from "./filterForm.ts";
@@ -256,6 +256,11 @@ export function App() {
   const [statusLines, setStatusLines] = useState<string[]>([]);
   const [pendingQuery, setPendingQuery] = useState<SearchQuery | null>(null);
   const [searchConsent, setSearchConsent] = useState<string | null>(null);
+  const [hostedExecutionEnabled, setHostedExecutionEnabled] = useState(false);
+  const [hostedQuote, setHostedQuote] = useState<HostedSearchQuote | null>(null);
+  const [searching, setSearching] = useState(false);
+  const searchLock = useRef(false);
+  const estimateEpoch = useRef(0);
   const [portals, setPortals] = useState<PortalTargets | null>(null);
   const closeButton = useRef<HTMLButtonElement | null>(null);
   const formerFocus = useRef<HTMLElement | null>(null);
@@ -295,6 +300,10 @@ export function App() {
       .status()
       .then((response) => {
         if (!active || !response.ok) return;
+        setHostedExecutionEnabled(
+          !GUEST_MODE && HOSTED_ESTIMATE_ONLY &&
+            response.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true,
+        );
         setStatusLines(
           response.data.providers.map(
             (quota) =>
@@ -374,7 +383,9 @@ export function App() {
   const selectedKey = selection ? selection.primaryId + "\0" + (activeAddon?.id ?? "") : null;
 
   const changeForm = (next: SearchForm) => {
+    estimateEpoch.current++;
     setForm(next);
+    setHostedQuote(null);
     // Consent must correspond to the exact previously estimated query.
     setPendingQuery(null);
     setSearchConsent(null);
@@ -382,6 +393,8 @@ export function App() {
     setEstimateError("");
   };
   const estimateCalls = async () => {
+    const epoch = ++estimateEpoch.current;
+    setHostedQuote(null);
     setPendingQuery(null);
     setSearchConsent(null);
     setEstimate(null);
@@ -391,11 +404,21 @@ export function App() {
       // No malformed input reaches Kotlin's normalizer or a paid consent path.
       const query = buildSearchQuery(form);
       const response = await client.estimate(query);
+      if (epoch !== estimateEpoch.current) return;
       if (!response.ok) {
         setEstimateError(response.error);
         return;
       }
       setEstimate(response.data);
+      if (HOSTED_READ_ONLY) {
+        if (hostedExecutionEnabled) {
+          const prepared = await client.prepareHostedSearch(query);
+          if (epoch !== estimateEpoch.current) return;
+          if (prepared.ok) setHostedQuote(prepared.data);
+          else setEstimateError(prepared.error);
+        }
+        return;
+      }
       const canRun =
         !HOSTED_READ_ONLY &&
         estimateIsRunnable(
@@ -410,13 +433,55 @@ export function App() {
         setSearchConsent(response.consent);
       }
     } catch (error) {
+      if (epoch !== estimateEpoch.current) return;
       setEstimateError(
         error instanceof Error ? error.message : "Estimate request failed; no search was run.",
       );
     }
   };
   const runSearch = async () => {
-    if (!pendingQuery || HOSTED_READ_ONLY) return;
+    if (HOSTED_READ_ONLY) {
+      const quote = hostedQuote;
+      if (!quote || !hostedExecutionEnabled || searchLock.current) return;
+      if (!Number.isFinite(Date.parse(quote.expiresAt)) ||
+          Date.parse(quote.expiresAt) <= Date.now()) {
+        setHostedQuote(null);
+        setEstimateError("The one-use approval expired. Estimate again.");
+        return;
+      }
+      const confirmed = window.confirm(
+        "Run the exact one-way SerpApi search approved by the server?\n\n" +
+          "Up to " + quote.totalCallsUpperBound + " provider requests may consume paid quota.\n" +
+          "Base requests: " + quote.baseCallsUpperBound +
+          ", return lookups: " + quote.returnLookupsUpperBound + ".\n" +
+          quote.cost.message + "\n\nThis confirmation is single-use and cannot be retried.",
+      );
+      if (!confirmed) return;
+      searchLock.current = true;
+      setSearching(true);
+      setHostedQuote(null);
+      setEstimateError("");
+      try {
+        const response = await client.executeHostedSearch(quote);
+        if (response.ok) {
+          acceptResult(response.data.result);
+          setEstimateError(
+            response.data.ok ? "Real search saved as " + response.data.result.id + "." :
+              "Incomplete provider search saved as " + response.data.result.id + ".",
+          );
+          void refreshSaved().catch(() => {});
+        } else setEstimateError(response.error);
+      } catch {
+        setEstimateError(
+          "Search status is uncertain. Check saved investigations; do not blindly retry paid calls.",
+        );
+      } finally {
+        searchLock.current = false;
+        setSearching(false);
+      }
+      return;
+    }
+    if (!pendingQuery || searchLock.current) return;
     const query: SearchQuery = { ...pendingQuery, confirmed: true };
     setPendingQuery(null);
     try {
@@ -714,8 +779,10 @@ export function App() {
           onSample={() => void loadSample()}
           onQuota={() => void checkQuota()}
           onStorage={() => void checkStorage()}
-          runEnabled={pendingQuery !== null}
+          runEnabled={pendingQuery !== null || hostedQuote !== null}
           hostedReadOnly={HOSTED_READ_ONLY}
+          hostedExecutionAvailable={hostedExecutionEnabled}
+          isSearching={searching}
           hostedEstimateOnly={HOSTED_ESTIMATE_ONLY}
           guest={GUEST_MODE}
           estimate={estimate}
@@ -723,6 +790,8 @@ export function App() {
             estimateError ||
             (GUEST_MODE
               ? "Guest mode uses synthetic sample flights. Search estimates, live searches and exports are disabled."
+              : HOSTED_READ_ONLY && hostedExecutionEnabled
+              ? "One-way GBP SerpApi search can run after explicit confirmation; provider requests may consume quota."
               : HOSTED_READ_ONLY
                 ? HOSTED_ESTIMATE_ONLY
                   ? "Search estimates are available at no cost. Run search and all paid provider calls are still disabled."

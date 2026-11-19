@@ -138,6 +138,12 @@ const query = {
   providers: ["serpapi"], maxLiveCalls: 1,
   fetchReturns: false, cacheOnly: false, confirmed: false,
 };
+const disabledStatus = await disabled(get("/api/status"));
+assert.equal(disabledStatus.status, 200);
+assert.equal((await disabledStatus.json()).hostedSearch.canExecuteOneWayGbpSerpApi, false);
+const enabledStatus = await owner(get("/api/status"));
+assert.equal(enabledStatus.status, 200);
+assert.equal((await enabledStatus.json()).hostedSearch.canExecuteOneWayGbpSerpApi, true);
 assert.equal((await disabled(post("/api/prepare-search", query))).status, 405);
 assert.equal((await disabled(post("/api/search", { canonicalQuery: query, consentToken: "fake" }))).status, 405);
 assert.equal(outboundRequests, 0);

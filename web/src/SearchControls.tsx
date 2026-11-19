@@ -28,6 +28,8 @@ export interface SearchControlsProps {
   onStorage: () => void;
   runEnabled: boolean;
   hostedReadOnly: boolean;
+  hostedExecutionAvailable: boolean;
+  isSearching: boolean;
   hostedEstimateOnly: boolean;
   guest: boolean;
   estimate: Estimate | null;
@@ -48,6 +50,8 @@ export function SearchControls({
   onStorage,
   runEnabled,
   hostedReadOnly,
+  hostedExecutionAvailable,
+  isSearching,
   hostedEstimateOnly,
   guest,
   estimate,
@@ -56,7 +60,7 @@ export function SearchControls({
 }: SearchControlsProps) {
   const update = <K extends keyof SearchForm>(field: K, value: SearchForm[K]) => {
     if (field === "tripType" && value === "one_way") {
-      onChange({ ...form, tripType: "one_way", nights: "", retFrom: "", retTo: "" });
+      onChange({ ...form, tripType: "one_way", nights: "", retFrom: "", retTo: "", fetchReturns: false });
       return;
     }
     onChange({ ...form, [field]: value });
@@ -80,7 +84,9 @@ export function SearchControls({
       <input
         id={id}
         type="checkbox"
-        checked={Boolean(form[field])}
+        checked={field === "fetchReturns" && form.tripType === "one_way"
+          ? false : Boolean(form[field])}
+        disabled={field === "fetchReturns" && form.tripType === "one_way"}
         onChange={(event) => update(field, event.target.checked as never)}
       />{" "}
       {text}
@@ -218,10 +224,11 @@ export function SearchControls({
           type="button"
           id="btnRun"
           className="primary"
-          disabled={hostedReadOnly || !runEnabled}
+          disabled={(hostedReadOnly && !hostedExecutionAvailable) || !runEnabled || isSearching}
+          aria-busy={isSearching}
           onClick={onSearch}
         >
-          Run search
+          {isSearching ? "Searching…" : hostedExecutionAvailable ? "Confirm and run search" : "Run search"}
         </button>
         <button type="button" id="btnSample" onClick={onSample}>
           Load Florida sample
