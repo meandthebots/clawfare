@@ -5,12 +5,13 @@ import { handleReadOnlyApi, ownerKeyFromVerifiedEmail } from "../src/read-only-a
 import {
   GET_INVESTIGATION_SQL, LIST_INVESTIGATIONS_SQL, LIST_PRICE_OBSERVATIONS_SQL,
 } from "../src/investigations.mjs";
+import { LIST_ATTEMPTS_SQL } from "../src/provider-persistence.mjs";
 
 const secret = "a-strong-server-side-secret-with-at-least-32-bytes";
 function call(path, method = "GET", headers = {}) {
   return new Request("https://clawfare.example" + path, { method, headers });
 }
-function mockDatabase(accounts = new Map()) {
+function mockDatabase(accounts = new Map(), attempts = new Map()) {
   const calls = [];
   return {
     calls,
@@ -33,6 +34,9 @@ function mockDatabase(accounts = new Map()) {
                   })).slice(0, args[1]) };
               }
               if (statement === LIST_PRICE_OBSERVATIONS_SQL) return { results: [] };
+              if (statement === LIST_ATTEMPTS_SQL) {
+                return { results: (attempts.get(args[0]) || []).slice(0, args[2]) };
+              }
               throw new Error("Unexpected query");
             },
           };
@@ -157,4 +161,37 @@ test("missing, invalid and cross-tenant results do not disclose data", async () 
     call("/api/results/test"), config(db, "not-an-email"),
   );
   assert.equal(malformedIdentity.status, 401);
+});
+
+test("authenticated owner can read only their own bounded search-attempt coverage", async () => {
+  const ownerA = await ownerKeyFromVerifiedEmail("a@example.com", secret, webcrypto);
+  const ownerB = await ownerKeyFromVerifiedEmail("b@example.com", secret, webcrypto);
+  const nonce = "e".repeat(32);
+  const attempts = new Map([[ownerA, [{
+    provider: "serpapi", route_digest: "a".repeat(64), state: "partial",
+    attempted_calls: 1, loaded_calls: 0, cached_calls: 0,
+    returned_offers: 0, eligible_offers: 0,
+    error_kind: "timeout", started_at: "2026-11-18T19:00:00Z",
+    finished_at: "2026-11-18T19:00:03Z",
+  }]]]);
+  const db = mockDatabase(new Map(), attempts);
+  const path = "/api/attempts/" + nonce;
+  const first = await handleReadOnlyApi(call(path), config(db, "a@example.com"));
+  assert.equal(first.status, 200);
+  const rows = await first.json();
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].state, "partial");
+  assert.equal(rows[0].errorKind, "timeout");
+  assert.equal(rows[0].loadedCalls, 0);
+  const second = await handleReadOnlyApi(call(path), config(db, "b@example.com"));
+  assert.equal(second.status, 200);
+  assert.deepEqual(await second.json(), []);
+  assert.equal(db.calls[0].statement, LIST_ATTEMPTS_SQL);
+  assert.deepEqual(db.calls[0].args, [ownerA, nonce, 50]);
+  assert.deepEqual(db.calls[1].args, [ownerB, nonce, 50]);
+  assert.ok(!JSON.stringify(db.calls).includes("a@example.com"));
+  const invalid = await handleReadOnlyApi(call(path + "?limit=999"), config(db, "a@example.com"));
+  assert.equal(invalid.status, 400);
+  const badNonce = await handleReadOnlyApi(call("/api/attempts/1234"), config(db, "a@example.com"));
+  assert.equal(badNonce.status, 404);
 });

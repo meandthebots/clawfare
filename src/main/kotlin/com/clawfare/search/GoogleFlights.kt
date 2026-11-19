@@ -481,34 +481,43 @@ class GoogleFlightsProvider(
         departureToken: String? = outbound.departureToken,
     ) {
         val retLegs = inbound?.legs
-        val price = inbound?.price ?: outbound.price
         val brand = inbound?.fareBrand ?: outbound.fareBrand
-        // Include the provider and fare product; identical flights can sell several fare types.
-        // Never include the price in the ID: price history needs a stable offer-family key.
+        // Keep existing SHA-256 family/product IDs stable for saved local data.
+        // Kotlin/JS consumes the same family key, while the typed fare draft
+        // centralizes price scope, provenance and return completeness.
         val flightId = itineraryId(outbound.legs, retLegs)
         val productId = "$id-$flightId-${sha256(brand.orEmpty()).take(8)}"
+        val draft =
+            buildGoogleFareDraft(
+                id = productId,
+                provider = id,
+                query = query,
+                outbound = outbound,
+                inbound = inbound,
+                fetchedAt = fetchedAt,
+                servedFromCache = servedFromCache,
+                returnDateHint = params["return_date"],
+            )
         val built =
             assembleItinerary(
-                id = productId,
-                // Google Flights fare totals are for the requested party; the grid
-                // and the persisted flight price are explicitly per adult.
-                pricePerPerson = price?.div(query.adults.coerceAtLeast(1)),
-                priceCurrency = query.currency,
-                passengers = query.adults,
-                cabinRaw = query.cabin,
-                outboundLegs = outbound.legs,
-                returnLegs = retLegs,
-                returnMissing = query.tripType != "one_way" && retLegs.isNullOrEmpty(),
-                source = id,
-                sourceLabel = if (servedFromCache) "cached" else "live",
-                livePrice = true,
-                fetchedAt = fetchedAt,
-                outboundDuration = outbound.durationMinutes,
-                returnDuration = inbound?.durationMinutes,
-                apiLayoversOut = outbound.layovers,
-                apiLayoversRet = inbound?.layovers ?: emptyList(),
-                returnDateHint = params["return_date"],
-            ).copy(fareBrand = brand)
+                id = draft.id,
+                pricePerPerson = draft.originalPerPersonPrice,
+                priceCurrency = draft.priceCurrency,
+                passengers = draft.passengers,
+                cabinRaw = draft.cabinRaw,
+                outboundLegs = draft.outbound.legs,
+                returnLegs = draft.returning?.legs,
+                returnMissing = draft.returnMissing,
+                source = draft.source,
+                sourceLabel = draft.sourceLabel,
+                livePrice = draft.livePrice,
+                fetchedAt = draft.observedAt,
+                outboundDuration = draft.outbound.durationMinutes,
+                returnDuration = draft.returning?.durationMinutes,
+                apiLayoversOut = draft.outbound.layovers,
+                apiLayoversRet = draft.returning?.layovers ?: emptyList(),
+                returnDateHint = draft.returnDateHint,
+            ).copy(fareBrand = draft.fareBrand)
         if (!Filters.shortHaulAccept(built, query.cabinShortHaul)) return
         into += built
         tokens[built.id] =
@@ -686,10 +695,7 @@ fun flightMatch(
 fun itineraryId(
     outbound: List<Leg>,
     returning: List<Leg>?,
-): String {
-    val raw = (outbound + (returning ?: emptyList())).joinToString("|") { "${it.flightNumber}@${it.departDate}" }
-    return "itin-" + sha256(raw).take(10)
-}
+): String = "itin-" + sha256(googleFlightFamilyKey(outbound, returning)).take(10)
 
 fun marketParams(market: String): Pair<String, String> =
     when (market) {
