@@ -68,7 +68,10 @@ function decode<T>(res: ApiResponse<unknown>, guard: (value: unknown) => value i
 
 /** Only the authenticated server can advertise this narrow hosted capability. */
 export interface HostedStatus extends StatusResponse {
-  readonly hostedSearch?: { readonly canExecuteOneWayGbpSerpApi: boolean };
+  readonly hostedSearch?: {
+    readonly canExecuteOneWayGbpSerpApi: boolean;
+    readonly canExecuteRoundTripGbpSerpApi?: boolean;
+  };
 }
 export interface HostedSearchQuote {
   readonly canonicalQuery: SearchQuery;
@@ -237,7 +240,9 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     isQuotaList(value.providers) &&
     (value.hostedSearch === undefined ||
       (isRecord(value.hostedSearch) &&
-        typeof value.hostedSearch.canExecuteOneWayGbpSerpApi === "boolean"));
+        typeof value.hostedSearch.canExecuteOneWayGbpSerpApi === "boolean" &&
+        (value.hostedSearch.canExecuteRoundTripGbpSerpApi === undefined ||
+          typeof value.hostedSearch.canExecuteRoundTripGbpSerpApi === "boolean")));
   const isStorage = (value: unknown): value is StorageDiagnostic =>
     isRecord(value) && value.backend === "d1" && typeof value.sampleStored === "boolean";
   const hostedDisabled = <T>(): Parsed<T> => ({
@@ -245,10 +250,15 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     status: 405,
     error: "This authenticated Site has not enabled paid hosted search.",
   });
-  async function serverAllowsHostedExecution(): Promise<boolean> {
+  async function serverAllowsHostedExecution(query: SearchQuery): Promise<boolean> {
     if (!hosted || guest || !allowEstimate) return false;
     const status = decode(await generated.getStatus(), isStatus);
-    return status.ok && status.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true;
+    return (
+      status.ok &&
+      (query.tripType === "round_trip"
+        ? status.data.hostedSearch?.canExecuteRoundTripGbpSerpApi === true
+        : status.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true)
+    );
   }
   const isQuote = (value: unknown): value is HostedSearchQuote =>
     isRecord(value) &&
@@ -275,11 +285,13 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
   return Object.freeze({
     request,
     async prepareHostedSearch(query: SearchQuery) {
-      if (!(await serverAllowsHostedExecution())) return hostedDisabled<HostedSearchQuote>();
+      if (!(await serverAllowsHostedExecution(query))) return hostedDisabled<HostedSearchQuote>();
       return decode(await request("/api/prepare-search", query, null, true), isQuote);
     },
     async executeHostedSearch(quote: HostedSearchQuote) {
-      if (!(await serverAllowsHostedExecution())) return hostedDisabled<HostedSearchExecution>();
+      if (!(await serverAllowsHostedExecution(quote.canonicalQuery))) {
+        return hostedDisabled<HostedSearchExecution>();
+      }
       return decode(
         await request(
           "/api/search",

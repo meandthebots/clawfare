@@ -148,6 +148,13 @@ export async function handleReadOnlyApi(
               typeof db.batch === "function" &&
               typeof searchExecuteConfig?.consentSigningSecret === "string" &&
               new TextEncoder().encode(searchExecuteConfig.consentSigningSecret).length >= 32,
+            canExecuteRoundTripGbpSerpApi: searchPrepareConfig?.enabled === true &&
+              searchExecuteConfig?.enabled === true &&
+              searchExecuteConfig?.approvedForPaidCalls === true &&
+              providerKeyPresence?.serpapi === true &&
+              typeof db.batch === "function" &&
+              typeof searchExecuteConfig?.consentSigningSecret === "string" &&
+              new TextEncoder().encode(searchExecuteConfig.consentSigningSecret).length >= 32,
           },
         })
       : respond(providers);

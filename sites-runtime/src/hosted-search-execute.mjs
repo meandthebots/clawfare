@@ -9,7 +9,9 @@
  */
 import { requireSameOrigin, SearchConsentError } from "./search-consent.mjs";
 import { limitedBody } from "./search-estimate.mjs";
-import { executeConsentedOneWaySerpApi, SerpApiTransportError } from "./serpapi-metered-transport.mjs";
+import {
+  executeConsentedOneWaySerpApi, executeConsentedRoundTripSerpApi, SerpApiTransportError,
+} from "./serpapi-metered-transport.mjs";
 import { D1Investigations } from "./investigations.mjs";
 
 const HEADERS = {
@@ -46,10 +48,13 @@ function boundedCanonicalQuery(input, kotlinEngine) {
   let planned;
   try { planned = JSON.parse(kotlinEngine.planSearchJson(raw)); } catch { return null; }
   const q = planned?.query;
+  const tripSupported =
+    (q?.tripType === "one_way" && q.fetchReturns === false) ||
+    (q?.tripType === "round_trip" && q.fetchReturns === true);
   if (planned?.error || !q || JSON.stringify(q) !== raw ||
-      q.tripType !== "one_way" || q.currency !== "GBP" ||
+      !tripSupported || q.currency !== "GBP" ||
       q.confirmed !== false || q.cacheOnly !== false ||
-      q.fetchReturns !== false || q.providers?.length !== 1 ||
+      q.providers?.length !== 1 ||
       q.providers[0] !== "serpapi" || !Array.isArray(planned.pairs) ||
       planned.pairs.length < 1 || planned.pairs.length > 16 ||
       !Number.isSafeInteger(q.maxLiveCalls) || q.maxLiveCalls < 1 ||
@@ -72,6 +77,7 @@ export async function executeHostedSearchRequest(request, {
   }
   if (!db?.prepare || typeof db.batch !== "function" ||
       typeof kotlinEngine?.assembleHostedOneWayJson !== "function" ||
+      typeof kotlinEngine?.assembleHostedRoundTripJson !== "function" ||
       typeof kotlinEngine?.buildGoogleFareDraftJson !== "function" ||
       !cryptoApi?.getRandomValues || !cryptoApi?.subtle ||
       typeof consentSigningSecret !== "string" ||
@@ -92,13 +98,15 @@ export async function executeHostedSearchRequest(request, {
   const input = await limitedBody(request);
   if (input.error) return deny(input.error, input.status);
   const parsed = boundedCanonicalQuery(input.parsed, kotlinEngine);
-  if (!parsed) return deny("A valid canonical one-way GBP SerpApi quote is required.", 422);
+  if (!parsed) return deny("A valid canonical GBP SerpApi quote is required.", 422);
 
   const investigationSlug = SLUG.test(parsed.query.investigation || "")
     ? parsed.query.investigation : newSlug(cryptoApi);
   let observed;
   try {
-    observed = await executeConsentedOneWaySerpApi({
+    const transport = parsed.query.tripType === "round_trip"
+      ? executeConsentedRoundTripSerpApi : executeConsentedOneWaySerpApi;
+    observed = await transport({
       enabled: true, db, ownerId,
       canonicalQueryJson: parsed.canonicalQueryJson,
       consentToken: input.parsed.consentToken, consentSigningSecret,
@@ -122,7 +130,9 @@ export async function executeHostedSearchRequest(request, {
   const day = observed.fetchedAt.slice(0, 10);
   let assembly;
   try {
-    assembly = JSON.parse(kotlinEngine.assembleHostedOneWayJson(JSON.stringify({
+    const assemble = parsed.query.tripType === "round_trip"
+      ? kotlinEngine.assembleHostedRoundTripJson : kotlinEngine.assembleHostedOneWayJson;
+    assembly = JSON.parse(assemble(JSON.stringify({
       investigationId: investigationSlug,
       query: parsed.query, fetchedAt: observed.fetchedAt,
       drafts: observed.drafts, fx: { asOf: day, perGbp: { GBP: 1 } },
@@ -177,9 +187,11 @@ export async function executeHostedSearchRequest(request, {
       state: observed.state === "complete" ? "completed" : observed.state,
       returned, eligible: assembly.eligible,
       excludedByReason: assembly.excludedByReason,
-      baseCallsExpected: observed.plannedCalls,
+      baseCallsExpected: observed.baseCallsExpected ?? observed.plannedCalls,
       baseCallsLoaded: observed.completedCalls,
-      returnLookupsExpected: 0, returnLookupsLoaded: 0,
+      returnLookupsExpected: observed.returnLookupsExpected ?? 0,
+      returnLookupsLoaded: observed.returnLookupsLoaded ?? 0,
+      unresolvedReturns: observed.unresolvedReturns ?? 0,
     }],
     searchAttemptNonce: observed.consentNonce,
     ...(observed.state === "failed" ? {

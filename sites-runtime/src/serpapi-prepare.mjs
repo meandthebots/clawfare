@@ -114,9 +114,11 @@ export async function prepareSerpApiSearch(request, {
   if (input.parsed.confirmed === true) return invalid("Confirmed flag cannot grant hosted approval.");
   const plan = parseKotlinPlan(kotlinEngine, input.parsed);
   if (plan.error) return invalid(plan.error, plan.status);
-  if (executionAvailable && (plan.query.tripType !== "one_way" ||
-      plan.query.currency !== "GBP" || plan.query.fetchReturns !== false)) {
-    return invalid("Hosted execution currently supports one-way GBP SerpApi fares only.", 422);
+  if (executionAvailable &&
+      (plan.query.currency !== "GBP" ||
+        !((plan.query.tripType === "one_way" && plan.query.fetchReturns === false) ||
+          (plan.query.tripType === "round_trip" && plan.query.fetchReturns === true)))) {
+    return invalid("Hosted execution requires GBP SerpApi with verified return selection for round trips.", 422);
   }
   if (!providerKeyPresent || !db?.prepare) {
     return invalid("SerpApi credential or hosted D1 storage unavailable.", 503);

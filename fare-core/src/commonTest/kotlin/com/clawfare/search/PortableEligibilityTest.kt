@@ -139,6 +139,23 @@ class PortableEligibilityTest {
     }
 
     @Test
+    fun nonstopOnlyIsVerifiedAgainstBothDirectionsNotJustProviderSearchParameters() {
+        val direct =
+            directionOf(listOf(londonParis.copy(
+                to = "HND", cabin = "Business", durationMinutes = 720,
+            )), apiDuration = 720)
+        val search = business.copy(nonstopOnly = true)
+        assertEquals("nonstop_required", evaluate(search = search).rejectionReason)
+        assertTrue(evaluate(search = search, outbound = direct).eligible)
+        assertEquals(
+            "nonstop_required",
+            evaluate(search = search, outbound = direct, returning = direction).rejectionReason,
+        )
+        assertNull(sharedNonstopRejectionReason(direct, null, nonstopOnly = true))
+        assertNull(sharedNonstopRejectionReason(direction, direction, nonstopOnly = false))
+    }
+
+    @Test
     fun carrierMatchingIsExactAndRecognizesConfiguredAliases() {
         assertTrue(isKnownCarrierMatch(londonParis, "BA"))
         assertTrue(isKnownCarrierMatch(londonParis, "british airways"))
