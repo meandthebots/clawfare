@@ -27,6 +27,7 @@ const expectedModules = [
   "investigations.mjs", "public-sample.mjs", "provider-http-budget.mjs",
   "kotlin-engine.mjs", "worker-factory.mjs", "search-estimate.mjs",
   "search-consent.mjs", "provider-persistence.mjs", "serpapi-prepare.mjs",
+  "serpapi-metered-transport.mjs", "hosted-search-execute.mjs",
 ];
 for (const path of [fixtureSource, htmlSource, ...expectedModules.map(name => "sites-runtime/src/" + name)]) {
   if (!existsSync(path)) throw new Error("Missing required Sites source: " + path);

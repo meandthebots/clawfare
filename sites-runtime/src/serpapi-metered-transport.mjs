@@ -9,6 +9,7 @@
  */
 import { D1SearchConsents, SearchConsentError } from "./search-consent.mjs";
 import { D1ProviderHttpBudget, meteredProviderFetch } from "./provider-http-budget.mjs";
+import { D1ProviderPersistence } from "./provider-persistence.mjs";
 
 const MAX_CALLS = 16;
 const MAX_RESPONSE_BYTES = 256 * 1024;
@@ -167,7 +168,7 @@ async function boundedResponseJson(response, maxBytes) {
   return raw;
 }
 
-function countKotlinOffers(kotlinEngine, raw) {
+function parseKotlinOffers(kotlinEngine, raw) {
   let offers;
   try {
     offers = JSON.parse(kotlinEngine.parseGoogleFlightsOffersJson(raw));
@@ -181,7 +182,53 @@ function countKotlinOffers(kotlinEngine, raw) {
   // Never return the parsed offer itself. It can contain opaque departure
   // and booking tokens, which only a later trusted return-selection phase
   // may consume and must never send to the browser or D1 public snapshots.
-  return offers.length;
+  return offers;
+}
+
+async function digestFor(value, cryptoApi) {
+  const bytes = await cryptoApi.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function terminalErrorKind(code) {
+  if (code === "provider_timeout") return "timeout";
+  if (code === "invalid_response" || code === "response_too_large") return "invalid_response";
+  if (code === "provider_transport") return "network";
+  if (code === "quota_exhausted") return "quota_exhausted";
+  return "provider_error";
+}
+
+async function draftsFromOffers(offers, query, kotlinEngine, fetchedAt, cryptoApi) {
+  if (typeof kotlinEngine.buildGoogleFareDraftJson !== "function" ||
+      typeof kotlinEngine.evaluateOfferEligibilityJson !== "function" || offers.length > 100) {
+    reject("invalid_response");
+  }
+  const drafts = [];
+  let eligible = 0;
+  for (const offer of offers) {
+    const segments = offer.legs.map(l => [l.flightNumber, l.departDate, l.from, l.to]);
+    if (segments.some(s => s.some(v => typeof v !== "string" || !v))) reject("invalid_response");
+    const hash = await digestFor(JSON.stringify(["serpapi", segments, offer.fareBrand ?? null]), cryptoApi);
+    const id = "serpapi-" + hash.slice(0, 40);
+    let draft, evaluation;
+    try {
+      draft = JSON.parse(kotlinEngine.buildGoogleFareDraftJson(JSON.stringify({
+        id, provider: "serpapi", query, outbound: offer, fetchedAt,
+        servedFromCache: false,
+      })));
+      evaluation = JSON.parse(kotlinEngine.evaluateOfferEligibilityJson(JSON.stringify({
+        query, evidence: { outbound: draft.outbound }, airportCountries: {},
+      })));
+    } catch { reject("invalid_response"); }
+    if (!draft || !draft.outbound || !Array.isArray(draft.outbound.legs) ||
+        draft.source !== "serpapi" || draft.returnMissing || draft.returning ||
+        !["live", "cached"].includes(draft.sourceLabel) ||
+        typeof evaluation?.eligible !== "boolean") reject("invalid_response");
+    if (evaluation.eligible) eligible++;
+    // The Kotlin draft is token-free by construction. Never export ParsedOffer.
+    drafts.push(draft);
+  }
+  return { drafts, eligible };
 }
 
 /**
@@ -196,6 +243,7 @@ export async function executeConsentedOneWaySerpApi({
   fetcher = fetch, clock = () => new Date(),
   cryptoApi = globalThis.crypto, timeoutMs = DEFAULT_TIMEOUT_MS,
   maxResponseBytes = MAX_RESPONSE_BYTES,
+  includeDrafts = false, recordAttempts = false, investigationSlug = null,
 }) {
   if (enabled !== true) reject("disabled");
   if (typeof serpApiKey !== "string" || serpApiKey.length < 1 ||
@@ -229,6 +277,9 @@ export async function executeConsentedOneWaySerpApi({
     reject("consent_call_limit_mismatch");
   }
   const budget = new D1ProviderHttpBudget(db, clock);
+  const persistence = recordAttempts ? new D1ProviderPersistence(db, { clock, cryptoApi }) : null;
+  const fetchedAt = clock().toISOString();
+  const drafts = [];
   const attempts = [];
   let completed = 0;
   let errorCode = null;
@@ -242,14 +293,36 @@ export async function executeConsentedOneWaySerpApi({
           break outer;
         }
         const url = makeRequestUrl(query, origin, destination, pair.outbound, serpApiKey);
+        const routeDigest = persistence ? await digestFor(
+          JSON.stringify([approved.queryDigest, origin, destination, pair.outbound]), cryptoApi,
+        ) : null;
         const controller = new AbortController();
+        let began = false;
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
+          if (persistence) {
+            await persistence.beginAttempt({
+              ownerId, consentNonce: approved.nonce, queryDigest: approved.queryDigest,
+              provider: "serpapi", routeDigest, investigationSlug,
+            });
+            began = true;
+          }
           const response = await meteredProviderFetch(
             budget, url, { method: "GET", signal: controller.signal }, fetcher,
           );
           const raw = await boundedResponseJson(response, maxResponseBytes);
-          const offersReported = countKotlinOffers(kotlinEngine, raw);
+          const offers = parseKotlinOffers(kotlinEngine, raw);
+          const offersReported = offers.length;
+          const built = includeDrafts
+            ? await draftsFromOffers(offers, query, kotlinEngine, fetchedAt, cryptoApi)
+            : { drafts: [], eligible: 0 };
+          if (persistence) await persistence.finishAttempt({
+            ownerId, consentNonce: approved.nonce, provider: "serpapi", routeDigest,
+            state: offersReported ? "complete" : "empty", attemptedCalls: 1,
+            loadedCalls: 1, cachedCalls: 0, returnedOffers: offersReported,
+            eligibleOffers: built.eligible,
+          });
+          drafts.push(...built.drafts);
           attempts.push({
             provider: "serpapi", origin, destination, outboundDate: pair.outbound,
             state: "complete", offersReported, sourceLabel: "live",
@@ -258,6 +331,15 @@ export async function executeConsentedOneWaySerpApi({
         } catch (error) {
           errorCode = error instanceof SerpApiTransportError
             ? error.code : controller.signal.aborted ? "provider_timeout" : "provider_transport";
+          if (began) {
+            try {
+              await persistence.finishAttempt({
+                ownerId, consentNonce: approved.nonce, provider: "serpapi", routeDigest,
+                state: "failed", attemptedCalls: 1, loadedCalls: 0, cachedCalls: 0,
+                returnedOffers: 0, eligibleOffers: 0, errorKind: terminalErrorKind(errorCode),
+              });
+            } catch { /* A crashed D1 terminal write leaves attempted, not false empty. */ }
+          }
           attempts.push({
             provider: "serpapi", origin, destination, outboundDate: pair.outbound,
             state: "failed", offersReported: null, error: errorCode,
@@ -279,5 +361,8 @@ export async function executeConsentedOneWaySerpApi({
     errorCode,
     // This is NOT an eligibility-filtered or booking-ready result.
     hasResultSet: false,
+    // Returned ONLY to the trusted server-side assembler when explicitly requested.
+    // Never expose these without the server-verified Kotlin ResultSet boundary.
+    ...(includeDrafts ? { drafts, fetchedAt, consentNonce: approved.nonce } : {}),
   };
 }

@@ -48,12 +48,22 @@ export function createClawfareWorkerFactory({ templateHtml, bundledPublicSample,
               travelpayouts: Boolean(env.TRAVELPAYOUTS_API_TOKEN),
               duffel: Boolean(env.DUFFEL_ACCESS_TOKEN),
             },
+            // Execution requires TWO independent trusted server-only gates.
+            // Both default OFF; these values cannot come from a visitor.
+            searchExecuteConfig: {
+              enabled: env.SEARCH_EXECUTION_ENABLED === "true",
+              approvedForPaidCalls: env.SEARCH_PAID_CALLS_APPROVED === "true",
+              consentSigningSecret: env.SEARCH_CONSENT_SIGNING_SECRET,
+              serpApiKey: env.SERPAPI_API_KEY,
+            },
             // Search PREPARATION alone can be separately enabled by server-only
             // configuration. This does not enable POST /api/search or any paid Fetch.
             searchPrepareConfig: {
               enabled: env.SEARCH_PREPARE_ENABLED === "true",
               consentSigningSecret: env.SEARCH_CONSENT_SIGNING_SECRET,
               providerKeyPresent: Boolean(env.SERPAPI_API_KEY),
+              executionAvailable: env.SEARCH_EXECUTION_ENABLED === "true" &&
+                env.SEARCH_PAID_CALLS_APPROVED === "true",
             },
             // The hosting adapter, not the visitor, must authenticate.
             getVerifiedEmail: req => getVerifiedEmail(req, context),
