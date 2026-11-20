@@ -104,6 +104,23 @@ fun sharedTransitRejectionReason(
     return null
 }
 
+/**
+ * The provider's nonstop flag is not sufficient evidence that every segment
+ * respects the user's hard nonstop requirement. Recheck parsed leg counts.
+ */
+fun sharedNonstopRejectionReason(
+    outbound: Direction,
+    returning: Direction?,
+    nonstopOnly: Boolean,
+): String? {
+    if (!nonstopOnly) return null
+    return if (outbound.legs.size > 1 || (returning?.legs?.size ?: 0) > 1) {
+        "nonstop_required"
+    } else {
+        null
+    }
+}
+
 /** Pure strict-leg checks, used by both the real JVM provider and hosted JS. */
 fun sharedStrictLegRejectionReason(
     outbound: Direction,
@@ -158,6 +175,8 @@ fun evaluatePortableEligibility(request: EligibilityEvaluationRequest): Eligibil
             request.query.excludedTransitAirports,
             request.query.excludedTransitCountries,
             request.airportCountries,
+        ) ?: sharedNonstopRejectionReason(
+            evidence.outbound, evidence.returning, request.query.nonstopOnly,
         ) ?: sharedStrictLegRejectionReason(
             evidence.outbound, evidence.returning, evidence.returnMissing, request.query,
         )
