@@ -17,6 +17,36 @@ const styles = stylex.create({
     fontWeight: 700,
     whiteSpace: "nowrap",
   },
+  itineraryDesktop: { display: { default: "table", "@media (max-width: 760px)": "none" } },
+  itineraryMobile: {
+    display: { default: "none", "@media (max-width: 760px)": "grid" },
+    gap: "12px",
+  },
+  itineraryCard: {
+    border: "1px solid var(--line)",
+    borderRadius: "12px",
+    backgroundColor: "var(--card)",
+    overflow: "hidden",
+  },
+  itineraryCardButton: {
+    width: "100%",
+    border: 0,
+    borderRadius: 0,
+    backgroundColor: "var(--mobile-header-bg)",
+    color: "inherit",
+    padding: "14px",
+    textAlign: "left",
+    cursor: "pointer",
+    font: "inherit",
+    display: "flex",
+    flexDirection: "column",
+    gap: "7px",
+  },
+  itineraryCardTitle: { fontWeight: 750, fontSize: "15px" },
+  itineraryCardFare: { fontWeight: 750, fontSize: "16px" },
+  itineraryCardDetail: { color: "var(--accent)", fontWeight: 700 },
+  itineraryCardMeta: { color: "var(--muted)", fontSize: "12px" },
+  itineraryCardLink: { display: "inline-block", margin: "0 14px 14px" },
   matrixButton: {
     display: "flex",
     flexDirection: "column",
@@ -41,7 +71,8 @@ const layText = (mins: number) => {
 /** Read-only React itinerary listing, preserving the existing table/CSV semantics. */
 export function ItineraryView({ rows, onSelect }: ItineraryViewProps) {
   return (
-    <table className="data" id="itineraries">
+    <>
+      <table className={"data " + stylex.props(styles.itineraryDesktop).className} id="itineraries">
       <thead>
         <tr>
           <th>Itinerary</th>
@@ -119,7 +150,59 @@ export function ItineraryView({ rows, onSelect }: ItineraryViewProps) {
           );
         })}
       </tbody>
-    </table>
+      </table>
+      <section
+        className={stylex.props(styles.itineraryMobile).className}
+        id="mobileItineraries"
+        aria-label="Flight itineraries"
+      >
+        {rows.length === 0 && <p>No itineraries match these filters.</p>}
+        {rows.map((it) => {
+          const url = bookingUrl(it.links[0]);
+          const title = it.origin + " → " + it.destination + " " +
+            fmtRange(it.outboundDate, it.returnDate);
+          return (
+            <article key={it.id} className={stylex.props(styles.itineraryCard).className}>
+              <button
+                type="button"
+                className={stylex.props(styles.itineraryCardButton).className}
+                data-p={it.id}
+                data-a="LH"
+                aria-label={"View details for " + it.id + ": " + title}
+                onClick={() => onSelect(it.id, "LH")}
+              >
+                <span className={stylex.props(styles.itineraryCardTitle).className}>{title}</span>
+                <span>
+                  {it.airlineSummary} · {stopsLabel(it)} · {it.cabin}
+                  {it.nights != null ? " · " + it.nights + " nights" : ""}
+                </span>
+                <span className={stylex.props(styles.itineraryCardFare).className}>
+                  {gbp(it.pricePerPerson)} per person ·{" "}
+                  {gbp(it.pricePerPerson == null ? null : it.pricePerPerson * it.passengers)} party
+                </span>
+                <span className={stylex.props(styles.itineraryCardMeta).className}>
+                  <SourceTag it={it} />
+                  {it.fetchedAt ?? ""}
+                </span>
+                <span className={stylex.props(styles.itineraryCardDetail).className}>
+                  View itinerary details
+                </span>
+              </button>
+              {url && (
+                <a
+                  className={"lbtn primary " + stylex.props(styles.itineraryCardLink).className}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Book
+                </a>
+              )}
+            </article>
+          );
+        })}
+      </section>
+    </>
   );
 }
 
