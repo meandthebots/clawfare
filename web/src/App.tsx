@@ -303,7 +303,8 @@ export function App() {
         setHostedExecutionEnabled(
           !GUEST_MODE &&
             HOSTED_ESTIMATE_ONLY &&
-            response.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true,
+            (response.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true ||
+              response.data.hostedSearch?.canExecuteRoundTripGbpSerpApi === true),
         );
         setStatusLines(
           response.data.providers.map(
@@ -453,7 +454,8 @@ export function App() {
         return;
       }
       const confirmed = window.confirm(
-        "Run the exact one-way SerpApi search approved by the server?\n\n" +
+        "Run the exact " + (quote.canonicalQuery.tripType === "round_trip" ? "round-trip" : "one-way") +
+          " SerpApi search approved by the server?\n\n" +
           "Up to " +
           quote.totalCallsUpperBound +
           " provider requests may consume paid quota.\n" +
@@ -801,7 +803,7 @@ export function App() {
             (GUEST_MODE
               ? "Guest mode uses synthetic sample flights. Search estimates, live searches and exports are disabled."
               : HOSTED_READ_ONLY && hostedExecutionEnabled
-                ? "One-way GBP SerpApi search can run after explicit confirmation; provider requests may consume quota."
+                ? "GBP SerpApi searches can run after explicit confirmation; provider requests may consume quota."
                 : HOSTED_READ_ONLY
                   ? HOSTED_ESTIMATE_ONLY
                     ? "Search estimates are available at no cost. Run search and all paid provider calls are still disabled."

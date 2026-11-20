@@ -409,3 +409,69 @@ test("capability revoked between quote and execution prevents the second POST", 
   assert.equal(result.ok, false);
   assert.equal(requests, 1, "Only the preparation request may be sent");
 });
+
+test("round-trip hosted confirmation checks the trip-specific server capability", async () => {
+  const calls: string[] = [];
+  let permitted = false;
+  const requested = { ...sampleQuery, tripType: "round_trip" as const,
+    fetchReturns: true, origins: ["LHR"], destinations: ["NRT"],
+    providers: ["serpapi"], outboundFrom: "2027-04-12" };
+  const canonical = { ...requested, nights: 8, maxLiveCalls: 2 };
+  const quote = {
+    canonicalQuery: canonical, consentToken: "server-signed-return-consent",
+    expiresAt: "2027-04-01T12:00:00Z",
+    totalCallsUpperBound: 2, baseCallsUpperBound: 1,
+    returnLookupsUpperBound: 1, canExecuteHere: true,
+    cost: { vendorBillingKnown: false, message: "Two provider requests may cost quota." },
+  };
+  const client = createClawfareClient(
+    { hostedReadOnly: true, hostedEstimateOnly: true },
+    async (input, init) => {
+      const path = String(input);
+      calls.push(path);
+      if (path === "/api/status") return Response.json({
+        cacheDir: "d1", searchesDir: "d1", providers: [],
+        hostedSearch: {
+          canExecuteOneWayGbpSerpApi: true,
+          canExecuteRoundTripGbpSerpApi: permitted,
+        },
+      });
+      if (path === "/api/prepare-search") return Response.json(quote);
+      if (path === "/api/search") {
+        assert.deepEqual(JSON.parse(String(init?.body)), {
+          canonicalQuery: canonical, consentToken: quote.consentToken,
+        });
+        return Response.json({
+          ok: true,
+          result: {
+            id: "search-roundtrip", title: "LHR to NRT and back",
+            itineraries: [{
+              id: "rt-1", outboundDate: "2027-04-12",
+              returnDate: "2027-04-20", pricePerPerson: 1800,
+            }],
+            addons: [], cells: [], vendors: [],
+          },
+          providerObservations: [{
+            provider: "serpapi", state: "completed",
+            baseCallsLoaded: 1, returnLookupsLoaded: 1,
+          }],
+        });
+      }
+      throw new Error("Unexpected route");
+    },
+  );
+  const initiallyDenied = await client.prepareHostedSearch(requested);
+  assert.equal(initiallyDenied.ok, false);
+  assert.deepEqual(calls, ["/api/status"], "One-way capability alone cannot enable return search");
+  permitted = true;
+  const prepared = await client.prepareHostedSearch(requested);
+  assert.equal(prepared.ok, true);
+  if (!prepared.ok) throw new Error("Expected trusted return quote");
+  const completed = await client.executeHostedSearch(prepared.data);
+  assert.equal(completed.ok, true);
+  if (!completed.ok) throw new Error("Expected verified round trip");
+  assert.equal(completed.data.result.itineraries[0]?.returnDate, "2027-04-20");
+  assert.deepEqual(calls.slice(1), [
+    "/api/status", "/api/prepare-search", "/api/status", "/api/search",
+  ]);
+});

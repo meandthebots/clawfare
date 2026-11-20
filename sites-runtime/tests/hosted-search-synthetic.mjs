@@ -35,7 +35,7 @@ for (const migration of [
   "sites-runtime/migrations/0005_hosted_provider_cache.sql",
 ]) conn.exec(readFileSync(migration, "utf8"));
 conn.prepare("INSERT INTO provider_http_limits(provider, daily_cap, monthly_cap) VALUES(?, ?, ?)")
-  .run("serpapi", 2, 2);
+  .run("serpapi", 5, 5);
 const db = {
   prepare(sql) {
     const statement = conn.prepare(sql);
@@ -73,7 +73,8 @@ const fetcher = async (url, init) => {
   assert.equal(route.origin, "https://serpapi.com");
   assert.equal(route.searchParams.get("api_key"), apiKey);
   assert.equal(route.searchParams.get("adults"), "2");
-  assert.equal(route.searchParams.get("type"), "2");
+  const trip = route.searchParams.get("type");
+  assert.ok(trip === "1" || trip === "2");
   assert.equal(route.searchParams.get("travel_class"), "3");
   assert.equal(route.searchParams.get("outbound_date"), "2027-04-12");
   assert.equal(init.redirect, "manual");
@@ -81,6 +82,24 @@ const fetcher = async (url, init) => {
     "Durable cap reservation must be recorded before provider egress");
   assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM hosted_provider_search_attempts WHERE state = 'attempted'").get().n,
     1, "Route attempt must be recorded before provider egress");
+  if (trip === "1" && route.searchParams.has("departure_token")) {
+    assert.equal(route.searchParams.get("departure_token"), "private-departure-token");
+    assert.equal(route.searchParams.get("return_date"), "2027-04-20");
+    return Response.json({
+      best_flights: [{
+        price: 3600, total_duration: 720, booking_token: "private-return-booking",
+        flights: [{
+          departure_airport: { id: "NRT", time: "2027-04-20 12:00" },
+          arrival_airport: { id: "LHR", time: "2027-04-20 17:00" },
+          flight_number: "BA 8", airline: "British Airways",
+          plane_and_crew_by: "British Airways", duration: 720,
+          travel_class: "Business",
+        }],
+      }],
+      other_flights: [],
+    });
+  }
+  if (trip === "1") assert.equal(route.searchParams.get("return_date"), "2027-04-20");
   return new Response(JSON.stringify({
     best_flights: [{
       price: 2440,
@@ -209,5 +228,92 @@ const changed = await owner(post("/api/search", {
 }));
 assert.equal(changed.status, 422);
 assert.equal(outboundRequests, 1);
+// Round-trip quotes must explicitly budget both base and return selection
+// categories. The second HTTP request is a real D1 reservation and its
+// private departure_token must never reach D1 result snapshots or the browser.
+const roundQuery = {
+  ...query, tripType: "round_trip", nights: 8,
+  fetchReturns: true, returnChoices: 1, maxLiveCalls: 2,
+};
+const roundQuoteResponse = await owner(post("/api/prepare-search", roundQuery));
+assert.equal(roundQuoteResponse.status, 200);
+const roundQuote = await roundQuoteResponse.json();
+assert.equal(roundQuote.canExecuteHere, true);
+assert.equal(roundQuote.baseCallsUpperBound, 1);
+assert.equal(roundQuote.returnLookupsUpperBound, 1);
+assert.equal(roundQuote.totalCallsUpperBound, 2);
+const roundRequest = {
+  canonicalQuery: roundQuote.canonicalQuery,
+  consentToken: roundQuote.consentToken,
+};
+const roundResponse = await owner(post("/api/search", roundRequest));
+assert.equal(roundResponse.status, 200);
+const round = await roundResponse.json();
+assert.equal(round.ok, true);
+assert.equal(round.result.itineraries.length, 1);
+const roundFare = round.result.itineraries[0];
+assert.equal(roundFare.pricePerPerson, 1800, "3600 is the two-person entire return fare");
+assert.equal(roundFare.outboundDate, "2027-04-12");
+assert.equal(roundFare.returnDate, "2027-04-20");
+assert.equal(roundFare.nights, 8);
+assert.equal(roundFare.origin, "LHR");
+assert.equal(roundFare.destination, "NRT");
+assert.equal(roundFare.returnFrom, "NRT");
+assert.equal(roundFare.returnMissing, false);
+assert.equal(roundFare.cashRefundProofVerified, false);
+assert.equal(round.providerObservations[0].baseCallsLoaded, 1);
+assert.equal(round.providerObservations[0].returnLookupsExpected, 1);
+assert.equal(round.providerObservations[0].returnLookupsLoaded, 1);
+assert.equal(round.providerObservations[0].unresolvedReturns, 0);
+assert.equal(outboundRequests, 3);
+assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM provider_http_reservations").get().n, 3);
+assert.equal(conn.prepare(
+  "SELECT attempted_calls AS n, loaded_calls AS loaded FROM hosted_provider_search_attempts WHERE consent_nonce = ?",
+).get(round.searchAttemptNonce).n, 2);
+assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM fare_price_observations").get().n, 2);
+assert.deepEqual(await (await owner(get("/api/results/" + round.result.id))).json(), round.result);
+assert.equal((await stranger(get("/api/results/" + round.result.id))).status, 404);
+const roundHistory = await owner(get("/api/history/" + round.result.id + "/" + roundFare.id));
+assert.equal((await roundHistory.json()).length, 1);
+const allRoundResults = JSON.stringify(round);
+for (const secretValue of [apiKey, "private-departure-token",
+  "private-booking-token", "private-return-booking", "departureToken", "bookingToken"]) {
+  assert.equal(allRoundResults.includes(secretValue), false);
+}
+assert.equal((await owner(post("/api/search", roundRequest))).status, 409);
+assert.equal(outboundRequests, 3);
+
+// A provider can report outbound options without any departure token. That
+// must produce an *incomplete* result, never a £1220 round-trip quote.
+const missingTokenFetcher = async (url, init) => {
+  const response = await fetcher(url, init);
+  const obj = await response.json();
+  for (const item of obj.best_flights || []) delete item.departure_token;
+  return Response.json(obj);
+};
+const incompleteSite = createReadOnlySitesHandler({
+  ...baseConfig,
+  getVerifiedEmail: async () => "alice@example.com",
+  searchPrepareConfig: { enabled: true, executionAvailable: true,
+    providerKeyPresent: true, consentSigningSecret: signSecret, clock: now },
+  searchExecuteConfig: { enabled: true, approvedForPaidCalls: true,
+    serpApiKey: apiKey, consentSigningSecret: signSecret,
+    fetcher: missingTokenFetcher, clock: now },
+});
+const missingQuoteResponse = await incompleteSite(post("/api/prepare-search", roundQuery));
+assert.equal(missingQuoteResponse.status, 200);
+const missingQuote = await missingQuoteResponse.json();
+const incompleteResponse = await incompleteSite(post("/api/search", {
+  canonicalQuery: missingQuote.canonicalQuery, consentToken: missingQuote.consentToken,
+}));
+assert.equal(incompleteResponse.status, 200);
+const incomplete = await incompleteResponse.json();
+assert.equal(incomplete.ok, true);
+assert.equal(incomplete.result.itineraries.length, 0);
+assert.equal(incomplete.providerObservations[0].state, "partial");
+assert.equal(incomplete.providerObservations[0].unresolvedReturns, 1);
+assert.ok(incomplete.result.warnings.some(message => /verified return/.test(message)));
+assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM provider_http_reservations").get().n, 4);
+assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM fare_price_observations").get().n, 2);
 conn.close();
-console.log("Synthetic SerpApi / Kotlin JS / D1 / private Results integration passed");
+console.log("Synthetic one-way + verified round-trip / Kotlin JS / D1 integration passed");
