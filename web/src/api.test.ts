@@ -356,6 +356,8 @@ test("hosted quote is rejected if backend returns a malformed or non-executable 
   );
   const quote = await client.prepareHostedSearch({
     ...sampleQuery,
+    tripType: "one_way",
+    fetchReturns: false,
     origins: ["LHR"],
     destinations: ["NRT"],
     providers: ["serpapi"],
