@@ -137,7 +137,19 @@ export async function handleReadOnlyApi(
       }
     }
     return url.pathname === "/api/status"
-      ? respond({ cacheDir: "d1", searchesDir: "d1", providers })
+      ? respond({
+          cacheDir: "d1", searchesDir: "d1", providers,
+          // Server-authored capability. Browser or query strings cannot enable it.
+          hostedSearch: {
+            canExecuteOneWayGbpSerpApi: searchPrepareConfig?.enabled === true &&
+              searchExecuteConfig?.enabled === true &&
+              searchExecuteConfig?.approvedForPaidCalls === true &&
+              providerKeyPresence?.serpapi === true &&
+              typeof db.batch === "function" &&
+              typeof searchExecuteConfig?.consentSigningSecret === "string" &&
+              new TextEncoder().encode(searchExecuteConfig.consentSigningSecret).length >= 32,
+          },
+        })
       : respond(providers);
   }
   if (url.pathname === "/api/storage") {
