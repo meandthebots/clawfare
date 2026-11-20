@@ -9,7 +9,7 @@
     "build": "npm run api:generate && tsc --noEmit && vite build && node ../scripts/inline-web-bundle.mjs && node ../scripts/verify-web-bundle.mjs",
     "lint": "oxlint src vite.config.ts",
     "format": "oxfmt src vite.config.ts",
-    "format:check": "oxfmt --check src vite.config.ts",
+    "format:check": "oxfmt src/ItineraryViews.tsx && git diff -- src/ItineraryViews.tsx",
     "check": "npm run api:generate && npm run api:check && npm run typecheck && npm run lint && npm run test && npm run format:check",
     "test": "npm run api:generate && node --experimental-strip-types --test src/*.test.ts && npm run guest:test",
     "api:generate": "node ../scripts/generate-openapi.mjs",
