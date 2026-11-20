@@ -9,8 +9,9 @@ import kotlinx.serialization.json.JsonObject
  * Provider I/O and identity are server responsibilities. No booking options
  * or verified refund rights are invented from a Google Flights base search.
  *
- * This initial assembler supports one-way search results ONLY. Its caller
- * must not present an outbound quote as a complete return itinerary.
+ * One-way and verified round-trip drafts share an identical output model.
+ * Unresolved return lookups are counted as incomplete; a priced outbound-only
+ * fare is never represented as a complete round-trip fare.
  */
 @Serializable
 data class HostedFareFx(
@@ -54,6 +55,8 @@ data class HostedFareItinerary(
     val destination: String,
     val outboundDate: String,
     val returnDate: String? = null,
+    val returnFrom: String? = null,
+    val nights: Int? = null,
     val airlineSummary: String,
     val outbound: Direction,
     val returning: Direction? = null,
@@ -108,6 +111,8 @@ data class HostedFareAssembly(
     val returned: Int,
     val eligible: Int,
     val excludedByReason: Map<String, Int>,
+    /** Outbound selections with no verified corresponding return offer. */
+    val unresolvedReturns: Int = 0,
 )
 
 private val INVESTIGATION_ID = Regex("[a-z0-9][a-z0-9_-]{0,99}")
@@ -118,10 +123,27 @@ private val UTC_CAPTURE = Regex("\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.
  * supplies server-owned FX reference and a trusted country lookup; neither is
  * derived from client JSON at the public HTTP boundary.
  */
-fun assembleHostedOneWayResult(request: HostedFareResultRequest): HostedFareAssembly {
+fun assembleHostedOneWayResult(request: HostedFareResultRequest): HostedFareAssembly =
+    assembleHostedResult(request, "one_way")
+
+/**
+ * Round-trip fares require a return-selection result covering the matching
+ * airport pair and exact planned return date. An outbound-only offer, even
+ * when Google quotes an outbound party price, is not a round-trip quote.
+ */
+fun assembleHostedRoundTripResult(request: HostedFareResultRequest): HostedFareAssembly =
+    assembleHostedResult(request, "round_trip")
+
+private fun assembleHostedResult(
+    request: HostedFareResultRequest,
+    expectedTrip: String,
+): HostedFareAssembly {
     require(INVESTIGATION_ID.matches(request.investigationId)) { "Invalid investigation ID" }
     require(UTC_CAPTURE.matches(request.fetchedAt)) { "Invalid UTC capture timestamp" }
-    require(request.query.tripType == "one_way") { "Round-trip assembly is not yet supported" }
+    require(request.query.tripType == expectedTrip) { "Incorrect trip type for hosted assembler" }
+    if (expectedTrip == "round_trip") {
+        require(request.query.fetchReturns) { "Round-trip fares require verified return selection" }
+    }
     require(request.query.providers == listOf("serpapi")) { "Only SerpApi base searches are supported" }
     require(request.query.adults in 1..9) { "Invalid passenger count" }
     require(request.query.origins.isNotEmpty() && request.query.destinations.isNotEmpty()) {
@@ -132,11 +154,17 @@ fun assembleHostedOneWayResult(request: HostedFareResultRequest): HostedFareAsse
 
     val exclusions = mutableMapOf<String, Int>()
     val candidates = mutableListOf<GoogleFareDraft>()
+    val pairs = if (expectedTrip == "round_trip") datePairs(request.query).toSet() else emptySet()
+    var unresolvedReturns = 0
     for (draft in request.drafts) {
         require(draft.source == "serpapi" && draft.passengers == request.query.adults &&
-            draft.priceCurrency == request.query.currency &&
-            draft.returning == null && !draft.returnMissing
-        ) { "Draft contradicts canonical one-way SerpApi search" }
+            draft.priceCurrency == request.query.currency
+        ) { "Draft contradicts canonical SerpApi search" }
+        if (expectedTrip == "one_way") {
+            require(draft.returning == null && !draft.returnMissing &&
+                draft.returnDateHint == null
+            ) { "One-way draft unexpectedly has a return" }
+        }
         val legs = draft.outbound.legs
         require(legs.isNotEmpty() &&
             legs.first().from in request.query.origins &&
@@ -145,10 +173,35 @@ fun assembleHostedOneWayResult(request: HostedFareResultRequest): HostedFareAsse
             legs.first().departDate <= request.query.outboundTo &&
             draft.observedAt == request.fetchedAt
         ) { "Draft is outside the requested route, dates or capture" }
+        val returning = draft.returning
+        if (expectedTrip == "round_trip") {
+            require((legs.first().departDate to draft.returnDateHint) in pairs) {
+                "Draft return date was not in the planned date combinations"
+            }
+            if (draft.returnMissing || returning == null) {
+                require(draft.returnMissing && returning == null) {
+                    "Missing return must not have verified inbound legs"
+                }
+                unresolvedReturns++
+                // An outbound quote is not a total return fare and must not
+                // appear among priced round-trip itineraries.
+                continue
+            }
+            require(returning.legs.isNotEmpty() &&
+                returning.legs.first().from == legs.last().to &&
+                returning.legs.last().to == legs.first().from &&
+                returning.legs.first().departDate == draft.returnDateHint &&
+                legs.last().arriveDate <= returning.legs.first().departDate
+            ) { "Verified return does not match the selected outbound itinerary" }
+        }
         val decision = evaluatePortableEligibility(
             EligibilityEvaluationRequest(
                 query = request.query,
-                evidence = EligibilityEvidence(outbound = draft.outbound),
+                evidence = EligibilityEvidence(
+                    outbound = draft.outbound,
+                    returning = returning,
+                    returnMissing = draft.returnMissing,
+                ),
                 airportCountries = request.airportCountries,
             ),
         )
@@ -170,8 +223,11 @@ fun assembleHostedOneWayResult(request: HostedFareResultRequest): HostedFareAsse
     val rate = request.fx.perGbp[currency]
     val missingFx = currency != "GBP" && rate == null && ranked.any { it.originalPerPersonPrice != null }
     val fares = ranked.map { draft ->
-        val legs = draft.outbound.legs
-        val layovers = draft.outbound.layovers.map { it.minutes }
+        val outbound = draft.outbound
+        val returning = draft.returning
+        val legs = outbound.legs + returning?.legs.orEmpty()
+        val layovers = outbound.layovers.map { it.minutes } +
+            returning?.layovers.orEmpty().map { it.minutes }
         val codes = legs.map { it.airlineCode.uppercase() }.filter { it.isNotBlank() }.distinct()
         val names = legs.map { it.airline.ifBlank { it.airlineCode } }
             .filter { it.isNotBlank() }.distinct()
@@ -187,15 +243,26 @@ fun assembleHostedOneWayResult(request: HostedFareResultRequest): HostedFareAsse
             cabinKey = cabinKeyOf(draft.cabinRaw),
             euPremium = euPremium(cabinKeyOf(draft.cabinRaw), legs),
             origin = legs.first().from,
-            destination = legs.last().to,
-            outboundDate = legs.first().departDate,
+            destination = outbound.legs.last().to,
+            outboundDate = outbound.legs.first().departDate,
+            returnDate = returning?.legs?.firstOrNull()?.departDate,
+            returnFrom = returning?.legs?.firstOrNull()?.from,
+            nights = nightsBetween(outbound.legs.first().departDate,
+                returning?.legs?.firstOrNull()?.departDate),
             airlineSummary = names.joinToString(" / "),
-            outbound = draft.outbound,
-            stopsOut = draft.outbound.stops,
+            outbound = outbound,
+            returning = returning,
+            stopsOut = outbound.stops,
+            stopsRet = returning?.stops,
             layoverMinutes = layovers,
             maxLayoverMinutes = layovers.maxOrNull(),
-            travelMinutes = draft.outbound.durationMinutes,
-            outboundDepart = legs.first().departTime,
+            travelMinutes =
+                if (returning == null) outbound.durationMinutes
+                else if (outbound.durationMinutes != null && returning.durationMinutes != null) {
+                    outbound.durationMinutes + returning.durationMinutes
+                } else null,
+            outboundDepart = outbound.legs.first().departTime,
+            returnDepart = returning?.legs?.firstOrNull()?.departTime,
             airlineCodes = codes,
             source = draft.source,
             fareBrand = draft.fareBrand,
@@ -207,15 +274,26 @@ fun assembleHostedOneWayResult(request: HostedFareResultRequest): HostedFareAsse
     val route = request.query.origins.joinToString("/") + " → " +
         request.query.destinations.joinToString("/")
     val warnings = listOfNotNull(
-        "Only observed SerpApi one-way base fares are shown; this is not exhaustive availability.",
+        if (expectedTrip == "one_way") {
+            "Only observed SerpApi one-way base fares are shown; this is not exhaustive availability."
+        } else {
+            "Only SerpApi fares with verified outbound and return selections are priced; no booking is guaranteed."
+        },
+        if (unresolvedReturns > 0) {
+            "$unresolvedReturns outbound selections lack a verified return; they were not priced as round trips."
+        } else null,
         if (missingFx) "No dated GBP conversion for " + currency + "; original prices are retained." else null,
-        if (fares.isEmpty()) "No eligible fares in the received observations; this is not proof no flights exist." else null,
+        if (fares.isEmpty()) "No eligible complete fares in the received observations; this is not proof no flights exist." else null,
     )
     return HostedFareAssembly(
         result = HostedFareResultSet(
             id = request.investigationId,
             title = route + " · " + request.query.outboundFrom,
-            subtitle = "One-way fare observations, not verified booking offers",
+            subtitle = if (expectedTrip == "one_way") {
+                "One-way fare observations, not verified booking offers"
+            } else {
+                "Verified return selections, not confirmed bookings"
+            },
             fetchedAt = request.fetchedAt,
             checkedBags = request.query.checkedBags,
             passengers = request.query.adults,
@@ -227,5 +305,6 @@ fun assembleHostedOneWayResult(request: HostedFareResultRequest): HostedFareAsse
         returned = request.drafts.size,
         eligible = fares.size,
         excludedByReason = exclusions.toMap(),
+        unresolvedReturns = unresolvedReturns,
     )
 }

@@ -19,6 +19,7 @@ const bridge = {
     buildGoogleFareDraftForHost: request => request,
     evaluateOfferEligibilityForHost: body => body,
     assembleHostedOneWayForHost: body => body,
+    assembleHostedRoundTripForHost: body => body,
     toGbpForHost: amount => amount,
   } } } },
 };
@@ -47,6 +48,7 @@ test("assembly requires the Kotlin compiler export, public fixture and host veri
   assert.equal(factory.kotlin.buildGoogleFareDraftJson('{"id":"example"}'), '{"id":"example"}');
   assert.equal(factory.kotlin.evaluateOfferEligibilityJson('{"eligible":true}'), '{"eligible":true}');
   assert.equal(factory.kotlin.assembleHostedOneWayJson('{"result":{}}'), '{"result":{}}');
+  assert.equal(factory.kotlin.assembleHostedRoundTripJson('{"roundTrip":true}'), '{"roundTrip":true}');
   assert.throws(() => factory.createTrustedWorker({}), /Verified Sites identity/);
   assert.throws(() => createClawfareWorkerFactory({
     templateHtml, bundledPublicSample: sample, kotlinBundle: {},

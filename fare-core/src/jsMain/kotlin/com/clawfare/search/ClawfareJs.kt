@@ -95,6 +95,14 @@ object ClawfareJs {
         )
     }
 
+    /** Verified inbound selection required; no outbound-only round-trip quotes. */
+    fun assembleHostedRoundTripJson(requestJson: String): String {
+        val request = AppJson.decodeFromString(HostedFareResultRequest.serializer(), requestJson)
+        return AppJson.encodeToString(
+            HostedFareAssembly.serializer(), assembleHostedRoundTripResult(request),
+        )
+    }
+
     fun toGbpOrNull(
         amount: Double,
         unitsPerGbp: Double,
@@ -145,3 +153,8 @@ fun evaluateOfferEligibilityForHost(requestJson: String): String =
 @JsExport
 fun assembleHostedOneWayForHost(requestJson: String): String =
     ClawfareJs.assembleHostedOneWayJson(requestJson)
+
+/** Server-only audited return-selection assembly; token-free public DTO. */
+@JsExport
+fun assembleHostedRoundTripForHost(requestJson: String): String =
+    ClawfareJs.assembleHostedRoundTripJson(requestJson)

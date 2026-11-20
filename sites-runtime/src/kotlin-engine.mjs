@@ -14,6 +14,7 @@ export function kotlinEngineFromBundle(bundle) {
     "buildGoogleFareDraftForHost",
     "evaluateOfferEligibilityForHost",
     "assembleHostedOneWayForHost",
+    "assembleHostedRoundTripForHost",
     "toGbpForHost",
   ];
   if (!search || methods.some(name => typeof search[name] !== "function")) {
@@ -28,6 +29,7 @@ export function kotlinEngineFromBundle(bundle) {
     buildGoogleFareDraftJson: request => search.buildGoogleFareDraftForHost(request),
     evaluateOfferEligibilityJson: request => search.evaluateOfferEligibilityForHost(request),
     assembleHostedOneWayJson: request => search.assembleHostedOneWayForHost(request),
+    assembleHostedRoundTripJson: request => search.assembleHostedRoundTripForHost(request),
     toGbpOrNull: (amount, unitsPerGbp) => search.toGbpForHost(amount, unitsPerGbp),
   });
 }
