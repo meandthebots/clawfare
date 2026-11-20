@@ -73,83 +73,83 @@ export function ItineraryView({ rows, onSelect }: ItineraryViewProps) {
   return (
     <>
       <table className={"data " + stylex.props(styles.itineraryDesktop).className} id="itineraries">
-      <thead>
-        <tr>
-          <th>Itinerary</th>
-          <th>Flights</th>
-          <th>Stops</th>
-          <th>Layover</th>
-          <th className="num">pp</th>
-          <th className="num">Total</th>
-          <th>Source</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {!rows.length && (
+        <thead>
           <tr>
-            <td className="empty" colSpan={8}>
-              No itineraries match these filters.
-            </td>
+            <th>Itinerary</th>
+            <th>Flights</th>
+            <th>Stops</th>
+            <th>Layover</th>
+            <th className="num">pp</th>
+            <th className="num">Total</th>
+            <th>Source</th>
+            <th>Actions</th>
           </tr>
-        )}
-        {rows.map((it) => {
-          const url = bookingUrl(it.links[0]);
-          return (
-            <tr key={it.id} data-p={it.id} data-a="LH" onClick={() => onSelect(it.id, "LH")}>
-              <td>
-                <b>{fmtRange(it.outboundDate, it.returnDate)}</b>
-                <div className="muted">
-                  {it.origin} → {it.destination}
-                  {it.nights != null ? " · " + it.nights + "n" : ""} · {it.cabin}
-                </div>
-                <div>
-                  {it.airlineSummary}
-                  {it.euPremium ? " · European premium" : ""}
-                </div>
-              </td>
-              <td>
-                <div>{directionLine(it.outbound)}</div>
-                {it.returning && <div className="muted">↩ {directionLine(it.returning)}</div>}
-              </td>
-              <td>{stopsLabel(it)}</td>
-              <td>{it.maxLayoverMinutes == null ? "—" : layText(it.maxLayoverMinutes)}</td>
-              <td className="num">{gbp(it.pricePerPerson)}</td>
-              <td className="num">
-                {gbp(it.pricePerPerson == null ? null : it.pricePerPerson * it.passengers)}
-              </td>
-              <td>
-                <SourceTag it={it} />
-                <div className="muted">{it.fetchedAt ?? ""}</div>
-              </td>
-              <td>
-                <button
-                  type="button"
-                  {...stylex.props(styles.action)}
-                  aria-label={"View details for " + it.id}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onSelect(it.id, "LH");
-                  }}
-                >
-                  Details
-                </button>
-                {url && (
-                  <a
-                    className="lbtn primary"
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    Book
-                  </a>
-                )}
+        </thead>
+        <tbody>
+          {!rows.length && (
+            <tr>
+              <td className="empty" colSpan={8}>
+                No itineraries match these filters.
               </td>
             </tr>
-          );
-        })}
-      </tbody>
+          )}
+          {rows.map((it) => {
+            const url = bookingUrl(it.links[0]);
+            return (
+              <tr key={it.id} data-p={it.id} data-a="LH" onClick={() => onSelect(it.id, "LH")}>
+                <td>
+                  <b>{fmtRange(it.outboundDate, it.returnDate)}</b>
+                  <div className="muted">
+                    {it.origin} → {it.destination}
+                    {it.nights != null ? " · " + it.nights + "n" : ""} · {it.cabin}
+                  </div>
+                  <div>
+                    {it.airlineSummary}
+                    {it.euPremium ? " · European premium" : ""}
+                  </div>
+                </td>
+                <td>
+                  <div>{directionLine(it.outbound)}</div>
+                  {it.returning && <div className="muted">↩ {directionLine(it.returning)}</div>}
+                </td>
+                <td>{stopsLabel(it)}</td>
+                <td>{it.maxLayoverMinutes == null ? "—" : layText(it.maxLayoverMinutes)}</td>
+                <td className="num">{gbp(it.pricePerPerson)}</td>
+                <td className="num">
+                  {gbp(it.pricePerPerson == null ? null : it.pricePerPerson * it.passengers)}
+                </td>
+                <td>
+                  <SourceTag it={it} />
+                  <div className="muted">{it.fetchedAt ?? ""}</div>
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    {...stylex.props(styles.action)}
+                    aria-label={"View details for " + it.id}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelect(it.id, "LH");
+                    }}
+                  >
+                    Details
+                  </button>
+                  {url && (
+                    <a
+                      className="lbtn primary"
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      Book
+                    </a>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
       </table>
       <section
         className={stylex.props(styles.itineraryMobile).className}
@@ -159,8 +159,8 @@ export function ItineraryView({ rows, onSelect }: ItineraryViewProps) {
         {rows.length === 0 && <p>No itineraries match these filters.</p>}
         {rows.map((it) => {
           const url = bookingUrl(it.links[0]);
-          const title = it.origin + " → " + it.destination + " " +
-            fmtRange(it.outboundDate, it.returnDate);
+          const title =
+            it.origin + " → " + it.destination + " " + fmtRange(it.outboundDate, it.returnDate);
           return (
             <article key={it.id} className={stylex.props(styles.itineraryCard).className}>
               <button

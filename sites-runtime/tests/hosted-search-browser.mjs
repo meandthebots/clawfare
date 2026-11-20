@@ -288,7 +288,7 @@ try {
   // no synthetic live result is mixed into the initial Florida sample.
   await page.reload();
   await page.waitForSelector("#grid td.cell");
-  await page.locator("#saved option[value='" + resultId + "']").waitFor();
+  await page.locator("#saved option[value='" + resultId + "']").waitFor({ state: "attached" });
   await page.locator("#saved").selectOption(resultId);
   await page.locator("#btnOpen").click();
   await page.waitForSelector("#itineraries tbody tr[data-p]");
@@ -301,7 +301,7 @@ try {
   mobile.on("pageerror", error => errors.push(error.message));
   await mobile.route("**/*", api);
   await mobile.goto(origin);
-  await mobile.locator("#saved option[value='" + resultId + "']").waitFor();
+  await mobile.locator("#saved option[value='" + resultId + "']").waitFor({ state: "attached" });
   await mobile.locator("#saved").selectOption(resultId);
   await mobile.locator("#btnOpen").tap();
   await mobile.waitForSelector("#mobileItineraries article");
