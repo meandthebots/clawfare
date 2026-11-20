@@ -415,15 +415,24 @@ test("capability revoked between quote and execution prevents the second POST", 
 test("round-trip hosted confirmation checks the trip-specific server capability", async () => {
   const calls: string[] = [];
   let permitted = false;
-  const requested = { ...sampleQuery, tripType: "round_trip" as const,
-    fetchReturns: true, origins: ["LHR"], destinations: ["NRT"],
-    providers: ["serpapi"], outboundFrom: "2027-04-12" };
+  const requested = {
+    ...sampleQuery,
+    tripType: "round_trip" as const,
+    fetchReturns: true,
+    origins: ["LHR"],
+    destinations: ["NRT"],
+    providers: ["serpapi"],
+    outboundFrom: "2027-04-12",
+  };
   const canonical = { ...requested, nights: 8, maxLiveCalls: 2 };
   const quote = {
-    canonicalQuery: canonical, consentToken: "server-signed-return-consent",
+    canonicalQuery: canonical,
+    consentToken: "server-signed-return-consent",
     expiresAt: "2027-04-01T12:00:00Z",
-    totalCallsUpperBound: 2, baseCallsUpperBound: 1,
-    returnLookupsUpperBound: 1, canExecuteHere: true,
+    totalCallsUpperBound: 2,
+    baseCallsUpperBound: 1,
+    returnLookupsUpperBound: 1,
+    canExecuteHere: true,
     cost: { vendorBillingKnown: false, message: "Two provider requests may cost quota." },
   };
   const client = createClawfareClient(
@@ -431,32 +440,47 @@ test("round-trip hosted confirmation checks the trip-specific server capability"
     async (input, init) => {
       const path = String(input);
       calls.push(path);
-      if (path === "/api/status") return Response.json({
-        cacheDir: "d1", searchesDir: "d1", providers: [],
-        hostedSearch: {
-          canExecuteOneWayGbpSerpApi: true,
-          canExecuteRoundTripGbpSerpApi: permitted,
-        },
-      });
+      if (path === "/api/status")
+        return Response.json({
+          cacheDir: "d1",
+          searchesDir: "d1",
+          providers: [],
+          hostedSearch: {
+            canExecuteOneWayGbpSerpApi: true,
+            canExecuteRoundTripGbpSerpApi: permitted,
+          },
+        });
       if (path === "/api/prepare-search") return Response.json(quote);
       if (path === "/api/search") {
         assert.deepEqual(JSON.parse(String(init?.body)), {
-          canonicalQuery: canonical, consentToken: quote.consentToken,
+          canonicalQuery: canonical,
+          consentToken: quote.consentToken,
         });
         return Response.json({
           ok: true,
           result: {
-            id: "search-roundtrip", title: "LHR to NRT and back",
-            itineraries: [{
-              id: "rt-1", outboundDate: "2027-04-12",
-              returnDate: "2027-04-20", pricePerPerson: 1800,
-            }],
-            addons: [], cells: [], vendors: [],
+            id: "search-roundtrip",
+            title: "LHR to NRT and back",
+            itineraries: [
+              {
+                id: "rt-1",
+                outboundDate: "2027-04-12",
+                returnDate: "2027-04-20",
+                pricePerPerson: 1800,
+              },
+            ],
+            addons: [],
+            cells: [],
+            vendors: [],
           },
-          providerObservations: [{
-            provider: "serpapi", state: "completed",
-            baseCallsLoaded: 1, returnLookupsLoaded: 1,
-          }],
+          providerObservations: [
+            {
+              provider: "serpapi",
+              state: "completed",
+              baseCallsLoaded: 1,
+              returnLookupsLoaded: 1,
+            },
+          ],
         });
       }
       throw new Error("Unexpected route");
@@ -474,6 +498,9 @@ test("round-trip hosted confirmation checks the trip-specific server capability"
   if (!completed.ok) throw new Error("Expected verified round trip");
   assert.equal(completed.data.result.itineraries[0]?.returnDate, "2027-04-20");
   assert.deepEqual(calls.slice(1), [
-    "/api/status", "/api/prepare-search", "/api/status", "/api/search",
+    "/api/status",
+    "/api/prepare-search",
+    "/api/status",
+    "/api/search",
   ]);
 });

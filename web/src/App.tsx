@@ -454,7 +454,8 @@ export function App() {
         return;
       }
       const confirmed = window.confirm(
-        "Run the exact " + (quote.canonicalQuery.tripType === "round_trip" ? "round-trip" : "one-way") +
+        "Run the exact " +
+          (quote.canonicalQuery.tripType === "round_trip" ? "round-trip" : "one-way") +
           " SerpApi search approved by the server?\n\n" +
           "Up to " +
           quote.totalCallsUpperBound +

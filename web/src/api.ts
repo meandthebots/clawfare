@@ -253,9 +253,12 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
   async function serverAllowsHostedExecution(query: SearchQuery): Promise<boolean> {
     if (!hosted || guest || !allowEstimate) return false;
     const status = decode(await generated.getStatus(), isStatus);
-    return status.ok && (query.tripType === "round_trip"
-      ? status.data.hostedSearch?.canExecuteRoundTripGbpSerpApi === true
-      : status.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true);
+    return (
+      status.ok &&
+      (query.tripType === "round_trip"
+        ? status.data.hostedSearch?.canExecuteRoundTripGbpSerpApi === true
+        : status.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true)
+    );
   }
   const isQuote = (value: unknown): value is HostedSearchQuote =>
     isRecord(value) &&
