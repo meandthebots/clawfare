@@ -49,8 +49,8 @@ try {
       const body = JSON.parse(request.postData() || "{}");
       assert.equal(body.confirmed, false);
       assert.deepEqual(body.origins, ["LHR", "LGW"]);
-      assert.deepEqual(body.providers, ["serpapi", "searchapi", "travelpayouts", "duffel"]);
-      return reply({ liveCalls: 3, cachedCalls: 1, skippedCalls: 0,
+      assert.deepEqual(body.providers, ["serpapi"]);
+      return reply({ liveCalls: 2, cachedCalls: 0, skippedCalls: 0,
         returnLookupsUpperBound: 2, quota: [], lines: ["No calls executed."],
         warnings: [], canRun: false });
     }
@@ -99,8 +99,7 @@ try {
   await page.waitForSelector("#grid td.cell");
   assert.equal(await page.locator("#fCashRefund").isChecked(), false);
 
-  // New searches are intentionally blank: explicitly choose all billable
-  // provider candidates and a bounded route instead of assuming Florida.
+  // Start a generic estimate using the provider supported by this Site.
   assert.equal(await page.locator("#origins").inputValue(), "");
   assert.equal(await page.locator("#destinations").inputValue(), "");
   await page.locator("#origins").fill("LHR, LGW");
@@ -109,9 +108,9 @@ try {
   await page.locator("#outTo").fill("2027-04-12");
   await page.locator("#nights").fill("8");
   await page.locator("#pSerp").check();
-  await page.locator("#pSearch").check();
-  await page.locator("#pTp").check();
-  await page.locator("#pDuffel").check();
+  for (const id of ["pSearch", "pTp", "pDuffel"]) {
+    assert.equal(await page.locator("#" + id).isDisabled(), true);
+  }
   await page.locator("#btnEstimate").click();
   await page.waitForFunction(() =>
     document.querySelector("#estimate")?.textContent?.includes("potential provider requests"));
