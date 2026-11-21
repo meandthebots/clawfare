@@ -83,6 +83,7 @@ export interface HostedStatus extends StatusResponse {
 }
 export interface HostedSearchQuote {
   readonly canonicalQuery: SearchQuery;
+  readonly queryDigest?: string;
   readonly consentToken: string;
   readonly expiresAt: string;
   readonly totalCallsUpperBound: number;
@@ -324,6 +325,8 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     Array.isArray(value.canonicalQuery.destinations) &&
     typeof value.canonicalQuery.outboundFrom === "string" &&
     Array.isArray(value.canonicalQuery.providers) &&
+    (value.queryDigest === undefined ||
+      (typeof value.queryDigest === "string" && /^[a-f0-9]{64}$/.test(value.queryDigest))) &&
     typeof value.consentToken === "string" &&
     typeof value.expiresAt === "string" &&
     Number.isSafeInteger(value.totalCallsUpperBound) &&

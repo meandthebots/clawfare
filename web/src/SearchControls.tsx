@@ -1,3 +1,5 @@
+import type { SearchQuery } from "./domain.ts";
+import { describeSearchPolicy } from "./searchForm.ts";
 import * as stylex from "@stylexjs/stylex";
 import type { SearchForm } from "./searchForm.ts";
 import type { SavedInvestigation, Estimate, QuotaView } from "./domain.ts";
@@ -21,6 +23,10 @@ export interface SearchControlsProps {
   selectedSaved: string;
   onSavedChange: (id: string) => void;
   onOpen: (id: string) => void;
+  onReuseSearch?: () => void;
+  approvedPolicy?: SearchQuery;
+  approvedPolicyDigest?: string;
+  invalidSearchField?: keyof SearchForm;
   onEstimate: () => void;
   onSearch: () => void;
   onSample: () => void;
@@ -44,6 +50,10 @@ export function SearchControls({
   selectedSaved,
   onSavedChange,
   onOpen,
+  onReuseSearch,
+  approvedPolicy,
+  approvedPolicyDigest,
+  invalidSearchField,
   onEstimate,
   onSearch,
   onSample,
@@ -82,6 +92,9 @@ export function SearchControls({
   ) => (
     <input
       id={id}
+      data-search-field={field}
+      aria-invalid={invalidSearchField === field || undefined}
+      aria-describedby={invalidSearchField === field ? "estimate" : undefined}
       type={type}
       value={String(form[field])}
       onChange={(event) => update(field, event.target.value as never)}
@@ -98,6 +111,9 @@ export function SearchControls({
     <label>
       <input
         id={id}
+        data-search-field={field}
+        aria-invalid={invalidSearchField === field || undefined}
+        aria-describedby={invalidSearchField === field ? "estimate" : undefined}
         type="checkbox"
         checked={
           field === "fetchReturns" && form.tripType === "one_way" ? false : Boolean(form[field])
@@ -144,6 +160,9 @@ export function SearchControls({
   ) => (
     <select
       id={id}
+      data-search-field={field}
+      aria-invalid={invalidSearchField === field || undefined}
+      aria-describedby={invalidSearchField === field ? "estimate" : undefined}
       value={String(form[field])}
       onChange={(event) => update(field, event.target.value as SearchForm[K])}
     >
@@ -315,6 +334,11 @@ export function SearchControls({
         <button type="button" id="btnOpen" onClick={() => onOpen(selectedSaved)}>
           Open
         </button>
+        {onReuseSearch && (
+          <button type="button" onClick={onReuseSearch}>
+            Use search settings
+          </button>
+        )}
       </div>
       <div id="invList" className="checks">
         {saved.map((item) => (
@@ -335,6 +359,21 @@ export function SearchControls({
         className={"est " + stylex.props(styles.estimate).className}
       >
         {estimateError && <div>{estimateError}</div>}
+        {approvedPolicy && (
+          <details>
+            <summary>Review the approved search settings</summary>
+            <ul>
+              {describeSearchPolicy(approvedPolicy).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            {approvedPolicyDigest && (
+              <div title={approvedPolicyDigest}>
+                Query fingerprint {approvedPolicyDigest.slice(0, 16)}
+              </div>
+            )}
+          </details>
+        )}
         {estimate && (
           <>
             {hostedReadOnly ? (

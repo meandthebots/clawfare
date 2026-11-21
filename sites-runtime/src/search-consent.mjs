@@ -246,7 +246,7 @@ export class D1SearchConsents {
         payload.createdAt, payload.expiresAt).run();
     return {
       token: toBase64Url(new TextEncoder().encode(json)) + "." + toBase64Url(signature),
-      expiresAt: payload.expiresAt, totalCalls: total, callLimits: limits,
+      expiresAt: payload.expiresAt, totalCalls: total, callLimits: limits, queryDigest: payload.queryDigest,
     };
   }
   async consume({ ownerId, canonicalQueryJson, token }) {

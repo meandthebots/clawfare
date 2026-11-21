@@ -12,7 +12,10 @@ import { hasComparableGbpFare, itineraryEmptyMessage } from "./SearchCoverage.ts
 import { SearchControls } from "./SearchControls.tsx";
 import {
   INITIAL_SEARCH,
+  SearchFormError,
   buildSearchQuery,
+  describeSearchPolicy,
+  restoreSearchForm,
   estimateIsRunnable,
   type SearchForm,
 } from "./searchForm.ts";
@@ -255,6 +258,7 @@ export function App() {
   const [selectedSaved, setSelectedSaved] = useState("");
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [estimateError, setEstimateError] = useState("");
+  const [invalidSearchField, setInvalidSearchField] = useState<keyof SearchForm>();
   const [providerStatus, setProviderStatus] = useState<QuotaView[]>([]);
   const [statusLines, setStatusLines] = useState<string[]>([]);
   const [pendingQuery, setPendingQuery] = useState<SearchQuery | null>(null);
@@ -396,6 +400,7 @@ export function App() {
   const changeForm = (next: SearchForm) => {
     estimateEpoch.current++;
     setForm(next);
+    setInvalidSearchField(undefined);
     setHostedQuote(null);
     // Consent must correspond to the exact previously estimated query.
     setPendingQuery(null);
@@ -405,6 +410,7 @@ export function App() {
   };
   const estimateCalls = async () => {
     const epoch = ++estimateEpoch.current;
+    setInvalidSearchField(undefined);
     setHostedQuote(null);
     setPendingQuery(null);
     setSearchConsent(null);
@@ -445,6 +451,10 @@ export function App() {
       }
     } catch (error) {
       if (epoch !== estimateEpoch.current) return;
+      if (error instanceof SearchFormError) {
+        setInvalidSearchField(error.field);
+        document.querySelector<HTMLElement>(`[data-search-field="${error.field}"]`)?.focus();
+      }
       setEstimateError(
         error instanceof Error ? error.message : "Estimate request failed; no search was run.",
       );
@@ -466,6 +476,8 @@ export function App() {
         "Run the exact " +
           (quote.canonicalQuery.tripType === "round_trip" ? "round-trip" : "one-way") +
           " SerpApi search approved by the server?\n\n" +
+          describeSearchPolicy(quote.canonicalQuery).join("\n") +
+          "\n\n" +
           "Up to " +
           quote.totalCallsUpperBound +
           " provider requests may consume paid quota.\n" +
@@ -533,6 +545,12 @@ export function App() {
     } catch {
       setEstimateError("Sample failed to load.");
     }
+  };
+  const reusedForm = GUEST_MODE ? null : restoreSearchForm(result?.query);
+  const reuseSearchPolicy = () => {
+    if (!reusedForm) return;
+    changeForm(reusedForm);
+    setEstimateError("Saved settings copied. Estimate before running a new search.");
   };
   const openSaved = async (id: string) => {
     if (!id) return;
@@ -845,6 +863,10 @@ export function App() {
           selectedSaved={selectedSaved}
           onSavedChange={setSelectedSaved}
           onOpen={(id) => void openSaved(id)}
+          onReuseSearch={reusedForm ? reuseSearchPolicy : undefined}
+          approvedPolicy={hostedQuote?.canonicalQuery}
+          approvedPolicyDigest={hostedQuote?.queryDigest}
+          invalidSearchField={invalidSearchField}
           onEstimate={() => void estimateCalls()}
           onSearch={() => void runSearch()}
           onSample={() => void loadSample()}

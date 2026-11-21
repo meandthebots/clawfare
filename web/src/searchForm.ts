@@ -246,6 +246,82 @@ export function buildSearchQuery(form: SearchForm): SearchQuery {
   };
 }
 
+export function restoreSearchForm(query: SearchQuery | null | undefined): SearchForm | null {
+  if (
+    !query ||
+    !Array.isArray(query.origins) ||
+    !Array.isArray(query.destinations) ||
+    !Array.isArray(query.providers) ||
+    typeof query.outboundFrom !== "string"
+  )
+    return null;
+  return {
+    origins: query.origins.join(", "),
+    destinations: query.destinations.join(", "),
+    outFrom: query.outboundFrom,
+    outTo: query.outboundTo ?? "",
+    nights: query.nights == null ? "" : String(query.nights),
+    retFrom: query.returnFrom ?? "",
+    retTo: query.returnTo ?? "",
+    tripType: query.tripType,
+    adults: String(query.adults),
+    bags: String(query.checkedBags),
+    cabin: query.cabin,
+    cabinShort: query.cabinShortHaul,
+    strictPerLegCabin: query.strictPerLegCabin ?? false,
+    strictOperatingCarrier: query.strictOperatingCarrier ?? false,
+    excludedAirlines: query.excludedAirlines?.join(", ") ?? "",
+    excludedTransitAirports: query.excludedTransitAirports?.join(", ") ?? "",
+    excludedTransitCountries: query.excludedTransitCountries?.join(", ") ?? "",
+    market: query.market ?? INITIAL_SEARCH.market,
+    currency: query.currency,
+    investigation: "",
+    maxLiveCalls: query.maxLiveCalls == null ? "" : String(query.maxLiveCalls),
+    returnChoices: String(query.returnChoices),
+    fetchReturns: query.fetchReturns,
+    serpapi: query.providers.includes("serpapi"),
+    searchapi: query.providers.includes("searchapi"),
+    travelpayouts: query.providers.includes("travelpayouts"),
+    duffel: query.providers.includes("duffel"),
+    nonstop: query.nonstopOnly,
+    cacheOnly: query.cacheOnly,
+  };
+}
+
+export function describeSearchPolicy(query: SearchQuery): string[] {
+  const dateRange = (from: string, to?: string | null) =>
+    to && to !== from ? `${from} through ${to}` : from;
+  const returning =
+    query.tripType === "one_way"
+      ? "One way"
+      : query.nights != null
+        ? `${query.nights} nights`
+        : query.returnFrom
+          ? "Return " + dateRange(query.returnFrom, query.returnTo)
+          : "Round trip";
+  const exclusions = [
+    ["Airlines", query.excludedAirlines],
+    ["Transit airports", query.excludedTransitAirports],
+    ["Transit countries", query.excludedTransitCountries],
+  ] as const;
+  return [
+    `${query.origins.join(", ")} → ${query.destinations.join(", ")} · ${dateRange(query.outboundFrom, query.outboundTo)} · ${returning}`,
+    `${query.adults} ${query.adults === 1 ? "adult" : "adults"} · ${query.checkedBags} checked bags requested · ${query.currency} · market ${query.market ?? INITIAL_SEARCH.market}`,
+    `Cabin ${query.cabin.replaceAll("_", " ")} · short haul ${query.cabinShortHaul.replaceAll("_", " ")}`,
+    query.strictPerLegCabin
+      ? "Require the requested cabin on every leg"
+      : "Mixed cabins allowed by the search policy",
+    query.strictOperatingCarrier
+      ? "Require confirmed operating carriers"
+      : "Operating carrier verification not required",
+    ...exclusions
+      .filter(([, codes]) => codes?.length)
+      .map(([label, codes]) => `${label} excluded · ${codes?.join(", ")}`),
+    query.nonstopOnly ? "Nonstop flights only" : "Connections allowed",
+    `Providers · ${query.providers.join(", ")}`,
+  ];
+}
+
 export function estimateIsRunnable(
   warnings: readonly string[],
   liveCalls: number,

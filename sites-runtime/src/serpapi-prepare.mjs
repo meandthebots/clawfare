@@ -148,6 +148,7 @@ export async function prepareSerpApiSearch(request, {
   }
   return respond({
     canonicalQuery: plan.query,
+    queryDigest: quote.queryDigest,
     consentToken: quote.token,
     expiresAt: quote.expiresAt,
     providers: [PROVIDER],

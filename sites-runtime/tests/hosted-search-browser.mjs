@@ -176,6 +176,7 @@ async function api(route) {
     const token = "synthetic-one-use-" + (state.quotes.length + 1) + "-signed-consent";
     const quote = {
       canonicalQuery: { ...entry.data },
+      queryDigest: "a".repeat(64),
       consentToken: token,
       expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
       totalCallsUpperBound: 2, baseCallsUpperBound: 1,
@@ -199,6 +200,7 @@ async function api(route) {
     // Deliberately leave the request pending long enough to test the loading
     // lock, but still without any provider network call.
     await new Promise(resolve => setTimeout(resolve, 150));
+    result.query = state.currentQuote.canonicalQuery;
     state.stored.set(resultId, result);
     return respond(route, {
       ok: true, result,
@@ -262,6 +264,8 @@ try {
   assert.equal(await page.locator("#btnRun").textContent(), "Confirm and run search");
 
   page.once("dialog", dialog => {
+    assert.match(dialog.message(), /LHR → NRT/);
+    assert.match(dialog.message(), /2 adults/);
     assert.match(dialog.message(), /2 provider requests/);
     assert.match(dialog.message(), /return lookups: 1/);
     return dialog.dismiss();
@@ -331,6 +335,13 @@ try {
   await page.waitForSelector("#itineraries tbody tr[data-p]");
   assert.match(await page.locator("#title").textContent(), /verified round-trip/);
   assert.equal(state.searches.length, 1, "Opening saved result cannot repeat paid calls");
+  await page.locator("#origins").fill("MAN");
+  await page.getByRole("button", { name: "Use search settings" }).click();
+  assert.equal(await page.locator("#origins").inputValue(), "LHR");
+  assert.equal(await page.locator("#adults").inputValue(), "2");
+  assert.equal(await page.locator("#btnRun").isDisabled(), true);
+  assert.equal(state.quotes.length, 2);
+  assert.equal(state.searches.length, 1);
 
   // Loaded investigations also survive a browser reload through the API;
   // no synthetic live result is mixed into the initial Florida sample.
