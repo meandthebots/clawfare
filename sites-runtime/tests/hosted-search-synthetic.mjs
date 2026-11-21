@@ -196,6 +196,16 @@ assert.equal(payload.result.itineraries[0].returnDate ?? null, null);
 assert.equal(payload.result.itineraries[0].cashRefundProofVerified, false);
 assert.equal(payload.providerObservations[0].baseCallsLoaded, 1);
 assert.equal(payload.providerObservations[0].eligible, 1);
+assert.deepEqual(payload.result.coverage, {
+  version: 1, observedAt: now().toISOString(), state: "complete",
+  routes: [{
+    provider: "serpapi", market: "uk", origin: "LHR", destination: "NRT",
+    outboundDate: "2027-04-12", returnDate: null,
+    state: "complete", sourceMode: "live", providerRows: 1, parsedOffers: 1, eligibleOffers: 1,
+    returnLookupsLoaded: 0, unresolvedReturns: 0, returnSelectionLimited: false, errorKind: null,
+  }],
+  eligibleItineraries: 1, excludedByReason: {},
+});
 assert.equal(outboundRequests, 1);
 assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM provider_http_reservations").get().n, 1);
 assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM hosted_provider_search_attempts WHERE state = 'complete'").get().n, 1);
@@ -265,6 +275,8 @@ assert.equal(round.providerObservations[0].baseCallsLoaded, 1);
 assert.equal(round.providerObservations[0].returnLookupsExpected, 1);
 assert.equal(round.providerObservations[0].returnLookupsLoaded, 1);
 assert.equal(round.providerObservations[0].unresolvedReturns, 0);
+assert.equal(round.result.coverage.routes[0].returnLookupsLoaded, 1);
+assert.equal(round.result.coverage.routes[0].returnDate, "2027-04-20");
 assert.equal(outboundRequests, 3);
 assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM provider_http_reservations").get().n, 3);
 assert.equal(conn.prepare(
@@ -312,6 +324,10 @@ assert.equal(incomplete.ok, true);
 assert.equal(incomplete.result.itineraries.length, 0);
 assert.equal(incomplete.providerObservations[0].state, "partial");
 assert.equal(incomplete.providerObservations[0].unresolvedReturns, 1);
+assert.equal(incomplete.result.coverage.state, "partial");
+assert.equal(incomplete.result.coverage.routes[0].state, "partial");
+assert.equal(incomplete.result.coverage.routes[0].unresolvedReturns, 1);
+assert.deepEqual(await (await incompleteSite(get("/api/results/" + incomplete.result.id))).json(), incomplete.result);
 assert.ok(incomplete.result.warnings.some(message => /verified return/.test(message)));
 assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM provider_http_reservations").get().n, 4);
 assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM fare_price_observations").get().n, 2);

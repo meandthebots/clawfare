@@ -53,6 +53,15 @@ const result = {
   fetchedAt: observedAt,
   scenarioLabel: null,
   query: { market: "uk", tripType: "round_trip" },
+  coverage: {
+    version: 1, observedAt, state: "complete", eligibleItineraries: 1, excludedByReason: {},
+    routes: [{
+      provider: "serpapi", market: "uk", origin: "LHR", destination: "NRT",
+      outboundDate: "2027-04-12", returnDate: "2027-04-20", state: "complete", sourceMode: "live",
+      providerRows: 1, parsedOffers: 1, eligibleOffers: 1, returnLookupsLoaded: 1,
+      unresolvedReturns: 0, returnSelectionLimited: false, errorKind: null,
+    }],
+  },
   headerNotes: [],
   vendorIntro: [],
   suggestedFilters: {},
@@ -264,6 +273,9 @@ try {
   assert.equal(state.searches.length, 1);
   assert.equal(await page.locator("#btnRun").isDisabled(), true);
   assert.match(await page.locator("#title").textContent(), /LHR.*NRT/);
+  const coverage = page.locator("summary").filter({ hasText: "Search coverage" });
+  await coverage.click();
+  await page.getByText(/1 received, 1 parsed, 1 eligible/).waitFor();
   const row = page.locator("#itineraries tbody tr[data-p]").first();
   assert.match(await row.textContent(), /£1,800/);
   assert.match(await row.textContent(), /£3,600/);
@@ -273,6 +285,7 @@ try {
   await row.locator("button").first().click();
   assert.equal(await page.locator("#panel").getAttribute("aria-hidden"), "false");
   assert.match(await page.locator("#pBody").textContent(), /BA 7/);
+  assert.match(await page.locator("#pBody").textContent(), /verified operator/);
   await page.getByRole("button", { name: "Save to a trip" }).click();
   const trip = page.getByRole("textbox", { name: "Trip name" });
   assert.ok(await trip.evaluate(input => input === document.activeElement));

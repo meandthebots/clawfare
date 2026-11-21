@@ -8,6 +8,7 @@ import { initialFilters, suggestedFilters, type FilterControlsState } from "./fi
 import { isCashRefundVerified } from "./DetailsContent.tsx";
 import { GridView, fmtRange, quoteable } from "./GridView.tsx";
 import { ItineraryView, MatrixView } from "./ItineraryViews.tsx";
+import { hasComparableGbpFare, itineraryEmptyMessage } from "./SearchCoverage.tsx";
 import { SearchControls } from "./SearchControls.tsx";
 import {
   INITIAL_SEARCH,
@@ -737,9 +738,31 @@ export function App() {
         />
       );
     if (tab === "grid" || tab === "itineraries")
-      return <ItineraryView rows={displayRows} onSelect={openDetails} />;
-    if (tab === "matrix")
-      return <MatrixView rows={displayRows.filter((it) => quoteable(it))} onSelect={openDetails} />;
+      return (
+        <ItineraryView
+          rows={displayRows}
+          onSelect={openDetails}
+          emptyMessage={result.coverage ? itineraryEmptyMessage(result) : undefined}
+        />
+      );
+    if (tab === "matrix") {
+      const rows = displayRows.filter(
+        (it) => quoteable(it) && (!result.coverage || hasComparableGbpFare(it, result)),
+      );
+      return (
+        <MatrixView
+          rows={rows}
+          onSelect={openDetails}
+          emptyMessage={
+            result.coverage
+              ? !displayRows.length
+                ? itineraryEmptyMessage(result)
+                : "No comparable fresh GBP fares for these dates."
+              : undefined
+          }
+        />
+      );
+    }
     const markets = Object.fromEntries(
       result.vendors.map((v) => [v.market, v.marketLabel || v.market]),
     );
@@ -974,6 +997,7 @@ export function App() {
                   />
                 ) : undefined
               }
+              coveredSearch={result?.coverage != null}
               legacySample={result?.scenarioLabel === "florida"}
             />
           )}
