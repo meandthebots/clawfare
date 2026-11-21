@@ -51,8 +51,7 @@ is enforced; those need separate owner-approved hosted tests.
 
 1. Create a new **private** Site from the package. Do not invent or commit
    `.openai/hosting.json` or `project_id`; let Sites provision them.
-2. Create the Site's `DB` D1 binding. Apply migrations `0001`, `0002`,
-   and `0003` in order; verify foreign keys and table creation on the
+2. Create the Site's `DB` D1 binding. Apply the packaged D1 migrations in order through `0006`; verify foreign keys and table creation on the
    hosted binding. These are **Sites D1 data**, not your personal Cloudflare
    account's D1 database.
 3. Configure a stable, randomly generated server-only `OWNER_KEY_SECRET`
@@ -107,12 +106,15 @@ is enforced; those need separate owner-approved hosted tests.
 - A user cannot forge a signed-in identity by supplying request headers.
 - Two distinct signed-in users with the same investigation slug cannot see
   each other's records.
-- `POST /api/estimate` is the **sole permitted authenticated POST**.
-  It must accept same-origin, bounded JSON only, call the compiled Kotlin
+- `POST /api/estimate` must accept same-origin, bounded JSON only, call the compiled Kotlin
   plan and budget exports, and return potential call counts with
   `canRun:false`. It never contacts paid providers or issues consent tokens.
-- `POST /api/search`, vendor/track mutations and HTML/CSV POST exports
-  return HTTP 405. This is **server-enforced**, not merely hidden buttons.
+- Saved HTML and CSV exports use `POST /api/results/{id}/export.{html|csv}` and
+  require the signed-in owner and a same-origin request. They read only the
+  selected stored fares and share a D1 limit of ten exports per owner per
+  minute. Migration `0006` installs the rate-limit table.
+- The JVM client-payload export routes and vendor calls return HTTP 405.
+  Hosted provider search remains gated by explicit server configuration.
 - No provider HTTP requests, credentials or order/payment requests are
   reachable in this build; provider caps remain zero/unconfigured.
 - Kotlin sample prices are explicitly labelled **sample/saved**, not live.
@@ -178,15 +180,37 @@ Avoid repeated creation of new Sites to work around missing access.
 > `meandthebots/clawfare` repository using the
 > `clawfare-sites-readonly-source` build artifact and its
 > `SITES-HANDOFF.md`. Confirm Sites runtime compatibility before saving.
-> Provision D1 binding `DB`, apply the three migrations, seed the canonical
+> Provision D1 binding `DB`, apply all packaged migrations, seed the canonical
 > Kotlin public sample from a trusted setup action, and implement a
 > server-verified Sign in with ChatGPT identity callback.
-> Retain the original HTML UI and Kotlin/JS engine. Enable only the
-> authenticated, zero-egress `POST /api/estimate` to show hypothetical
-> provider usage. Keep `POST /api/search`, vendor/track mutations,
-> exports and all paid provider calls disabled.
+> Retain the original HTML UI and Kotlin/JS engine. Use the authenticated,
+> zero-egress estimate and saved export routes. Keep paid provider execution
+> disabled during preview review.
 > Run signed-in, signed-out, identity spoofing, tenant-isolation and mobile
 > browser tests. **Save a version only; do not deploy or publish it.**
 
 See repository issue #42 for the follow-on authenticated estimate/consent and
 real provider-search work. Production publishing is a separate decision.
+
+## Release verification
+
+Use the artifact from the exact release commit. The package manifest records
+the source Git SHA, Kotlin/JS and OpenAPI SHA-256 digests, and the hashes of the
+ordered D1 migrations. Package generation checks the generated OpenAPI
+bindings. A dirty build records that fact alongside its SHA.
+
+After an approved private update, use **Check storage** to compare the
+authenticated `/api/storage` response with the package manifest. Verify the
+deployed source SHA and Kotlin digest match. The D1 check reports required
+tables present or missing. Verify migration application history separately for
+changes to existing tables and indexes. Reload and compare the sample row
+timestamp and digest. Verify isolation with the actual Sites identity boundary
+as described in #63.
+
+Before requesting approval for a paid smoke test, verify current provider
+account terms and cost, keep server credentials in Site secrets, document
+the query and cap its provider requests in D1, and agree on how to turn off
+`SEARCH_EXECUTION_ENABLED` and `SEARCH_PAID_CALLS_APPROVED`. Keep the
+previous private package available for rollback and keep D1 migrations
+forward-only. The browser and simulated D1 suites use synthetic provider
+responses. Production deployment and paid calls require separate owner approval.

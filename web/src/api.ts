@@ -1,16 +1,26 @@
 import type {
   Estimate,
+  HistoryObservation,
   ExportRequest,
   QuotaView,
   ResultSet,
   SavedInvestigation,
+  SavedExportRequest,
   SearchQuery,
   StatusResponse,
   StorageDiagnostic,
   VendorRequest,
   TrackRequest,
+  TrackResponse,
 } from "./domain.ts";
-import { isEstimate, isQuotaList, isRecord, isResultSet, isSavedList } from "./domain.ts";
+import {
+  isEstimate,
+  isQuotaList,
+  isRecord,
+  isResultSet,
+  isSavedList,
+  isSearchQuery,
+} from "./domain.ts";
 import { GUEST_SAMPLE } from "./guest-sample.ts";
 import {
   createGeneratedClient,
@@ -49,6 +59,9 @@ export type HttpClient = (input: RequestInfo | URL, init?: RequestInit) => Promi
 function allowedRoute(path: string): boolean {
   return (
     /^\/api\/(?:sample|status|searches|quota|storage|estimate|prepare-search|search)$/.test(path) ||
+    /^\/api\/history\/[a-z0-9][a-z0-9_-]{0,99}\/[A-Za-z0-9._:%-]{1,384}(?:\?limit=[1-9][0-9]?)?$/.test(
+      path,
+    ) ||
     /^\/api\/results\/[a-z0-9][a-z0-9_-]{0,99}(?:\/(?:vendors|track))?$/.test(path)
   );
 }
@@ -68,6 +81,8 @@ function decode<T>(res: ApiResponse<unknown>, guard: (value: unknown) => value i
 
 /** Only the authenticated server can advertise this narrow hosted capability. */
 export interface HostedStatus extends StatusResponse {
+  readonly hostedTracking?: boolean;
+  readonly hostedExports?: boolean;
   readonly hostedSearch?: {
     readonly canExecuteOneWayGbpSerpApi: boolean;
     readonly canExecuteRoundTripGbpSerpApi?: boolean;
@@ -75,6 +90,7 @@ export interface HostedStatus extends StatusResponse {
 }
 export interface HostedSearchQuote {
   readonly canonicalQuery: SearchQuery;
+  readonly queryDigest?: string;
   readonly consentToken: string;
   readonly expiresAt: string;
   readonly totalCallsUpperBound: number;
@@ -111,7 +127,10 @@ export interface ClawfareClient {
     consent?: string | null,
   ): Promise<ApiResponse<unknown>>;
   track(id: string, request: TrackRequest): Promise<ApiResponse<unknown>>;
+  trackHosted(id: string, request: TrackRequest): Promise<Parsed<TrackResponse>>;
+  history(id: string, itineraryId: string): Promise<Parsed<HistoryObservation[]>>;
   download(path: ExportRoute, request: ExportRequest, fallback: string): Promise<void>;
+  downloadSaved(id: string, format: "html" | "csv", request: SavedExportRequest): Promise<void>;
 }
 export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch): ClawfareClient {
   const guest = mode.guest === true;
@@ -169,15 +188,17 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     path: ApiRoute | "/api/prepare-search",
     body?: unknown,
     consent?: string | null,
-    hostedExecutionRoute = false,
+    hostedAction?: "search" | "track",
   ): Promise<ApiResponse<unknown>> {
     // Defense in depth: only same-origin, explicitly known API routes.
     if (!allowedRoute(path)) throw new Error("Unsupported Clawfare API route.");
     if (guest) return guestResponse(path, body);
     const hostedAllowedPost =
-      allowEstimate &&
-      (path === "/api/estimate" ||
-        (hostedExecutionRoute && (path === "/api/prepare-search" || path === "/api/search")));
+      (allowEstimate &&
+        (path === "/api/estimate" ||
+          (hostedAction === "search" &&
+            (path === "/api/prepare-search" || path === "/api/search")))) ||
+      (hostedAction === "track" && path.endsWith("/track"));
     if (hosted && body !== undefined && !hostedAllowedPost) {
       return {
         status: 405,
@@ -223,7 +244,12 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
       body: JSON.stringify(body),
     });
     if (!response.ok) throw new Error("Export rejected by local access controls");
-    const match = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "");
+    await saveAttachment(response, fallback);
+  }
+  async function saveAttachment(response: Response, fallback: string) {
+    const match = /filename="([A-Za-z0-9._-]+)"/.exec(
+      response.headers.get("Content-Disposition") ?? "",
+    );
     const url = URL.createObjectURL(await response.blob());
     const a = document.createElement("a");
     a.href = url;
@@ -232,19 +258,58 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     // Leave time for the browser to process the click before revoking the URL.
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+  async function downloadSaved(id: string, format: "html" | "csv", body: SavedExportRequest) {
+    if (!hosted || guest || !/^[a-z0-9][a-z0-9_-]{0,99}$/.test(id)) {
+      throw new Error("Hosted saved exports are unavailable.");
+    }
+    const response = await fetcher(`/api/results/${id}/export.${format}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const detail: unknown = await response.json().catch(() => null);
+      throw new Error(serverError(detail, response.status));
+    }
+    const expectedType = format === "html" ? "text/html" : "text/csv";
+    if (response.headers.get("content-type")?.split(";")[0] !== expectedType) {
+      throw new Error("The server returned an unexpected export format.");
+    }
+    await saveAttachment(response, `clawfare-${id}.${format}`);
+  }
   const generated = createGeneratedClient(request);
   const isStatus = (value: unknown): value is HostedStatus =>
     isRecord(value) &&
     typeof value.cacheDir === "string" &&
     typeof value.searchesDir === "string" &&
+    (value.hostedExports === undefined || typeof value.hostedExports === "boolean") &&
     isQuotaList(value.providers) &&
+    (value.hostedTracking === undefined || typeof value.hostedTracking === "boolean") &&
     (value.hostedSearch === undefined ||
       (isRecord(value.hostedSearch) &&
         typeof value.hostedSearch.canExecuteOneWayGbpSerpApi === "boolean" &&
         (value.hostedSearch.canExecuteRoundTripGbpSerpApi === undefined ||
           typeof value.hostedSearch.canExecuteRoundTripGbpSerpApi === "boolean")));
   const isStorage = (value: unknown): value is StorageDiagnostic =>
-    isRecord(value) && value.backend === "d1" && typeof value.sampleStored === "boolean";
+    isRecord(value) &&
+    value.backend === "d1" &&
+    typeof value.sampleStored === "boolean" &&
+    (value.build === undefined ||
+      (isRecord(value.build) &&
+        typeof value.build.sourceGitSha === "string" &&
+        typeof value.build.sourceDirty === "boolean" &&
+        typeof value.build.kotlinBundleSha256 === "string" &&
+        typeof value.build.openApiSha256 === "string" &&
+        typeof value.build.schema === "string" &&
+        ["unavailable", "missing_tables", "tables_present"].includes(value.build.schema) &&
+        Array.isArray(value.build.missingSchema) &&
+        value.build.missingSchema.every(
+          (entry: unknown) =>
+            isRecord(entry) &&
+            typeof entry.file === "string" &&
+            Array.isArray(entry.tables) &&
+            entry.tables.every((table: unknown) => typeof table === "string"),
+        )));
   const hostedDisabled = <T>(): Parsed<T> => ({
     ok: false,
     status: 405,
@@ -262,11 +327,9 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
   }
   const isQuote = (value: unknown): value is HostedSearchQuote =>
     isRecord(value) &&
-    isRecord(value.canonicalQuery) &&
-    Array.isArray(value.canonicalQuery.origins) &&
-    Array.isArray(value.canonicalQuery.destinations) &&
-    typeof value.canonicalQuery.outboundFrom === "string" &&
-    Array.isArray(value.canonicalQuery.providers) &&
+    isSearchQuery(value.canonicalQuery) &&
+    (value.queryDigest === undefined ||
+      (typeof value.queryDigest === "string" && /^[a-f0-9]{64}$/.test(value.queryDigest))) &&
     typeof value.consentToken === "string" &&
     typeof value.expiresAt === "string" &&
     Number.isSafeInteger(value.totalCallsUpperBound) &&
@@ -282,11 +345,40 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     isResultSet(value.result) &&
     Array.isArray(value.providerObservations) &&
     (value.error === undefined || typeof value.error === "string");
+  const tracking = createGeneratedClient((path, body) => request(path, body, null, "track"));
+  const isTracked = (value: unknown): value is TrackResponse =>
+    isRecord(value) && typeof value.slug === "string" && /^tracked-[a-f0-9]{40}$/.test(value.slug);
+  const isHistory = (value: unknown): value is HistoryObservation[] =>
+    Array.isArray(value) &&
+    value.every(
+      (row: unknown) =>
+        isRecord(row) &&
+        typeof row.observation_id === "string" &&
+        typeof row.itinerary_id === "string" &&
+        typeof row.provider === "string" &&
+        typeof row.source_label === "string" &&
+        ["live", "cached", "mock", "sample", "manual"].includes(row.source_label) &&
+        (row.live_price === 0 || row.live_price === 1) &&
+        typeof row.captured_at === "string" &&
+        Number.isFinite(Date.parse(row.captured_at)) &&
+        typeof row.original_currency === "string" &&
+        /^[A-Z]{3}$/.test(row.original_currency) &&
+        typeof row.amount_decimal === "string" &&
+        /^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$/.test(row.amount_decimal),
+    );
   return Object.freeze({
     request,
+    async trackHosted(id: string, body: TrackRequest): Promise<Parsed<TrackResponse>> {
+      if (!hosted || guest)
+        return { ok: false, status: 405, error: "Hosted tracking is unavailable." };
+      return decode(await tracking.track(id, body), isTracked);
+    },
+    async history(id: string, itineraryId: string) {
+      return decode(await generated.getHistory(id, itineraryId), isHistory);
+    },
     async prepareHostedSearch(query: SearchQuery) {
       if (!(await serverAllowsHostedExecution(query))) return hostedDisabled<HostedSearchQuote>();
-      return decode(await request("/api/prepare-search", query, null, true), isQuote);
+      return decode(await request("/api/prepare-search", query, null, "search"), isQuote);
     },
     async executeHostedSearch(quote: HostedSearchQuote) {
       if (!(await serverAllowsHostedExecution(quote.canonicalQuery))) {
@@ -300,7 +392,7 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
             consentToken: quote.consentToken,
           },
           null,
-          true,
+          "search",
         ),
         isExecution,
       );
@@ -328,5 +420,6 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
       generated.vendors(id, payload, consent),
     track: (id: string, payload: TrackRequest) => generated.track(id, payload),
     download,
+    downloadSaved,
   });
 }

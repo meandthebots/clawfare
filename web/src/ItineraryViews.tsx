@@ -61,6 +61,7 @@ const styles = stylex.create({
 
 export interface ItineraryViewProps {
   rows: Itinerary[];
+  emptyMessage?: string;
   onSelect: (primaryId: string, addonId: string) => void;
 }
 const layText = (mins: number) => {
@@ -69,7 +70,11 @@ const layText = (mins: number) => {
 };
 
 /** Read-only React itinerary listing, preserving the existing table/CSV semantics. */
-export function ItineraryView({ rows, onSelect }: ItineraryViewProps) {
+export function ItineraryView({
+  rows,
+  onSelect,
+  emptyMessage = "No itineraries match these filters.",
+}: ItineraryViewProps) {
   return (
     <>
       <table className={"data " + stylex.props(styles.itineraryDesktop).className} id="itineraries">
@@ -89,7 +94,7 @@ export function ItineraryView({ rows, onSelect }: ItineraryViewProps) {
           {!rows.length && (
             <tr>
               <td className="empty" colSpan={8}>
-                No itineraries match these filters.
+                {emptyMessage}
               </td>
             </tr>
           )}
@@ -156,7 +161,7 @@ export function ItineraryView({ rows, onSelect }: ItineraryViewProps) {
         id="mobileItineraries"
         aria-label="Flight itineraries"
       >
-        {rows.length === 0 && <p>No itineraries match these filters.</p>}
+        {rows.length === 0 && <p>{emptyMessage}</p>}
         {rows.map((it) => {
           const url = bookingUrl(it.links[0]);
           const title =
@@ -210,7 +215,11 @@ export function ItineraryView({ rows, onSelect }: ItineraryViewProps) {
  * Calendar matrix intentionally shows only quoteable, fresh live fares.
  * Saved samples and stale provider data must not be presented as live prices.
  */
-export function MatrixView({ rows, onSelect }: ItineraryViewProps) {
+export function MatrixView({
+  rows,
+  onSelect,
+  emptyMessage = "No dated itineraries in the current filters.",
+}: ItineraryViewProps) {
   const outbound = [...new Set(rows.map((it) => it.outboundDate))].sort();
   const returns = [...new Set(rows.map((it) => it.returnDate ?? "—"))].sort();
   const best = new Map<string, Itinerary>();
@@ -238,7 +247,7 @@ export function MatrixView({ rows, onSelect }: ItineraryViewProps) {
       <tbody>
         {!outbound.length && (
           <tr>
-            <td className="empty">No dated itineraries in the current filters.</td>
+            <td className="empty">{emptyMessage}</td>
           </tr>
         )}
         {outbound.map((date) => (

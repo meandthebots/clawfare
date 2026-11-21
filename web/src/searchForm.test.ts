@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildSearchQuery, estimateIsRunnable, INITIAL_SEARCH } from "./searchForm.ts";
+import {
+  buildSearchQuery,
+  describeSearchPolicy,
+  estimateIsRunnable,
+  INITIAL_SEARCH,
+  restoreSearchForm,
+} from "./searchForm.ts";
 import { filterChoices, initialFilters, suggestedFilters } from "./filterForm.ts";
 import type { ResultSet } from "./domain.ts";
 
@@ -51,6 +57,26 @@ test("search form parses the complete explicit Kotlin hard-policy contract", () 
   assert.equal(query.maxLiveCalls, 16);
   assert.equal(query.confirmed, false);
 });
+test("saved policy restores search constraints without reusing the investigation ID", () => {
+  const canonical = buildSearchQuery({
+    ...validForm,
+    investigation: "existing-result",
+    excludedTransitCountries: "CN",
+    strictOperatingCarrier: true,
+    adults: "2",
+    bags: "1",
+    cabin: "business",
+  });
+  const restored = restoreSearchForm(canonical);
+  assert.ok(restored);
+  assert.deepEqual(buildSearchQuery(restored), { ...canonical, investigation: null });
+  assert.match(
+    describeSearchPolicy(canonical).join("\n"),
+    /LHR, LGW → TPA, SRQ[\s\S]+2 adults[\s\S]+Transit countries excluded · CN/,
+  );
+  assert.equal(restoreSearchForm(null), null);
+});
+
 test("generic search has no Florida dates, airports, or preselected paid providers", () => {
   assert.equal(INITIAL_SEARCH.origins, "");
   assert.equal(INITIAL_SEARCH.destinations, "");

@@ -1,3 +1,4 @@
+import { TRACKED_PREFIX } from "./investigations.mjs";
 /**
  * First deliberately narrow hosted search preparation boundary.
  *
@@ -39,6 +40,9 @@ function parseKotlinPlan(kotlinEngine, input) {
   }
   if (plan.error) return { error: String(plan.error), status: 400 };
   const query = plan.query;
+  if (query.investigation?.startsWith(TRACKED_PREFIX)) {
+    return { error: "That investigation ID is reserved for tracking.", status: 422 };
+  }
   if (!Array.isArray(query.providers) || query.providers.length !== 1 ||
       query.providers[0] !== PROVIDER) {
     return { error: "Hosted search preparation currently supports SerpApi alone.", status: 422 };
@@ -144,6 +148,7 @@ export async function prepareSerpApiSearch(request, {
   }
   return respond({
     canonicalQuery: plan.query,
+    queryDigest: quote.queryDigest,
     consentToken: quote.token,
     expiresAt: quote.expiresAt,
     providers: [PROVIDER],

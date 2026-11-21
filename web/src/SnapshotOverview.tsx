@@ -2,6 +2,7 @@ import { createPortal } from "react-dom";
 import { TrustBadge } from "./TrustBadge.tsx";
 import * as stylex from "@stylexjs/stylex";
 import type { ComboCell, Itinerary, NoteCard, ResultSet } from "./domain.ts";
+import { CoverageDetails, hasComparableGbpFare, itineraryEmptyMessage } from "./SearchCoverage.tsx";
 import { fmtRange, gbp, quoteable } from "./GridView.tsx";
 
 export type ResultsTab = "grid" | "itineraries" | "matrix" | "vendors";
@@ -117,6 +118,7 @@ function bestItinerary(
   let best: Hit | null = null;
   for (const it of rows) {
     if (!quoteable(it) || it.pricePerPerson == null || !accept(it)) continue;
+    if (result.coverage && (result.checkedBags > 0 || !hasComparableGbpFare(it, result))) continue;
     const hit = result.addons.length
       ? bestCells(result, [it], (cell) => cell.status !== "no")
       : { it, total: it.pricePerPerson * it.passengers };
@@ -130,20 +132,20 @@ function SummaryCard({
   hit,
   onSelect,
   legacySample,
+  emptyLabel = "None in the current filters",
 }: {
   label: string;
   hit: Hit | null;
   onSelect: SnapshotOverviewProps["onSelect"];
   legacySample: boolean;
+  emptyLabel?: string;
 }) {
   if (!hit)
     return (
       <div className={"sumcard " + stylex.props(styles.summaryCard, styles.staticCard).className}>
         <div className={"k " + stylex.props(styles.summaryLabel).className}>{label}</div>
         <div className={"v " + stylex.props(styles.summaryValue).className}>—</div>
-        <div className={"d " + stylex.props(styles.summaryDescription).className}>
-          None in the current filters
-        </div>
+        <div className={"d " + stylex.props(styles.summaryDescription).className}>{emptyLabel}</div>
       </div>
     );
   const title =
@@ -206,6 +208,7 @@ function Warnings({ result }: { result: ResultSet }) {
           This is not a live search.
         </div>
       )}
+      {result.coverage && <CoverageDetails coverage={result.coverage} />}
       {result.warnings.map((warning, index) => (
         <div
           className={
@@ -279,6 +282,13 @@ function Legend({ result, tab }: Pick<SnapshotOverviewProps, "result" | "tab">) 
         <span>Notes and trust flags are editable and travel with the HTML export.</span>
       </>
     );
+  if (result.coverage)
+    return (
+      <span>
+        The matrix compares observed GBP fares before unverified fees.
+        {result.checkedBags > 0 ? " Checked baggage costs are unverified." : ""}
+      </span>
+    );
   return (
     <span>
       Prices are per person in GBP unless a row says otherwise. Mocks are excluded from the cheapest
@@ -305,9 +315,16 @@ export function SnapshotOverview({
   const nonstop = bestItinerary(
     result,
     rows,
-    (it) => it.stopsOut === 0 && !it.returnMissing && it.stopsRet === 0,
+    (it) => it.stopsOut === 0 && !it.returnMissing && (it.stopsRet === 0 || !it.returnDate),
   );
   const european = bestItinerary(result, rows, (it) => it.euPremium);
+  const coverageEmpty = result.coverage
+    ? result.itineraries.length === 0
+      ? itineraryEmptyMessage(result)
+      : result.checkedBags > 0
+        ? "Checked baggage costs are unverified"
+        : "No comparable fresh GBP fare in these filters"
+    : undefined;
   const vendorMode = tab === "vendors" && result.scenarioLabel === "florida";
   const notes = vendorMode ? result.vendorIntro : result.headerNotes;
   return (
@@ -316,7 +333,14 @@ export function SnapshotOverview({
       {createPortal(<Warnings result={result} />, bannersTarget)}
       {createPortal(<Legend result={result} tab={tab} />, legendTarget)}
       <SummaryCard
-        label={result.addons.length ? "Cheapest feasible combination" : "Cheapest"}
+        label={
+          result.coverage
+            ? "Lowest observed GBP fare"
+            : result.addons.length
+              ? "Cheapest feasible combination"
+              : "Cheapest"
+        }
+        emptyLabel={coverageEmpty}
         hit={feasible}
         onSelect={onSelect}
         legacySample={result.scenarioLabel === "florida"}
@@ -330,13 +354,17 @@ export function SnapshotOverview({
         />
       )}
       <SummaryCard
-        label="Cheapest nonstop"
+        label={result.coverage ? "Lowest observed nonstop fare" : "Cheapest nonstop"}
+        emptyLabel={coverageEmpty}
         hit={nonstop}
         onSelect={onSelect}
         legacySample={result.scenarioLabel === "florida"}
       />
       <SummaryCard
-        label="Cheapest European premium"
+        label={
+          result.coverage ? "Lowest observed European premium fare" : "Cheapest European premium"
+        }
+        emptyLabel={coverageEmpty}
         hit={european}
         onSelect={onSelect}
         legacySample={result.scenarioLabel === "florida"}

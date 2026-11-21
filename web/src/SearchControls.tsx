@@ -1,3 +1,5 @@
+import type { SearchQuery } from "./domain.ts";
+import { describeSearchPolicy } from "./searchForm.ts";
 import * as stylex from "@stylexjs/stylex";
 import type { SearchForm } from "./searchForm.ts";
 import type { SavedInvestigation, Estimate, QuotaView } from "./domain.ts";
@@ -21,6 +23,10 @@ export interface SearchControlsProps {
   selectedSaved: string;
   onSavedChange: (id: string) => void;
   onOpen: (id: string) => void;
+  onReuseSearch?: () => void;
+  approvedPolicy?: SearchQuery;
+  approvedPolicyDigest?: string;
+  invalidSearchField?: keyof SearchForm;
   onEstimate: () => void;
   onSearch: () => void;
   onSample: () => void;
@@ -29,6 +35,7 @@ export interface SearchControlsProps {
   runEnabled: boolean;
   hostedReadOnly: boolean;
   hostedExecutionAvailable: boolean;
+  providerStatus: QuotaView[];
   isSearching: boolean;
   hostedEstimateOnly: boolean;
   guest: boolean;
@@ -43,6 +50,10 @@ export function SearchControls({
   selectedSaved,
   onSavedChange,
   onOpen,
+  onReuseSearch,
+  approvedPolicy,
+  approvedPolicyDigest,
+  invalidSearchField,
   onEstimate,
   onSearch,
   onSample,
@@ -51,6 +62,7 @@ export function SearchControls({
   runEnabled,
   hostedReadOnly,
   hostedExecutionAvailable,
+  providerStatus,
   isSearching,
   hostedEstimateOnly,
   guest,
@@ -80,27 +92,67 @@ export function SearchControls({
   ) => (
     <input
       id={id}
+      data-search-field={field}
+      aria-invalid={invalidSearchField === field || undefined}
+      aria-describedby={invalidSearchField === field ? "estimate" : undefined}
       type={type}
       value={String(form[field])}
       onChange={(event) => update(field, event.target.value as never)}
       {...extra}
     />
   );
-  const checked = (field: keyof SearchForm, id: string, text: string, suffix = "") => (
+  const checked = (
+    field: keyof SearchForm,
+    id: string,
+    text: string,
+    suffix = "",
+    unavailable = false,
+  ) => (
     <label>
       <input
         id={id}
+        data-search-field={field}
+        aria-invalid={invalidSearchField === field || undefined}
+        aria-describedby={invalidSearchField === field ? "estimate" : undefined}
         type="checkbox"
         checked={
           field === "fetchReturns" && form.tripType === "one_way" ? false : Boolean(form[field])
         }
-        disabled={field === "fetchReturns" && form.tripType === "one_way"}
+        disabled={unavailable || (field === "fetchReturns" && form.tripType === "one_way")}
         onChange={(event) => update(field, event.target.checked as never)}
       />{" "}
       {text}
       {suffix && <span className="muted"> ({suffix})</span>}
     </label>
   );
+  const provider = (
+    field: "serpapi" | "searchapi" | "travelpayouts" | "duffel",
+    id: string,
+    label: string,
+    mode = "",
+  ) => {
+    if (!hostedReadOnly) return checked(field, id, label, mode);
+    const capability = providerStatus.find((entry) => entry.provider === field)?.hosted;
+    const canEstimate =
+      field === "serpapi" || capability?.oneWay === true || capability?.roundTrip === true;
+    const available = capability?.state === "ready";
+    const daily = capability?.dailyRemaining;
+    const monthly = capability?.monthlyRemaining;
+    const allowance = available && daily != null ? ` · ${daily} D1 requests left today` : "";
+    const monthlyAllowance = available && monthly != null ? ` · ${monthly} this month` : "";
+    const status = !canEstimate
+      ? "unavailable on this Site"
+      : available
+        ? capability.priceMode + allowance + monthlyAllowance
+        : "estimate only";
+    return checked(
+      field,
+      id,
+      label,
+      [mode, status].filter(Boolean).join(" · "),
+      guest || !canEstimate || !hostedEstimateOnly,
+    );
+  };
   const select = <K extends keyof SearchForm>(
     field: K,
     id: string,
@@ -108,6 +160,9 @@ export function SearchControls({
   ) => (
     <select
       id={id}
+      data-search-field={field}
+      aria-invalid={invalidSearchField === field || undefined}
+      aria-describedby={invalidSearchField === field ? "estimate" : undefined}
       value={String(form[field])}
       onChange={(event) => update(field, event.target.value as SearchForm[K])}
     >
@@ -180,10 +235,10 @@ export function SearchControls({
         </label>
       </div>
       <div className={"checks " + stylex.props(styles.providerChecks).className}>
-        {checked("serpapi", "pSerp", "SerpApi")}
-        {checked("searchapi", "pSearch", "SearchAPI")}
-        {checked("travelpayouts", "pTp", "Travelpayouts", "cached")}
-        {checked("duffel", "pDuffel", "Duffel", "mock")}
+        {provider("serpapi", "pSerp", "SerpApi")}
+        {provider("searchapi", "pSearch", "SearchAPI")}
+        {provider("travelpayouts", "pTp", "Travelpayouts", "cached")}
+        {provider("duffel", "pDuffel", "Duffel", "mock")}
         {checked("nonstop", "qNonstop", "Nonstop only")}
         {checked("cacheOnly", "cacheOnly", "Cache only")}
       </div>
@@ -279,6 +334,11 @@ export function SearchControls({
         <button type="button" id="btnOpen" onClick={() => onOpen(selectedSaved)}>
           Open
         </button>
+        {onReuseSearch && (
+          <button type="button" onClick={onReuseSearch}>
+            Use search settings
+          </button>
+        )}
       </div>
       <div id="invList" className="checks">
         {saved.map((item) => (
@@ -299,6 +359,21 @@ export function SearchControls({
         className={"est " + stylex.props(styles.estimate).className}
       >
         {estimateError && <div>{estimateError}</div>}
+        {approvedPolicy && (
+          <details>
+            <summary>Review the approved search settings</summary>
+            <ul>
+              {describeSearchPolicy(approvedPolicy).map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            {approvedPolicyDigest && (
+              <div title={approvedPolicyDigest}>
+                Query fingerprint {approvedPolicyDigest.slice(0, 16)}
+              </div>
+            )}
+          </details>
+        )}
         {estimate && (
           <>
             {hostedReadOnly ? (
@@ -323,7 +398,9 @@ export function SearchControls({
                 {estimate.quota.map((q: QuotaView) => (
                   <span key={q.provider}>
                     {q.provider}:{" "}
-                    {q.remaining == null ? "remaining unknown" : q.remaining + " remaining"}
+                    {q.remaining == null
+                      ? "remaining unknown"
+                      : q.remaining + (q.hosted ? " D1 requests remaining" : " remaining")}
                     {q.note ? " (" + q.note + ")" : ""} ·{" "}
                   </span>
                 ))}

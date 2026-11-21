@@ -13,6 +13,7 @@ on:
       - 'sites-runtime/tests/mobile-grid-browser.mjs'
       - 'sites-runtime/tests/react-app-browser.mjs'
       - 'sites-runtime/tests/hosted-search-browser.mjs'
+      - 'sites-runtime/tests/hosted-exports-browser.mjs'
       - 'sites-runtime/tests/guest-browser.mjs'
       - '.github/workflows/mobile-grid.yml'
 
@@ -46,6 +47,9 @@ jobs:
 
       - name: Verify approved hosted search in desktop and mobile Chromium without provider calls
         run: node sites-runtime/tests/hosted-search-browser.mjs build/frontend/web/index.html build/sites/clawfare-sample.json
+
+      - name: Verify saved HTML and CSV downloads
+        run: node sites-runtime/tests/hosted-exports-browser.mjs build/frontend/web/index.html build/sites/clawfare-sample.json
 
       - name: Verify credential-free guest UI without network calls
         run: node sites-runtime/tests/guest-browser.mjs build/frontend/web/index.html

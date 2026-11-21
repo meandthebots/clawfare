@@ -12,7 +12,7 @@ import { limitedBody } from "./search-estimate.mjs";
 import {
   executeConsentedOneWaySerpApi, executeConsentedRoundTripSerpApi, SerpApiTransportError,
 } from "./serpapi-metered-transport.mjs";
-import { D1Investigations } from "./investigations.mjs";
+import { D1Investigations, TRACKED_PREFIX } from "./investigations.mjs";
 
 const HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -52,14 +52,45 @@ function boundedCanonicalQuery(input, kotlinEngine) {
     (q?.tripType === "one_way" && q.fetchReturns === false) ||
     (q?.tripType === "round_trip" && q.fetchReturns === true);
   if (planned?.error || !q || JSON.stringify(q) !== raw ||
-      !tripSupported || q.currency !== "GBP" ||
+      q.investigation?.startsWith(TRACKED_PREFIX) || !tripSupported || q.currency !== "GBP" ||
       q.confirmed !== false || q.cacheOnly !== false ||
       q.providers?.length !== 1 ||
       q.providers[0] !== "serpapi" || !Array.isArray(planned.pairs) ||
       planned.pairs.length < 1 || planned.pairs.length > 16 ||
       !Number.isSafeInteger(q.maxLiveCalls) || q.maxLiveCalls < 1 ||
       q.maxLiveCalls > 16) return null;
-  return { canonicalQueryJson: raw, query: q };
+  return { canonicalQueryJson: raw, query: q, pairs: planned.pairs };
+}
+
+function searchCoverage(query, pairs, observed, assembly) {
+  const key = (origin, destination, out, back) => JSON.stringify([origin, destination, out, back ?? null]);
+  const attempts = new Map(observed.attempts.map(attempt => [
+    key(attempt.origin, attempt.destination, attempt.outboundDate, attempt.returnDate), attempt,
+  ]));
+  const routes = pairs.flatMap(pair => query.origins.flatMap(origin => query.destinations.map(destination => {
+    const attempt = attempts.get(key(origin, destination, pair.outbound, pair.returning));
+    return {
+      provider: observed.provider,
+      market: query.market,
+      origin,
+      destination,
+      outboundDate: pair.outbound,
+      returnDate: pair.returning ?? null,
+      state: attempt?.state ?? "not_attempted",
+      sourceMode: attempt?.sourceLabel ?? null,
+      providerRows: attempt?.providerRows ?? null,
+      parsedOffers: attempt?.offersReported ?? null,
+      eligibleOffers: attempt?.eligibleOffers ?? 0,
+      returnLookupsLoaded: attempt?.returnLookupsLoaded ?? 0,
+      unresolvedReturns: attempt?.unresolvedReturns ?? 0,
+      returnSelectionLimited: attempt?.selectionLimited === true,
+      errorKind: attempt?.errorKind ?? null,
+    };
+  })));
+  return {
+    version: 1, observedAt: observed.fetchedAt, state: observed.state,
+    routes, eligibleItineraries: assembly.eligible, excludedByReason: assembly.excludedByReason,
+  };
 }
 
 /**
@@ -145,6 +176,7 @@ export async function executeHostedSearchRequest(request, {
   if (!result || !Array.isArray(result.itineraries) || result.id !== investigationSlug) {
     return deny("Kotlin returned an invalid fare result.", 503);
   }
+  result.coverage = searchCoverage(parsed.query, parsed.pairs, observed, assembly);
   if (observed.state !== "complete") {
     result.warnings = [
       ...(result.warnings || []),

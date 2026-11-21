@@ -2,15 +2,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { createClawfareClient, type HostedSearchQuote } from "./api.ts";
 import { DetailsContent } from "./DetailsContent.tsx";
+import { FareTracking } from "./FareTracking.tsx";
 import { FilterControls } from "./FilterControls.tsx";
 import { initialFilters, suggestedFilters, type FilterControlsState } from "./filterForm.ts";
 import { isCashRefundVerified } from "./DetailsContent.tsx";
 import { GridView, fmtRange, quoteable } from "./GridView.tsx";
 import { ItineraryView, MatrixView } from "./ItineraryViews.tsx";
+import { hasComparableGbpFare, itineraryEmptyMessage } from "./SearchCoverage.tsx";
 import { SearchControls } from "./SearchControls.tsx";
 import {
   INITIAL_SEARCH,
+  SearchFormError,
   buildSearchQuery,
+  describeSearchPolicy,
+  restoreSearchForm,
   estimateIsRunnable,
   type SearchForm,
 } from "./searchForm.ts";
@@ -253,10 +258,15 @@ export function App() {
   const [selectedSaved, setSelectedSaved] = useState("");
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [estimateError, setEstimateError] = useState("");
+  const [invalidSearchField, setInvalidSearchField] = useState<keyof SearchForm>();
+  const [providerStatus, setProviderStatus] = useState<QuotaView[]>([]);
   const [statusLines, setStatusLines] = useState<string[]>([]);
   const [pendingQuery, setPendingQuery] = useState<SearchQuery | null>(null);
   const [searchConsent, setSearchConsent] = useState<string | null>(null);
+  const [hostedTracking, setHostedTracking] = useState(false);
   const [hostedExecutionEnabled, setHostedExecutionEnabled] = useState(false);
+  const [hostedExports, setHostedExports] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [hostedQuote, setHostedQuote] = useState<HostedSearchQuote | null>(null);
   const [searching, setSearching] = useState(false);
   const searchLock = useRef(false);
@@ -300,12 +310,15 @@ export function App() {
       .status()
       .then((response) => {
         if (!active || !response.ok) return;
+        setHostedTracking(HOSTED_READ_ONLY && !GUEST_MODE && response.data.hostedTracking === true);
         setHostedExecutionEnabled(
           !GUEST_MODE &&
             HOSTED_ESTIMATE_ONLY &&
             (response.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true ||
               response.data.hostedSearch?.canExecuteRoundTripGbpSerpApi === true),
         );
+        setHostedExports(response.data.hostedExports === true);
+        setProviderStatus(response.data.providers);
         setStatusLines(
           response.data.providers.map(
             (quota) =>
@@ -387,6 +400,7 @@ export function App() {
   const changeForm = (next: SearchForm) => {
     estimateEpoch.current++;
     setForm(next);
+    setInvalidSearchField(undefined);
     setHostedQuote(null);
     // Consent must correspond to the exact previously estimated query.
     setPendingQuery(null);
@@ -396,6 +410,7 @@ export function App() {
   };
   const estimateCalls = async () => {
     const epoch = ++estimateEpoch.current;
+    setInvalidSearchField(undefined);
     setHostedQuote(null);
     setPendingQuery(null);
     setSearchConsent(null);
@@ -436,6 +451,10 @@ export function App() {
       }
     } catch (error) {
       if (epoch !== estimateEpoch.current) return;
+      if (error instanceof SearchFormError) {
+        setInvalidSearchField(error.field);
+        document.querySelector<HTMLElement>(`[data-search-field="${error.field}"]`)?.focus();
+      }
       setEstimateError(
         error instanceof Error ? error.message : "Estimate request failed; no search was run.",
       );
@@ -457,6 +476,8 @@ export function App() {
         "Run the exact " +
           (quote.canonicalQuery.tripType === "round_trip" ? "round-trip" : "one-way") +
           " SerpApi search approved by the server?\n\n" +
+          describeSearchPolicy(quote.canonicalQuery).join("\n") +
+          "\n\n" +
           "Up to " +
           quote.totalCallsUpperBound +
           " provider requests may consume paid quota.\n" +
@@ -525,6 +546,12 @@ export function App() {
       setEstimateError("Sample failed to load.");
     }
   };
+  const reusedForm = GUEST_MODE ? null : restoreSearchForm(result?.query);
+  const reuseSearchPolicy = () => {
+    if (!reusedForm) return;
+    changeForm(reusedForm);
+    setEstimateError("Saved settings copied. Estimate before running a new search.");
+  };
   const openSaved = async (id: string) => {
     if (!id) return;
     try {
@@ -543,6 +570,15 @@ export function App() {
         setStatusLines([response.error]);
         return;
       }
+      setProviderStatus(response.data);
+      const serpapi = response.data.find((quota) => quota.provider === "serpapi")?.hosted;
+      if (HOSTED_ESTIMATE_ONLY && serpapi) {
+        setHostedExecutionEnabled(serpapi.state === "ready");
+        if (serpapi.state !== "ready") {
+          estimateEpoch.current++;
+          setHostedQuote(null);
+        }
+      }
       setStatusLines(
         response.data.map((quota: QuotaView) => {
           const rem =
@@ -554,7 +590,7 @@ export function App() {
                 (quota.limit != null ? " of " + quota.limit : "");
           return (
             quota.provider +
-            (quota.configured ? " configured" : " not configured") +
+            (quota.configured ? " ready" : " unavailable") +
             rem +
             (quota.note ? " — " + quota.note : "")
           );
@@ -580,7 +616,21 @@ export function App() {
             " · verified SHA-256 " +
             String(info.sha256 ?? "").slice(0, 16) +
             "… (compare this timestamp after reloading)."
-          : "No sample row in D1 yet. Load the public Florida sample, then check again.",
+          : info.sampleCheckFailed
+            ? "The D1 sample could not be read or verified."
+            : "No sample row in D1 yet. Load the public Florida sample, then check again.",
+        ...(info.build
+          ? [
+              `Deployed source ${info.build.sourceGitSha}${info.build.sourceDirty ? " (working tree modified at build)" : ""}`,
+              info.build.schema === "tables_present"
+                ? "D1 contains the tables expected by this build."
+                : info.build.schema === "unavailable"
+                  ? "D1 schema inspection was unavailable."
+                  : "D1 is missing migration tables from " +
+                    info.build.missingSchema.map((migration) => migration.file).join(", ") +
+                    ".",
+            ]
+          : []),
       ]);
     } catch {
       setStatusLines(["D1 storage check could not be completed."]);
@@ -661,27 +711,31 @@ export function App() {
       window.alert("Seller comparison failed.");
     }
   };
-  const trackItinerary = async (it: Itinerary) => {
-    if (!result || HOSTED_READ_ONLY) return;
-    const slug = window.prompt("Trip slug to store this fare against", "florida-dec-2026");
-    if (!slug) return;
-    try {
-      const response = await client.track(result.id, { itineraryId: it.id, tripSlug: slug });
-      const body = response.body;
-      if (isRecord(body) && typeof body.slug === "string")
-        window.alert(
-          "Saved on investigation " +
-            body.slug +
-            ". The CLI can show it with: clawfare flight list " +
-            body.slug,
-        );
-      else window.alert(responseError(body, "Could not save."));
-    } catch {
-      window.alert("Could not save.");
-    }
+  const fareSaved = (id: string) => {
+    setSelectedSaved(id);
+    void refreshSaved().catch(() => {});
   };
+  const canExport =
+    !HOSTED_READ_ONLY || Boolean(hostedExports && result?.query && !result.scenarioLabel);
   const download = async (kind: "html" | "csv") => {
-    if (HOSTED_READ_ONLY || !result) return;
+    if (!canExport || exporting || !result) return;
+    if (HOSTED_READ_ONLY) {
+      setExporting(true);
+      setEstimateError("");
+      try {
+        await client.downloadSaved(result.id, kind, {
+          itineraryIds: displayRows.map((row) => row.id),
+          kind: tab === "vendors" ? "seller_options" : "itineraries",
+        });
+      } catch (error) {
+        setEstimateError(
+          error instanceof Error ? error.message : "Could not download the saved export.",
+        );
+      } finally {
+        setExporting(false);
+      }
+      return;
+    }
     const path = kind === "html" ? "/api/export/html" : "/api/export/csv";
     const exportKind = kind === "csv" && tab === "vendors" ? "vendors" : "itineraries";
     try {
@@ -727,9 +781,31 @@ export function App() {
         />
       );
     if (tab === "grid" || tab === "itineraries")
-      return <ItineraryView rows={displayRows} onSelect={openDetails} />;
-    if (tab === "matrix")
-      return <MatrixView rows={displayRows.filter((it) => quoteable(it))} onSelect={openDetails} />;
+      return (
+        <ItineraryView
+          rows={displayRows}
+          onSelect={openDetails}
+          emptyMessage={result.coverage ? itineraryEmptyMessage(result) : undefined}
+        />
+      );
+    if (tab === "matrix") {
+      const rows = displayRows.filter(
+        (it) => quoteable(it) && (!result.coverage || hasComparableGbpFare(it, result)),
+      );
+      return (
+        <MatrixView
+          rows={rows}
+          onSelect={openDetails}
+          emptyMessage={
+            result.coverage
+              ? !displayRows.length
+                ? itineraryEmptyMessage(result)
+                : "No comparable fresh GBP fares for these dates."
+              : undefined
+          }
+        />
+      );
+    }
     const markets = Object.fromEntries(
       result.vendors.map((v) => [v.market, v.marketLabel || v.market]),
     );
@@ -787,6 +863,10 @@ export function App() {
           selectedSaved={selectedSaved}
           onSavedChange={setSelectedSaved}
           onOpen={(id) => void openSaved(id)}
+          onReuseSearch={reusedForm ? reuseSearchPolicy : undefined}
+          approvedPolicy={hostedQuote?.canonicalQuery}
+          approvedPolicyDigest={hostedQuote?.queryDigest}
+          invalidSearchField={invalidSearchField}
           onEstimate={() => void estimateCalls()}
           onSearch={() => void runSearch()}
           onSample={() => void loadSample()}
@@ -795,6 +875,7 @@ export function App() {
           runEnabled={pendingQuery !== null || hostedQuote !== null}
           hostedReadOnly={HOSTED_READ_ONLY}
           hostedExecutionAvailable={hostedExecutionEnabled}
+          providerStatus={providerStatus}
           isSearching={searching}
           hostedEstimateOnly={HOSTED_ESTIMATE_ONLY}
           guest={GUEST_MODE}
@@ -808,7 +889,7 @@ export function App() {
                 : HOSTED_READ_ONLY
                   ? HOSTED_ESTIMATE_ONLY
                     ? "Search estimates are available at no cost. Run search and all paid provider calls are still disabled."
-                    : "Hosted read-only preview: explore saved flights and filters; live searches and exports are disabled."
+                    : "Hosted read-only preview: explore saved flights and filters. Live searches are disabled."
                   : "")
           }
           statusLines={statusLines}
@@ -856,7 +937,7 @@ export function App() {
           <button
             type="button"
             id="btnHtml"
-            disabled={HOSTED_READ_ONLY}
+            disabled={!canExport || exporting}
             onClick={() => void download("html")}
           >
             Export HTML
@@ -864,7 +945,7 @@ export function App() {
           <button
             type="button"
             id="btnCsv"
-            disabled={HOSTED_READ_ONLY}
+            disabled={!canExport || exporting}
             onClick={() => void download("csv")}
           >
             Export CSV
@@ -945,8 +1026,26 @@ export function App() {
               addon={activeAddon}
               cell={activeCell}
               onVendors={() => void showVendors(activeItinerary)}
-              onTrack={() => void trackItinerary(activeItinerary)}
-              canTrack={!HOSTED_READ_ONLY}
+              tracking={
+                result &&
+                (!HOSTED_READ_ONLY || (hostedTracking && result.query && !result.scenarioLabel)) ? (
+                  <FareTracking
+                    key={result.id + "/" + activeItinerary.id}
+                    client={client}
+                    result={result}
+                    fare={activeItinerary}
+                    hosted={HOSTED_READ_ONLY}
+                    canTrack={
+                      !HOSTED_READ_ONLY ||
+                      (!result.id.startsWith("tracked-") &&
+                        !activeItinerary.returnMissing &&
+                        quoteable(activeItinerary))
+                    }
+                    onSaved={fareSaved}
+                  />
+                ) : undefined
+              }
+              coveredSearch={result?.coverage != null}
               legacySample={result?.scenarioLabel === "florida"}
             />
           )}

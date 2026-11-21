@@ -9,7 +9,7 @@ import { createReadOnlySitesHandler } from "./site-handler.mjs";
 import { kotlinEngineFromBundle } from "./kotlin-engine.mjs";
 import { validatePublicSample } from "./public-sample.mjs";
 
-export function createClawfareWorkerFactory({ templateHtml, bundledPublicSample, kotlinBundle }) {
+export function createClawfareWorkerFactory({ templateHtml, bundledPublicSample, kotlinBundle, buildProvenance = null }) {
   if (typeof templateHtml !== "string") throw new TypeError("Trusted Kotlin HTML required");
   const fixture = JSON.parse(validatePublicSample(bundledPublicSample));
   // Validate that this is the *real* compiled Kotlin/JS artifact. No
@@ -37,6 +37,7 @@ export function createClawfareWorkerFactory({ templateHtml, bundledPublicSample,
           }
           const handle = createReadOnlySitesHandler({
             templateHtml,
+            buildProvenance,
             bundledPublicSample: fixture,
             kotlinEngine: kotlin,
             db: env.DB,

@@ -1035,8 +1035,147 @@
             }
           }
         },
-        "x-runtime": "jvm",
+        "x-runtime": "both",
         "x-kotlin-request": "com.clawfare.search.TrackRequest",
+        "x-kotlin-response": "String"
+      }
+    },
+    "/api/results/{id}/export.{format}": {
+      "post": {
+        "operationId": "exportSavedSearch",
+        "summary": "Export the owner's saved search selections",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$"
+            }
+          },
+          {
+            "name": "format",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "html",
+                "csv"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Private attachment",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid selection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Same-origin request required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Saved search not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Report or selection exceeds size limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "JSON request required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Export rate limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "D1 is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-runtime": "hosted",
+        "x-kotlin-request": "Any",
         "x-kotlin-response": "String"
       }
     },
@@ -2500,6 +2639,166 @@
           "asOf"
         ]
       },
+      "RouteCoverage": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "market": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "outboundDate": {
+            "type": "string"
+          },
+          "returnDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "not_attempted",
+              "complete",
+              "empty",
+              "partial",
+              "failed"
+            ]
+          },
+          "sourceMode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "live",
+                  "cached",
+                  "mock",
+                  "manual"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "providerRows": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "parsedOffers": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "eligibleOffers": {
+            "type": "number"
+          },
+          "returnLookupsLoaded": {
+            "type": "number"
+          },
+          "unresolvedReturns": {
+            "type": "number"
+          },
+          "returnSelectionLimited": {
+            "type": "boolean"
+          },
+          "errorKind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "market",
+          "origin",
+          "destination",
+          "outboundDate",
+          "returnDate",
+          "state",
+          "sourceMode",
+          "providerRows",
+          "parsedOffers",
+          "eligibleOffers",
+          "returnLookupsLoaded",
+          "unresolvedReturns",
+          "returnSelectionLimited",
+          "errorKind"
+        ]
+      },
+      "SearchCoverage": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          },
+          "observedAt": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "partial",
+              "failed"
+            ]
+          },
+          "routes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RouteCoverage"
+            }
+          },
+          "eligibleItineraries": {
+            "type": "number"
+          },
+          "excludedByReason": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "observedAt",
+          "state",
+          "routes",
+          "eligibleItineraries",
+          "excludedByReason"
+        ]
+      },
       "ResultSet": {
         "type": "object",
         "properties": {
@@ -2521,6 +2820,9 @@
                 "type": "null"
               }
             ]
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/SearchCoverage"
           },
           "currency": {
             "type": "string"
@@ -2635,9 +2937,87 @@
           "fx"
         ]
       },
+      "ProviderCapability": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "disabled",
+              "unsupported",
+              "unconfigured",
+              "no_cap",
+              "zero_cap",
+              "exhausted"
+            ]
+          },
+          "priceMode": {
+            "type": "string",
+            "enum": [
+              "live",
+              "cached",
+              "mock"
+            ]
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "externalQuota": {
+            "type": "string",
+            "enum": [
+              "unknown"
+            ]
+          },
+          "dailyRemaining": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "monthlyRemaining": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "oneWay": {
+            "type": "boolean"
+          },
+          "roundTrip": {
+            "type": "boolean"
+          },
+          "sellerOptions": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "state",
+          "priceMode",
+          "checkedAt",
+          "externalQuota",
+          "dailyRemaining",
+          "monthlyRemaining",
+          "oneWay",
+          "roundTrip",
+          "sellerOptions"
+        ]
+      },
       "QuotaView": {
         "type": "object",
         "properties": {
+          "hosted": {
+            "$ref": "#/components/schemas/ProviderCapability"
+          },
           "provider": {
             "type": "string"
           },
@@ -2831,9 +3211,101 @@
           "title"
         ]
       },
+      "MigrationProvenance": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "requiredTables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "file",
+          "sha256",
+          "requiredTables"
+        ]
+      },
+      "MissingMigrationTables": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "file",
+          "tables"
+        ]
+      },
+      "BuildProvenance": {
+        "type": "object",
+        "properties": {
+          "sourceGitSha": {
+            "type": "string"
+          },
+          "sourceDirty": {
+            "type": "boolean"
+          },
+          "kotlinBundleSha256": {
+            "type": "string"
+          },
+          "openApiSha256": {
+            "type": "string"
+          },
+          "schema": {
+            "type": "string",
+            "enum": [
+              "unavailable",
+              "missing_tables",
+              "tables_present"
+            ]
+          },
+          "migrations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MigrationProvenance"
+            }
+          },
+          "missingSchema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MissingMigrationTables"
+            }
+          }
+        },
+        "required": [
+          "sourceGitSha",
+          "sourceDirty",
+          "kotlinBundleSha256",
+          "openApiSha256",
+          "schema",
+          "migrations",
+          "missingSchema"
+        ]
+      },
       "StorageDiagnostic": {
         "type": "object",
         "properties": {
+          "build": {
+            "$ref": "#/components/schemas/BuildProvenance"
+          },
+          "sampleCheckFailed": {
+            "type": "boolean"
+          },
           "backend": {
             "type": "string",
             "enum": [
@@ -2910,6 +3382,31 @@
           "tripSlug"
         ]
       },
+      "SavedExportRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "itineraries",
+              "seller_options"
+            ]
+          },
+          "itineraryIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "kind",
+          "itineraryIds"
+        ],
+        "additionalProperties": false
+      },
       "ExportRequest": {
         "type": "object",
         "properties": {
@@ -2969,8 +3466,55 @@
       },
       "HistoryObservation": {
         "type": "object",
-        "additionalProperties": true,
-        "description": "Read-only D1 price observation record."
+        "description": "Immutable original-currency price per passenger.",
+        "properties": {
+          "observation_id": {
+            "type": "string"
+          },
+          "itinerary_id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "source_label": {
+            "type": "string",
+            "enum": [
+              "live",
+              "cached",
+              "mock",
+              "sample",
+              "manual"
+            ]
+          },
+          "live_price": {
+            "type": "number",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "original_currency": {
+            "type": "string"
+          },
+          "amount_decimal": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "observation_id",
+          "itinerary_id",
+          "provider",
+          "source_label",
+          "live_price",
+          "captured_at",
+          "original_currency",
+          "amount_decimal"
+        ]
       }
     }
   }

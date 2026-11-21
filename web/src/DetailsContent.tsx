@@ -159,10 +159,12 @@ function DirectionBox({
   it,
   title,
   direction,
+  showCarrierEvidence,
 }: {
   it: Itinerary;
   title: string;
   direction: Direction;
+  showCarrierEvidence: boolean;
 }) {
   return (
     <div className={"box " + stylex.props(styles.box).className}>
@@ -198,6 +200,10 @@ function DirectionBox({
               </td>
               <td className={"muted " + stylex.props(styles.segmentCell).className}>
                 {leg.operatingCarrier || leg.airline}
+                {showCarrierEvidence &&
+                  (leg.operatingCarrierVerified
+                    ? " (verified operator)"
+                    : " (operator unverified)")}
                 {leg.durationMinutes
                   ? " · " +
                     Math.floor(leg.durationMinutes / 60) +
@@ -424,8 +430,8 @@ export interface DetailsContentProps {
   addon: Itinerary | null;
   cell: ComboCell | null;
   onVendors: () => void;
-  onTrack: () => void;
-  canTrack?: boolean;
+  tracking?: React.ReactNode;
+  coveredSearch?: boolean;
   legacySample?: boolean;
 }
 export function DetailsContent({
@@ -433,8 +439,8 @@ export function DetailsContent({
   addon,
   cell,
   onVendors,
-  onTrack,
-  canTrack = true,
+  tracking,
+  coveredSearch = false,
   legacySample = false,
 }: DetailsContentProps) {
   const total = (flight: Itinerary) =>
@@ -449,9 +455,19 @@ export function DetailsContent({
       )}
       <div className="sec">
         <h3>Flights</h3>
-        <DirectionBox it={it} title="Outbound" direction={it.outbound} />
+        <DirectionBox
+          it={it}
+          title="Outbound"
+          direction={it.outbound}
+          showCarrierEvidence={coveredSearch}
+        />
         {it.returning ? (
-          <DirectionBox it={it} title="Return" direction={it.returning} />
+          <DirectionBox
+            it={it}
+            title="Return"
+            direction={it.returning}
+            showCarrierEvidence={coveredSearch}
+          />
         ) : it.returnMissing ? (
           <div className="muted">Return was not retrieved.</div>
         ) : null}
@@ -506,8 +522,14 @@ export function DetailsContent({
       </div>
       <RefundDetails it={it} />
       <div className={"booknote " + stylex.props(styles.bookNote).className}>
-        Links open for <b>1 adult</b>. Set the passenger count on Google Flights before choosing a
-        booking option.{" "}
+        {coveredSearch ? (
+          "Check baggage costs and fare terms for the exact offer before paying. "
+        ) : (
+          <>
+            Links open for <b>1 adult</b>. Set the passenger count on Google Flights before choosing
+            a booking option.{" "}
+          </>
+        )}
         {it.sourceLabel === "mock"
           ? "This Duffel price is a mock."
           : "Re-check the fare before paying."}
@@ -516,10 +538,12 @@ export function DetailsContent({
         <button type="button" id="btnVendorsFor" onClick={onVendors}>
           Seller comparison
         </button>
-        <button type="button" id="btnTrack" disabled={!canTrack} onClick={onTrack}>
+      </div>
+      {tracking ?? (
+        <button type="button" id="btnTrack" disabled>
           Save to a trip
         </button>
-      </div>
+      )}
     </>
   );
 }

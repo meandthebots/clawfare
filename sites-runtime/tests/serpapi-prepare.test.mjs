@@ -112,6 +112,10 @@ test("quote binds Kotlin-normalized 2-adult SerpApi query and exact worst-case c
   const body = await response.json();
   assert.deepEqual(body.providers, ["serpapi"]);
   assert.equal(body.canonicalQuery.adults, 2);
+  assert.match(body.queryDigest, /^[a-f0-9]{64}$/);
+  const expectedDigest = await webcrypto.subtle.digest(
+    "SHA-256", new TextEncoder().encode(JSON.stringify(body.canonicalQuery)));
+  assert.equal(body.queryDigest, Buffer.from(expectedDigest).toString("hex"));
   assert.equal(body.baseCallsUpperBound, 1);
   assert.equal(body.returnLookupsUpperBound, 3);
   assert.equal(body.totalCallsUpperBound, 4);
