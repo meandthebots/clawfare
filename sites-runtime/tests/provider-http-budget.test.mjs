@@ -173,7 +173,18 @@ test("hosted readiness reports D1 caps without remote quota calls or exposing ke
   assert.equal(enabled[0].configured, true, "readiness only, never permission to dispatch HTTP");
   assert.equal(enabled[1].configured, false);
   assert.equal(enabled[3].configured, false);
-  assert.equal(queried, 2);
+  assert.deepEqual(enabled.map(item => [item.hosted.state, item.hosted.priceMode]), [
+    ["ready", "live"], ["unsupported", "live"], ["unsupported", "cached"], ["unsupported", "mock"],
+  ]);
+  assert.equal(enabled[0].hosted.dailyRemaining, 5);
+  assert.equal(enabled[0].hosted.monthlyRemaining, 4);
+  assert.equal(enabled[0].hosted.externalQuota, "unknown");
+  assert.equal(enabled[0].hosted.checkedAt, "2026-11-18T12:30:00.000Z");
+  assert.equal(enabled[0].hosted.sellerOptions, false);
+  rows[1].daily_cap = 1;
+  assert.equal((await readHostedProviderReadiness(db, { ...options, networkEnabled: true }))[1].configured, false,
+    "An unsupported adapter stays unavailable even with quota and a credential");
+  assert.equal(queried, 3);
 });
 test("invalid or corrupt cap records fail closed", async () => {
   const db = { prepare() { return { bind() { return {

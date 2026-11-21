@@ -2937,9 +2937,87 @@
           "fx"
         ]
       },
+      "ProviderCapability": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "disabled",
+              "unsupported",
+              "unconfigured",
+              "no_cap",
+              "zero_cap",
+              "exhausted"
+            ]
+          },
+          "priceMode": {
+            "type": "string",
+            "enum": [
+              "live",
+              "cached",
+              "mock"
+            ]
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "externalQuota": {
+            "type": "string",
+            "enum": [
+              "unknown"
+            ]
+          },
+          "dailyRemaining": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "monthlyRemaining": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "oneWay": {
+            "type": "boolean"
+          },
+          "roundTrip": {
+            "type": "boolean"
+          },
+          "sellerOptions": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "state",
+          "priceMode",
+          "checkedAt",
+          "externalQuota",
+          "dailyRemaining",
+          "monthlyRemaining",
+          "oneWay",
+          "roundTrip",
+          "sellerOptions"
+        ]
+      },
       "QuotaView": {
         "type": "object",
         "properties": {
+          "hosted": {
+            "$ref": "#/components/schemas/ProviderCapability"
+          },
           "provider": {
             "type": "string"
           },

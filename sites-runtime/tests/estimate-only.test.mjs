@@ -60,7 +60,7 @@ test("Kotlin-backed estimate shows potential calls without consent, D1 writes or
   assert.equal(body.returnLookupsUpperBound, 3);
   assert.equal(body.canRun, false);
   assert.equal(body.quota[0].configured, false);
-  assert.match(body.warnings.join(" "), /no provider has been contacted/);
+  assert.match(body.warnings.join(" "), /no provider has been contacted/i);
   assert.deepEqual(events, ["plan", "budget"]);
 });
 

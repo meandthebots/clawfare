@@ -255,6 +255,7 @@ export function App() {
   const [selectedSaved, setSelectedSaved] = useState("");
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [estimateError, setEstimateError] = useState("");
+  const [providerStatus, setProviderStatus] = useState<QuotaView[]>([]);
   const [statusLines, setStatusLines] = useState<string[]>([]);
   const [pendingQuery, setPendingQuery] = useState<SearchQuery | null>(null);
   const [searchConsent, setSearchConsent] = useState<string | null>(null);
@@ -313,6 +314,7 @@ export function App() {
               response.data.hostedSearch?.canExecuteRoundTripGbpSerpApi === true),
         );
         setHostedExports(response.data.hostedExports === true);
+        setProviderStatus(response.data.providers);
         setStatusLines(
           response.data.providers.map(
             (quota) =>
@@ -550,6 +552,15 @@ export function App() {
         setStatusLines([response.error]);
         return;
       }
+      setProviderStatus(response.data);
+      const serpapi = response.data.find((quota) => quota.provider === "serpapi")?.hosted;
+      if (HOSTED_ESTIMATE_ONLY && serpapi) {
+        setHostedExecutionEnabled(serpapi.state === "ready");
+        if (serpapi.state !== "ready") {
+          estimateEpoch.current++;
+          setHostedQuote(null);
+        }
+      }
       setStatusLines(
         response.data.map((quota: QuotaView) => {
           const rem =
@@ -561,7 +572,7 @@ export function App() {
                 (quota.limit != null ? " of " + quota.limit : "");
           return (
             quota.provider +
-            (quota.configured ? " configured" : " not configured") +
+            (quota.configured ? " ready" : " unavailable") +
             rem +
             (quota.note ? " — " + quota.note : "")
           );
@@ -842,6 +853,7 @@ export function App() {
           runEnabled={pendingQuery !== null || hostedQuote !== null}
           hostedReadOnly={HOSTED_READ_ONLY}
           hostedExecutionAvailable={hostedExecutionEnabled}
+          providerStatus={providerStatus}
           isSearching={searching}
           hostedEstimateOnly={HOSTED_ESTIMATE_ONLY}
           guest={GUEST_MODE}

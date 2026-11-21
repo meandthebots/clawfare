@@ -119,7 +119,17 @@ async function api(route) {
     state.unexpected.push("Browser forged a trusted identity or session");
   }
   if (entry.path === "/api/status") return respond(route, {
-    cacheDir: "d1", searchesDir: "d1", providers: [], hostedTracking: true,
+    cacheDir: "d1", searchesDir: "d1", hostedTracking: true,
+    providers: ["serpapi", "searchapi", "travelpayouts", "duffel"].map((provider, index) => ({
+      provider, configured: index === 0 && state.enabled,
+      hosted: {
+        state: index === 0 ? state.enabled ? "ready" : "disabled" : "unsupported",
+        priceMode: ["live", "live", "cached", "mock"][index],
+        dailyRemaining: index === 0 ? 5 : null, monthlyRemaining: null,
+        externalQuota: "unknown", checkedAt: observedAt,
+        oneWay: index === 0, roundTrip: index === 0, sellerOptions: false,
+      },
+    })),
     hostedSearch: {
       canExecuteOneWayGbpSerpApi: state.enabled,
       canExecuteRoundTripGbpSerpApi: state.enabled,
@@ -226,6 +236,8 @@ try {
   await page.route("**/*", api);
   await page.goto(origin);
   await page.locator("#grid td.cell").first().waitFor();
+  for (const id of ["pSearch", "pTp", "pDuffel"]) assert.equal(await page.locator("#" + id).isDisabled(), true);
+  assert.equal(await page.locator("#pSerp").isEnabled(), true);
   await fillRoundTrip(page);
   await page.locator("#btnEstimate").click();
   await page.waitForFunction(() =>

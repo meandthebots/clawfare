@@ -120,7 +120,16 @@ export async function handleReadOnlyApi(
   const ownerId = await ownerKeyFromVerifiedEmail(email, ownerKeySecret, cryptoApi);
   // Authentication precedes parsing and Kotlin planning. The estimator
   // creates no token, no reservation, no network request and no D1 write.
-  if (isEstimate) return estimateHostedSearch(request, kotlinEngine);
+  const executionConfigured = searchPrepareConfig?.enabled === true &&
+    searchExecuteConfig?.enabled === true && searchExecuteConfig?.approvedForPaidCalls === true &&
+    typeof db.batch === "function" && typeof searchExecuteConfig?.consentSigningSecret === "string" &&
+    new TextEncoder().encode(searchExecuteConfig.consentSigningSecret).length >= 32;
+  const providerReadiness = () => providerKeyPresence === null ? [] : readHostedProviderReadiness(db, {
+    keyPresent: providerKeyPresence, networkEnabled: executionConfigured,
+  });
+  if (isEstimate) {
+    return estimateHostedSearch(request, kotlinEngine, providerReadiness);
+  }
   if (isPrepare) return prepareSerpApiSearch(request, {
     ...searchPrepareConfig, db, ownerId, kotlinEngine, cryptoApi,
   });
@@ -156,21 +165,13 @@ export async function handleReadOnlyApi(
   }
 
   if (url.pathname === "/api/status" || url.pathname === "/api/quota") {
-    // The default library test/preview remains an explicit no-provider
-    // environment. The assembled Worker supplies server-derived key presence
-    // and reads actual D1 local cap usage without provider HTTP.
-    let providers = [];
-    if (providerKeyPresence !== null) {
-      try {
-        providers = await readHostedProviderReadiness(db, {
-          keyPresent: providerKeyPresence,
-          networkEnabled: searchExecuteConfig?.enabled === true &&
-            searchExecuteConfig?.approvedForPaidCalls === true,
-        });
-      } catch {
-        return respond({ error: "Hosted D1 provider-cap status unavailable; searches remain disabled." }, 503);
-      }
+    let providers;
+    try {
+      providers = await providerReadiness();
+    } catch {
+      return respond({ error: "Hosted D1 provider-cap status unavailable; searches remain disabled." }, 503);
     }
+    const serpapi = providers.find(provider => provider.provider === "serpapi")?.hosted;
     return url.pathname === "/api/status"
       ? respond({
           hostedExports: true,
@@ -178,20 +179,8 @@ export async function handleReadOnlyApi(
           hostedTracking: canTrack,
           // Server-authored capability. Browser or query strings cannot enable it.
           hostedSearch: {
-            canExecuteOneWayGbpSerpApi: searchPrepareConfig?.enabled === true &&
-              searchExecuteConfig?.enabled === true &&
-              searchExecuteConfig?.approvedForPaidCalls === true &&
-              providerKeyPresence?.serpapi === true &&
-              typeof db.batch === "function" &&
-              typeof searchExecuteConfig?.consentSigningSecret === "string" &&
-              new TextEncoder().encode(searchExecuteConfig.consentSigningSecret).length >= 32,
-            canExecuteRoundTripGbpSerpApi: searchPrepareConfig?.enabled === true &&
-              searchExecuteConfig?.enabled === true &&
-              searchExecuteConfig?.approvedForPaidCalls === true &&
-              providerKeyPresence?.serpapi === true &&
-              typeof db.batch === "function" &&
-              typeof searchExecuteConfig?.consentSigningSecret === "string" &&
-              new TextEncoder().encode(searchExecuteConfig.consentSigningSecret).length >= 32,
+            canExecuteOneWayGbpSerpApi: serpapi?.state === "ready" && serpapi.oneWay,
+            canExecuteRoundTripGbpSerpApi: serpapi?.state === "ready" && serpapi.roundTrip,
           },
         })
       : respond(providers);

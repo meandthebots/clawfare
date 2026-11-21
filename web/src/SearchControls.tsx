@@ -29,6 +29,7 @@ export interface SearchControlsProps {
   runEnabled: boolean;
   hostedReadOnly: boolean;
   hostedExecutionAvailable: boolean;
+  providerStatus: QuotaView[];
   isSearching: boolean;
   hostedEstimateOnly: boolean;
   guest: boolean;
@@ -51,6 +52,7 @@ export function SearchControls({
   runEnabled,
   hostedReadOnly,
   hostedExecutionAvailable,
+  providerStatus,
   isSearching,
   hostedEstimateOnly,
   guest,
@@ -86,7 +88,13 @@ export function SearchControls({
       {...extra}
     />
   );
-  const checked = (field: keyof SearchForm, id: string, text: string, suffix = "") => (
+  const checked = (
+    field: keyof SearchForm,
+    id: string,
+    text: string,
+    suffix = "",
+    unavailable = false,
+  ) => (
     <label>
       <input
         id={id}
@@ -94,13 +102,41 @@ export function SearchControls({
         checked={
           field === "fetchReturns" && form.tripType === "one_way" ? false : Boolean(form[field])
         }
-        disabled={field === "fetchReturns" && form.tripType === "one_way"}
+        disabled={unavailable || (field === "fetchReturns" && form.tripType === "one_way")}
         onChange={(event) => update(field, event.target.checked as never)}
       />{" "}
       {text}
       {suffix && <span className="muted"> ({suffix})</span>}
     </label>
   );
+  const provider = (
+    field: "serpapi" | "searchapi" | "travelpayouts" | "duffel",
+    id: string,
+    label: string,
+    mode = "",
+  ) => {
+    if (!hostedReadOnly) return checked(field, id, label, mode);
+    const capability = providerStatus.find((entry) => entry.provider === field)?.hosted;
+    const canEstimate =
+      field === "serpapi" || capability?.oneWay === true || capability?.roundTrip === true;
+    const available = capability?.state === "ready";
+    const daily = capability?.dailyRemaining;
+    const monthly = capability?.monthlyRemaining;
+    const allowance = available && daily != null ? ` · ${daily} D1 requests left today` : "";
+    const monthlyAllowance = available && monthly != null ? ` · ${monthly} this month` : "";
+    const status = !canEstimate
+      ? "unavailable on this Site"
+      : available
+        ? capability.priceMode + allowance + monthlyAllowance
+        : "estimate only";
+    return checked(
+      field,
+      id,
+      label,
+      [mode, status].filter(Boolean).join(" · "),
+      guest || !canEstimate || !hostedEstimateOnly,
+    );
+  };
   const select = <K extends keyof SearchForm>(
     field: K,
     id: string,
@@ -180,10 +216,10 @@ export function SearchControls({
         </label>
       </div>
       <div className={"checks " + stylex.props(styles.providerChecks).className}>
-        {checked("serpapi", "pSerp", "SerpApi")}
-        {checked("searchapi", "pSearch", "SearchAPI")}
-        {checked("travelpayouts", "pTp", "Travelpayouts", "cached")}
-        {checked("duffel", "pDuffel", "Duffel", "mock")}
+        {provider("serpapi", "pSerp", "SerpApi")}
+        {provider("searchapi", "pSearch", "SearchAPI")}
+        {provider("travelpayouts", "pTp", "Travelpayouts", "cached")}
+        {provider("duffel", "pDuffel", "Duffel", "mock")}
         {checked("nonstop", "qNonstop", "Nonstop only")}
         {checked("cacheOnly", "cacheOnly", "Cache only")}
       </div>
@@ -323,7 +359,9 @@ export function SearchControls({
                 {estimate.quota.map((q: QuotaView) => (
                   <span key={q.provider}>
                     {q.provider}:{" "}
-                    {q.remaining == null ? "remaining unknown" : q.remaining + " remaining"}
+                    {q.remaining == null
+                      ? "remaining unknown"
+                      : q.remaining + (q.hosted ? " D1 requests remaining" : " remaining")}
                     {q.note ? " (" + q.note + ")" : ""} ·{" "}
                   </span>
                 ))}

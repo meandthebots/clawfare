@@ -168,11 +168,25 @@ export const READ_LOCAL_PROVIDER_CAPS_SQL = [
 ].join("\n");
 
 const PROVIDER_MODES = Object.freeze({
-  serpapi: "live Google Flights (if authorized)",
-  searchapi: "live Google Flights (if authorized)",
-  travelpayouts: "cached calendar fares, not live",
-  duffel: "test/sandbox offers until separately verified as live",
+  serpapi: "live",
+  searchapi: "live",
+  travelpayouts: "cached",
+  duffel: "mock",
 });
+const PROVIDER_STATE = Object.freeze({
+  no_cap: "No D1 provider cap configured",
+  zero_cap: "D1 provider cap is zero",
+  exhausted: "D1 daily/monthly cap exhausted",
+  unconfigured: "Server-side provider credential absent",
+  disabled: "Hosted provider egress disabled by release switch or server configuration",
+  unsupported: "Provider search adapter is unavailable on this Site",
+  ready: "Local provider cap has capacity",
+});
+const MODE_LABELS = {
+  live: "Google Flights provider",
+  cached: "Cached calendar fares",
+  mock: "Sandbox offers",
+};
 
 /**
  * The only caller may pass server-derived presence booleans, never secret
@@ -210,20 +224,26 @@ export async function readHostedProviderReadiness(
     const monthlyRemaining = row && row.monthly_cap !== null
       ? Math.max(0, row.monthly_cap - row.monthly_used) : Number.POSITIVE_INFINITY;
     const remaining = row ? Math.min(dailyRemaining, monthlyRemaining) : null;
-    let reason;
-    if (!row) reason = "No D1 provider cap configured";
-    else if (row.daily_cap === 0 || row.monthly_cap === 0) reason = "D1 provider cap is zero";
-    else if (remaining === 0) reason = "D1 daily/monthly cap exhausted";
-    else if (!hasKey) reason = "Server-side provider credential absent";
-    else if (!networkEnabled) reason = "Hosted provider egress disabled by release switch";
-    else reason = "Local provider cap has capacity; external quota not checked";
+    const supported = provider === "serpapi";
+    const capState = !row ? "no_cap" : row.daily_cap === 0 || row.monthly_cap === 0 ? "zero_cap"
+      : remaining === 0 ? "exhausted" : null;
+    const state = !supported ? "unsupported" : capState ??
+      (!hasKey ? "unconfigured" : !networkEnabled ? "disabled" : "ready");
+    const priceMode = PROVIDER_MODES[provider];
     return {
       provider,
-      configured: Boolean(networkEnabled && hasKey && remaining !== null && remaining > 0),
+      configured: state === "ready",
       remaining,
       limit: row?.daily_cap ?? null,
       used: row?.daily_used ?? null,
-      note: PROVIDER_MODES[provider] + "; " + reason +
+      hosted: {
+        state, priceMode, checkedAt: utc, externalQuota: "unknown",
+        dailyRemaining: row ? dailyRemaining : null,
+        monthlyRemaining: Number.isFinite(monthlyRemaining) ? monthlyRemaining : null,
+        oneWay: supported, roundTrip: supported, sellerOptions: false,
+      },
+      note: MODE_LABELS[priceMode] + "; " + PROVIDER_STATE[state] +
+        (state === "unsupported" && capState ? "; " + PROVIDER_STATE[capState] : "") +
         (row?.monthly_cap == null ? "" : "; monthly remaining " + monthlyRemaining) +
         "; external provider quota unknown (no remote request made)",
     };

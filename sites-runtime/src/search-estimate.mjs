@@ -163,7 +163,7 @@ export function requestBoundaryProblem(query) {
  * Only call this after getVerifiedEmail has authenticated the request.
  * A successful response is informative, NOT a reusable approval token.
  */
-export async function estimateHostedSearch(request, kotlinEngine) {
+export async function estimateHostedSearch(request, kotlinEngine, readReadiness = async () => []) {
   if (!kotlinEngine || typeof kotlinEngine.planSearchJson !== "function" ||
       typeof kotlinEngine.projectBudgetJson !== "function") {
     throw new Error("Compiled Kotlin/JS budget engine is required.");
@@ -188,7 +188,7 @@ export async function estimateHostedSearch(request, kotlinEngine) {
     return json({ error: "Invalid Kotlin flight search query." }, 400);
   }
   const warningBase = [
-    "Estimate only. Hosted searches are disabled; no provider has been contacted or charged.",
+    "Estimate only. No provider has been contacted or charged.",
     "Request counts are upper bounds, not provider price quotations or guaranteed billable usage.",
   ];
   if (plan.error) {
@@ -249,6 +249,14 @@ export async function estimateHostedSearch(request, kotlinEngine) {
   if (query.maxLiveCalls != null && upperBound > query.maxLiveCalls) {
     warnings.push("Potential requests exceed the query's configured call cap.");
   }
+  let readiness;
+  try {
+    readiness = await readReadiness();
+  } catch {
+    warnings.push("Local provider caps are unavailable. No provider has been contacted.");
+    readiness = [];
+  }
+  const byProvider = new Map(readiness.map(provider => [provider.provider, provider]));
   return json({
     liveCalls: budget.liveCalls,
     cachedCalls: budget.cachedCalls,
@@ -256,7 +264,7 @@ export async function estimateHostedSearch(request, kotlinEngine) {
     returnLookupsUpperBound: budget.returnLookupsUpperBound,
     lines: (budget.lines || []).slice(0, 12),
     warnings,
-    quota: providerIds.map(provider => ({
+    quota: providerIds.map(provider => byProvider.get(provider) ?? ({
       provider, configured: false, remaining: null,
       note: "Disabled in this Site; no provider quota queried",
     })),

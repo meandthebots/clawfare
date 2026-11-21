@@ -2,6 +2,7 @@
 import type {
   Estimate,
   QuotaView,
+  ProviderCapability,
   ResultSet,
   SearchCoverage,
   SavedInvestigation,
@@ -73,8 +74,34 @@ export function isEstimate(value: unknown): value is Estimate {
     isInteger(value.cachedCalls) &&
     isInteger(value.skippedCalls) &&
     isInteger(value.returnLookupsUpperBound) &&
+    isQuotaList(value.quota) &&
     Array.isArray(value.warnings) &&
     Array.isArray(value.lines)
+  );
+}
+function isProviderCapability(value: unknown): value is ProviderCapability {
+  return (
+    isRecord(value) &&
+    typeof value.state === "string" &&
+    [
+      "ready",
+      "disabled",
+      "unsupported",
+      "unconfigured",
+      "no_cap",
+      "zero_cap",
+      "exhausted",
+    ].includes(value.state) &&
+    typeof value.priceMode === "string" &&
+    ["live", "cached", "mock"].includes(value.priceMode) &&
+    typeof value.checkedAt === "string" &&
+    Number.isFinite(Date.parse(value.checkedAt)) &&
+    value.externalQuota === "unknown" &&
+    (value.dailyRemaining === null || isCount(value.dailyRemaining)) &&
+    (value.monthlyRemaining === null || isCount(value.monthlyRemaining)) &&
+    typeof value.oneWay === "boolean" &&
+    typeof value.roundTrip === "boolean" &&
+    typeof value.sellerOptions === "boolean"
   );
 }
 export function isQuotaList(value: unknown): value is QuotaView[] {
@@ -84,7 +111,8 @@ export function isQuotaList(value: unknown): value is QuotaView[] {
       (entry: unknown) =>
         isRecord(entry) &&
         typeof entry.provider === "string" &&
-        typeof entry.configured === "boolean",
+        typeof entry.configured === "boolean" &&
+        (entry.hosted === undefined || isProviderCapability(entry.hosted)),
     )
   );
 }
