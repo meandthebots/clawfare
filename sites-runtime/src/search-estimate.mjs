@@ -188,7 +188,7 @@ export async function estimateHostedSearch(request, kotlinEngine, readReadiness 
     return json({ error: "Invalid Kotlin flight search query." }, 400);
   }
   const warningBase = [
-    "Estimate only. No provider has been contacted or charged.",
+    "This estimate is informational and no provider has been contacted or charged.",
     "Request counts are upper bounds, not provider price quotations or guaranteed billable usage.",
   ];
   if (plan.error) {
