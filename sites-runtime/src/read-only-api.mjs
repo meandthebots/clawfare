@@ -1,13 +1,19 @@
-// Read-only hosted API adapter for Clawfare's existing browser UI.
+// Hosted API adapter for Clawfare's existing browser UI.
 // This is NOT a public entrypoint: Sites must supply an authenticated email
 // from a trusted identity gateway. Raw user headers are never accepted here.
-import { D1Investigations } from "./investigations.mjs";
+import { D1Investigations, TRACKED_PREFIX } from "./investigations.mjs";
 import { D1ProviderPersistence } from "./provider-persistence.mjs";
 import { ensureBundledPublicSample, loadPublicSample, publicSampleStorageEvidence } from "./public-sample.mjs";
-import { estimateHostedSearch } from "./search-estimate.mjs";
+import { estimateHostedSearch, limitedBody } from "./search-estimate.mjs";
 import { prepareSerpApiSearch } from "./serpapi-prepare.mjs";
 import { executeHostedSearchRequest } from "./hosted-search-execute.mjs";
 import { readHostedProviderReadiness } from "./provider-http-budget.mjs";
+
+import { requireSameOrigin, SearchConsentError } from "./search-consent.mjs";
+
+const TRACK_PATH = /^\/api\/results\/([a-z0-9][a-z0-9_-]{0,99})\/track$/;
+const TRACK_SLUG = /^[a-z0-9][a-z0-9_-]{0,99}$/;
+const ITINERARY_ID = /^[A-Za-z0-9._:-]{1,128}$/;
 
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -63,8 +69,7 @@ export async function ownerKeyFromVerifiedEmail(email, secret, cryptoApi = globa
  * for unsigned visitors and cannot be bypassed through direct public access
  * to the Worker. Never implement it as an unchecked request-header lookup.
  *
- * Unknown or unsupported paths fail closed; no paid search/POST routes are
- * available. This handler neither uses provider keys nor initiates egress.
+ * Unknown or unsupported paths fail closed. Tracking only uses saved D1 data.
  */
 export async function handleReadOnlyApi(
   request,
@@ -78,8 +83,8 @@ export async function handleReadOnlyApi(
   const url = new URL(request.url);
   if (!url.pathname.startsWith("/api/")) return null;
 
-  // Only informational, no-egress Kotlin search estimates may POST. No
-  // other mutation, provider search, write or consent-granting route exists.
+  const canTrack = typeof db.batch === "function";
+  const trackPath = request.method === "POST" && canTrack && TRACK_PATH.exec(url.pathname);
   const isEstimate = url.pathname === "/api/estimate" && request.method === "POST" &&
     kotlinEngine != null;
   const isPrepare = url.pathname === "/api/prepare-search" && request.method === "POST" &&
@@ -88,7 +93,7 @@ export async function handleReadOnlyApi(
     searchExecuteConfig?.enabled === true &&
     searchExecuteConfig?.approvedForPaidCalls === true &&
     kotlinEngine != null;
-  if (request.method !== "GET" && !isEstimate && !isPrepare && !isExecute) {
+  if (request.method !== "GET" && !isEstimate && !isPrepare && !isExecute && !trackPath) {
     return respond({ error: "Hosted preview: paid searches and mutations are disabled." }, 405,
       { allow: url.pathname === "/api/estimate" && kotlinEngine != null ? "POST" : "GET" });
   }
@@ -120,6 +125,32 @@ export async function handleReadOnlyApi(
   });
   const store = new D1Investigations(db, { cryptoApi });
 
+  if (trackPath) {
+    try {
+      requireSameOrigin(request);
+    } catch (error) {
+      if (error instanceof SearchConsentError) return respond({ error: "Same-origin tracking required." }, 403);
+      throw error;
+    }
+    if (!/^application\/json(?:\s*;|$)/i.test(request.headers.get("content-type") || "")) {
+      return respond({ error: "Content-Type: application/json required." }, 415);
+    }
+    const input = await limitedBody(request);
+    if (input.error) return respond({ error: "Invalid tracking request body." }, input.status);
+    const { tripSlug, itineraryId } = input.parsed;
+    if (Object.keys(input.parsed).length !== 2 ||
+        typeof tripSlug !== "string" || !TRACK_SLUG.test(tripSlug) ||
+        typeof itineraryId !== "string" || !ITINERARY_ID.test(itineraryId)) {
+      return respond({ error: "Enter a valid trip name and itinerary ID." }, 400);
+    }
+    try {
+      const tracked = await store.trackFare(ownerId, trackPath[1], itineraryId, tripSlug);
+      return tracked.error ? respond({ error: tracked.error }, tracked.status) : respond(tracked);
+    } catch {
+      return respond({ error: "D1 could not save the tracked fare." }, 503);
+    }
+  }
+
   if (url.pathname === "/api/status" || url.pathname === "/api/quota") {
     // The default library test/preview remains an explicit no-provider
     // environment. The assembled Worker supplies server-derived key presence
@@ -139,6 +170,7 @@ export async function handleReadOnlyApi(
     return url.pathname === "/api/status"
       ? respond({
           cacheDir: "d1", searchesDir: "d1", providers,
+          hostedTracking: canTrack,
           // Server-authored capability. Browser or query strings cannot enable it.
           hostedSearch: {
             canExecuteOneWayGbpSerpApi: searchPrepareConfig?.enabled === true &&
@@ -172,7 +204,7 @@ export async function handleReadOnlyApi(
       id: row.slug,
       title: row.title,
       fetchedAt: row.fetched_at,
-      subtitle: "Saved investigation",
+      subtitle: row.slug.startsWith(TRACKED_PREFIX) ? "Tracked fare" : "Saved investigation",
     })));
   }
   if (url.pathname === "/api/sample") {
@@ -200,11 +232,14 @@ export async function handleReadOnlyApi(
     return respond(await persisted.listAttempts(ownerId, attemptsPath[1], limit));
   }
 
-  const historyPath = /^\/api\/history\/([a-z0-9][a-z0-9_-]{0,99})\/([A-Za-z0-9._:-]{1,128})$/.exec(url.pathname);
+  const historyPath = /^\/api\/history\/([a-z0-9][a-z0-9_-]{0,99})\/([A-Za-z0-9._:%-]{1,384})$/.exec(url.pathname);
   if (historyPath) {
     const limit = parseLimit(url.searchParams);
     if (limit == null) return respond({ error: "Invalid result limit." }, 400);
-    return respond(await store.priceHistory(ownerId, historyPath[1], historyPath[2], limit));
+    let itineraryId;
+    try { itineraryId = decodeURIComponent(historyPath[2]); } catch { itineraryId = ""; }
+    if (!ITINERARY_ID.test(itineraryId)) return respond({ error: "Invalid itinerary ID." }, 400);
+    return respond(await store.priceHistory(ownerId, historyPath[1], itineraryId, limit));
   }
 
   return respond({ error: "Not found." }, 404);

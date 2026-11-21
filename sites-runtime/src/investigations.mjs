@@ -8,6 +8,8 @@ const PROVIDER = /^[a-z0-9_-]{1,64}$/;
 const CURRENCY = /^[A-Z]{3}$/;
 const DECIMAL = /^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$/;
 const LABELS = new Set(["live", "cached", "mock", "sample", "manual"]);
+export const TRACKED_PREFIX = "tracked-";
+const MAX_TRACKABLE_AGE_MS = 2 * 60 * 60 * 1000;
 const MAX_SNAPSHOT_BYTES = 512 * 1024;
 
 export const UPSERT_INVESTIGATION_SQL = [
@@ -19,6 +21,13 @@ export const UPSERT_INVESTIGATION_SQL = [
   "  title = excluded.title,",
   "  fetched_at = excluded.fetched_at,",
   "  updated_at = excluded.updated_at",
+].join("\n");
+
+const INSERT_TRACKED_SNAPSHOT_SQL = [
+  "INSERT INTO investigation_snapshots",
+  "  (owner_id, slug, result_json, title, fetched_at, updated_at)",
+  "VALUES (?, ?, ?, ?, ?, ?)",
+  "ON CONFLICT(owner_id, slug) DO UPDATE SET updated_at = excluded.updated_at",
 ].join("\n");
 
 export const GET_INVESTIGATION_SQL =
@@ -146,6 +155,7 @@ export class D1Investigations {
   async saveSnapshot(ownerId, result) {
     assertKey(ownerId, OWNER, "authenticated owner ID");
     const payload = checkedSnapshot(result);
+    if (result.id.startsWith(TRACKED_PREFIX)) throw new TypeError("Reserved investigation ID");
     const updatedAt = nowIso(this.clock);
     const fetchedAt = result.fetchedAt == null ? null : utcTimestamp(result.fetchedAt);
     await this.db.prepare(UPSERT_INVESTIGATION_SQL)
@@ -174,6 +184,11 @@ export class D1Investigations {
    * Repeated observations have stable IDs and are inserted once.
    */
   async saveResultWithPrices(ownerId, result, observations = []) {
+    if (typeof result?.id === "string" && result.id.startsWith(TRACKED_PREFIX)) throw new TypeError("Reserved investigation ID");
+    return this.#saveResultWithPrices(ownerId, result, observations, UPSERT_INVESTIGATION_SQL);
+  }
+
+  async #saveResultWithPrices(ownerId, result, observations, snapshotSql) {
     assertKey(ownerId, OWNER, "authenticated owner ID");
     const payload = checkedSnapshot(result);
     if (!Array.isArray(observations) || observations.length > 200) {
@@ -190,12 +205,68 @@ export class D1Investigations {
       priceRows.push(await priceObservationParams(ownerId, result.id, observation, this.crypto));
     }
     const statements = [
-      this.db.prepare(UPSERT_INVESTIGATION_SQL)
+      this.db.prepare(snapshotSql)
         .bind(ownerId, result.id, payload, result.title, fetchedAt, updatedAt),
       ...priceRows.map(row => this.db.prepare(INSERT_PRICE_OBSERVATION_SQL).bind(...row)),
     ];
     await this.db.batch(statements);
     return { id: result.id, observationIds: priceRows.map(row => row[2]) };
+  }
+
+  async trackFare(ownerId, sourceId, itineraryId, tripSlug) {
+    assertKey(itineraryId, ITINERARY, "itinerary ID");
+    assertKey(tripSlug, SLUG, "trip slug");
+    const source = await this.loadSnapshot(ownerId, sourceId);
+    const fare = source?.itineraries.find(row => row.id === itineraryId);
+    if (!fare || !source.query || source.scenarioLabel === "florida" || sourceId.startsWith(TRACKED_PREFIX)) {
+      return { status: 404, error: "Saved search itinerary not found." };
+    }
+    const observed = Date.parse(fare.fetchedAt);
+    const now = this.clock().getTime();
+    const age = now - observed;
+    const expiry = Date.parse(fare.refundEvidence?.expiresAt);
+    if (fare.sourceLabel !== "live" || fare.livePrice !== true || fare.returnMissing ||
+        !Number.isFinite(age) || age < 0 || age > MAX_TRACKABLE_AGE_MS ||
+        (fare.refundEvidence != null && !(expiry > now))) {
+      return { status: 409, error: "Save a complete, recent live fare from a new search." };
+    }
+    const observations = await this.priceHistory(ownerId, sourceId, itineraryId);
+    const quote = observations.find(row => Date.parse(row.captured_at) === observed &&
+      row.live_price === 1 && row.source_label === "live" &&
+      row.provider === fare.source && row.original_currency === fare.priceCurrency);
+    if (!quote) return { status: 409, error: "The original provider price was not saved." };
+
+    // Flight-family IDs incorporate segments and fare brand. Partition further
+    // by the commercial and flight details that must agree across searches.
+    const identity = [
+      tripSlug, itineraryId, quote.provider, source.query.market, quote.original_currency,
+      fare.passengers, source.checkedBags, fare.cabinKey, fare.farePolicyKey,
+      fare.outbound, fare.returning, source.query.tripType,
+    ];
+    const slug = TRACKED_PREFIX + (await stableObservationId(identity, this.crypto)).slice(0, 40);
+    await this.#saveResultWithPrices(ownerId, {
+      id: slug,
+      title: `${tripSlug} · ${fare.origin} → ${fare.destination} · ${fare.outboundDate}`,
+      subtitle: `${fare.origin} → ${fare.destination} · ${fare.outboundDate}`,
+      fetchedAt: fare.fetchedAt,
+      currency: source.currency,
+      checkedBags: source.checkedBags,
+      passengers: fare.passengers,
+      itineraries: [{ ...fare, prevPrice: null }],
+      addons: [], cells: [], vendors: [], sellerOptions: [],
+      fx: source.fx,
+      query: source.query,
+      warnings: ["Tracking preserves the original fare snapshot. Check price history for later saved observations."],
+    }, [{
+      itineraryId,
+      provider: quote.provider,
+      sourceLabel: quote.source_label,
+      livePrice: true,
+      capturedAt: quote.captured_at,
+      originalCurrency: quote.original_currency,
+      amountDecimal: quote.amount_decimal,
+    }], INSERT_TRACKED_SNAPSHOT_SQL);
+    return { slug };
   }
 
   async recordPrice(ownerId, slug, observation) {

@@ -12,7 +12,7 @@ import { limitedBody } from "./search-estimate.mjs";
 import {
   executeConsentedOneWaySerpApi, executeConsentedRoundTripSerpApi, SerpApiTransportError,
 } from "./serpapi-metered-transport.mjs";
-import { D1Investigations } from "./investigations.mjs";
+import { D1Investigations, TRACKED_PREFIX } from "./investigations.mjs";
 
 const HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -52,7 +52,7 @@ function boundedCanonicalQuery(input, kotlinEngine) {
     (q?.tripType === "one_way" && q.fetchReturns === false) ||
     (q?.tripType === "round_trip" && q.fetchReturns === true);
   if (planned?.error || !q || JSON.stringify(q) !== raw ||
-      !tripSupported || q.currency !== "GBP" ||
+      q.investigation?.startsWith(TRACKED_PREFIX) || !tripSupported || q.currency !== "GBP" ||
       q.confirmed !== false || q.cacheOnly !== false ||
       q.providers?.length !== 1 ||
       q.providers[0] !== "serpapi" || !Array.isArray(planned.pairs) ||

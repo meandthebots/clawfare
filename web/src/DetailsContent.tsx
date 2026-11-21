@@ -424,8 +424,7 @@ export interface DetailsContentProps {
   addon: Itinerary | null;
   cell: ComboCell | null;
   onVendors: () => void;
-  onTrack: () => void;
-  canTrack?: boolean;
+  tracking?: React.ReactNode;
   legacySample?: boolean;
 }
 export function DetailsContent({
@@ -433,8 +432,7 @@ export function DetailsContent({
   addon,
   cell,
   onVendors,
-  onTrack,
-  canTrack = true,
+  tracking,
   legacySample = false,
 }: DetailsContentProps) {
   const total = (flight: Itinerary) =>
@@ -516,10 +514,12 @@ export function DetailsContent({
         <button type="button" id="btnVendorsFor" onClick={onVendors}>
           Seller comparison
         </button>
-        <button type="button" id="btnTrack" disabled={!canTrack} onClick={onTrack}>
+      </div>
+      {tracking ?? (
+        <button type="button" id="btnTrack" disabled>
           Save to a trip
         </button>
-      </div>
+      )}
     </>
   );
 }

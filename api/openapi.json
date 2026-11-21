@@ -1035,7 +1035,7 @@
             }
           }
         },
-        "x-runtime": "jvm",
+        "x-runtime": "both",
         "x-kotlin-request": "com.clawfare.search.TrackRequest",
         "x-kotlin-response": "String"
       }
@@ -2969,8 +2969,55 @@
       },
       "HistoryObservation": {
         "type": "object",
-        "additionalProperties": true,
-        "description": "Read-only D1 price observation record."
+        "description": "Immutable original-currency price per passenger.",
+        "properties": {
+          "observation_id": {
+            "type": "string"
+          },
+          "itinerary_id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "source_label": {
+            "type": "string",
+            "enum": [
+              "live",
+              "cached",
+              "mock",
+              "sample",
+              "manual"
+            ]
+          },
+          "live_price": {
+            "type": "number",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "captured_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "original_currency": {
+            "type": "string"
+          },
+          "amount_decimal": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "observation_id",
+          "itinerary_id",
+          "provider",
+          "source_label",
+          "live_price",
+          "captured_at",
+          "original_currency",
+          "amount_decimal"
+        ]
       }
     }
   }

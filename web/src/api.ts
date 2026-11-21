@@ -1,5 +1,6 @@
 import type {
   Estimate,
+  HistoryObservation,
   ExportRequest,
   QuotaView,
   ResultSet,
@@ -9,6 +10,7 @@ import type {
   StorageDiagnostic,
   VendorRequest,
   TrackRequest,
+  TrackResponse,
 } from "./domain.ts";
 import { isEstimate, isQuotaList, isRecord, isResultSet, isSavedList } from "./domain.ts";
 import { GUEST_SAMPLE } from "./guest-sample.ts";
@@ -49,6 +51,9 @@ export type HttpClient = (input: RequestInfo | URL, init?: RequestInit) => Promi
 function allowedRoute(path: string): boolean {
   return (
     /^\/api\/(?:sample|status|searches|quota|storage|estimate|prepare-search|search)$/.test(path) ||
+    /^\/api\/history\/[a-z0-9][a-z0-9_-]{0,99}\/[A-Za-z0-9._:%-]{1,384}(?:\?limit=[1-9][0-9]?)?$/.test(
+      path,
+    ) ||
     /^\/api\/results\/[a-z0-9][a-z0-9_-]{0,99}(?:\/(?:vendors|track))?$/.test(path)
   );
 }
@@ -68,6 +73,7 @@ function decode<T>(res: ApiResponse<unknown>, guard: (value: unknown) => value i
 
 /** Only the authenticated server can advertise this narrow hosted capability. */
 export interface HostedStatus extends StatusResponse {
+  readonly hostedTracking?: boolean;
   readonly hostedSearch?: {
     readonly canExecuteOneWayGbpSerpApi: boolean;
     readonly canExecuteRoundTripGbpSerpApi?: boolean;
@@ -111,6 +117,8 @@ export interface ClawfareClient {
     consent?: string | null,
   ): Promise<ApiResponse<unknown>>;
   track(id: string, request: TrackRequest): Promise<ApiResponse<unknown>>;
+  trackHosted(id: string, request: TrackRequest): Promise<Parsed<TrackResponse>>;
+  history(id: string, itineraryId: string): Promise<Parsed<HistoryObservation[]>>;
   download(path: ExportRoute, request: ExportRequest, fallback: string): Promise<void>;
 }
 export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch): ClawfareClient {
@@ -169,15 +177,17 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     path: ApiRoute | "/api/prepare-search",
     body?: unknown,
     consent?: string | null,
-    hostedExecutionRoute = false,
+    hostedAction?: "search" | "track",
   ): Promise<ApiResponse<unknown>> {
     // Defense in depth: only same-origin, explicitly known API routes.
     if (!allowedRoute(path)) throw new Error("Unsupported Clawfare API route.");
     if (guest) return guestResponse(path, body);
     const hostedAllowedPost =
-      allowEstimate &&
-      (path === "/api/estimate" ||
-        (hostedExecutionRoute && (path === "/api/prepare-search" || path === "/api/search")));
+      (allowEstimate &&
+        (path === "/api/estimate" ||
+          (hostedAction === "search" &&
+            (path === "/api/prepare-search" || path === "/api/search")))) ||
+      (hostedAction === "track" && path.endsWith("/track"));
     if (hosted && body !== undefined && !hostedAllowedPost) {
       return {
         status: 405,
@@ -238,6 +248,7 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     typeof value.cacheDir === "string" &&
     typeof value.searchesDir === "string" &&
     isQuotaList(value.providers) &&
+    (value.hostedTracking === undefined || typeof value.hostedTracking === "boolean") &&
     (value.hostedSearch === undefined ||
       (isRecord(value.hostedSearch) &&
         typeof value.hostedSearch.canExecuteOneWayGbpSerpApi === "boolean" &&
@@ -282,11 +293,40 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     isResultSet(value.result) &&
     Array.isArray(value.providerObservations) &&
     (value.error === undefined || typeof value.error === "string");
+  const tracking = createGeneratedClient((path, body) => request(path, body, null, "track"));
+  const isTracked = (value: unknown): value is TrackResponse =>
+    isRecord(value) && typeof value.slug === "string" && /^tracked-[a-f0-9]{40}$/.test(value.slug);
+  const isHistory = (value: unknown): value is HistoryObservation[] =>
+    Array.isArray(value) &&
+    value.every(
+      (row: unknown) =>
+        isRecord(row) &&
+        typeof row.observation_id === "string" &&
+        typeof row.itinerary_id === "string" &&
+        typeof row.provider === "string" &&
+        typeof row.source_label === "string" &&
+        ["live", "cached", "mock", "sample", "manual"].includes(row.source_label) &&
+        (row.live_price === 0 || row.live_price === 1) &&
+        typeof row.captured_at === "string" &&
+        Number.isFinite(Date.parse(row.captured_at)) &&
+        typeof row.original_currency === "string" &&
+        /^[A-Z]{3}$/.test(row.original_currency) &&
+        typeof row.amount_decimal === "string" &&
+        /^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,6})?$/.test(row.amount_decimal),
+    );
   return Object.freeze({
     request,
+    async trackHosted(id: string, body: TrackRequest): Promise<Parsed<TrackResponse>> {
+      if (!hosted || guest)
+        return { ok: false, status: 405, error: "Hosted tracking is unavailable." };
+      return decode(await tracking.track(id, body), isTracked);
+    },
+    async history(id: string, itineraryId: string) {
+      return decode(await generated.getHistory(id, itineraryId), isHistory);
+    },
     async prepareHostedSearch(query: SearchQuery) {
       if (!(await serverAllowsHostedExecution(query))) return hostedDisabled<HostedSearchQuote>();
-      return decode(await request("/api/prepare-search", query, null, true), isQuote);
+      return decode(await request("/api/prepare-search", query, null, "search"), isQuote);
     },
     async executeHostedSearch(quote: HostedSearchQuote) {
       if (!(await serverAllowsHostedExecution(quote.canonicalQuery))) {
@@ -300,7 +340,7 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
             consentToken: quote.consentToken,
           },
           null,
-          true,
+          "search",
         ),
         isExecution,
       );

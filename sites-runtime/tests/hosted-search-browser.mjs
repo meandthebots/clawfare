@@ -26,6 +26,7 @@ assert.ok(sample.itineraries?.length, "Canonical Kotlin sample fixture required"
 const origin = "https://clawfare.test";
 const itineraryId = "serpapi-verified-two-adults";
 const resultId = "search-real-roundtrip";
+const trackedId = "tracked-" + "a".repeat(40);
 const observedAt = new Date().toISOString();
 const depart = sample.itineraries[0].outbound.legs[0];
 const flight = (number, from, to, date, arriveDate) => ({
@@ -51,7 +52,7 @@ const result = {
   subtitle: "SerpApi fare observations, not confirmed bookings",
   fetchedAt: observedAt,
   scenarioLabel: null,
-  query: null,
+  query: { market: "uk", tripType: "round_trip" },
   headerNotes: [],
   vendorIntro: [],
   suggestedFilters: {},
@@ -109,7 +110,7 @@ async function api(route) {
     state.unexpected.push("Browser forged a trusted identity or session");
   }
   if (entry.path === "/api/status") return respond(route, {
-    cacheDir: "d1", searchesDir: "d1", providers: [],
+    cacheDir: "d1", searchesDir: "d1", providers: [], hostedTracking: true,
     hostedSearch: {
       canExecuteOneWayGbpSerpApi: state.enabled,
       canExecuteRoundTripGbpSerpApi: state.enabled,
@@ -121,6 +122,19 @@ async function api(route) {
   if (entry.path.startsWith("/api/results/") && entry.method === "GET") {
     const item = state.stored.get(decodeURIComponent(entry.path.slice("/api/results/".length)));
     return respond(route, item ?? { error: "Not found" }, item ? 200 : 404);
+  }
+  if (entry.path === `/api/results/${resultId}/track` && entry.method === "POST") {
+    assert.deepEqual(entry.data, { itineraryId, tripSlug: "tokyo-move" });
+    assert.equal(entry.headers.origin, origin);
+    state.stored.set(trackedId, { ...result, id: trackedId, title: "tokyo-move · LHR → NRT" });
+    return respond(route, { slug: trackedId });
+  }
+  if (entry.path === `/api/history/${trackedId}/${itineraryId}` && entry.method === "GET") {
+    return respond(route, [{
+      observation_id: "a".repeat(64), itinerary_id: itineraryId, provider: "serpapi",
+      source_label: "live", live_price: 1, captured_at: observedAt,
+      original_currency: "GBP", amount_decimal: "1800",
+    }]);
   }
   if (entry.path === "/api/quota") return respond(route, []);
   if (entry.path === "/api/estimate" && entry.method === "POST") {
@@ -259,6 +273,15 @@ try {
   await row.locator("button").first().click();
   assert.equal(await page.locator("#panel").getAttribute("aria-hidden"), "false");
   assert.match(await page.locator("#pBody").textContent(), /BA 7/);
+  await page.getByRole("button", { name: "Save to a trip" }).click();
+  const trip = page.getByRole("textbox", { name: "Trip name" });
+  assert.ok(await trip.evaluate(input => input === document.activeElement));
+  await trip.fill("tokyo move");
+  await page.getByRole("button", { name: "Save fare", exact: true }).click();
+  assert.equal(await trip.evaluate(input => input.validity.patternMismatch), true);
+  await trip.fill("tokyo-move");
+  await page.getByRole("button", { name: "Save fare", exact: true }).click();
+  await page.getByText("Fare saved. Open it from Investigations.").waitFor();
   await page.locator("#pClose").click();
 
   await page.locator('button[data-tab="matrix"]').click();
@@ -302,7 +325,7 @@ try {
   await mobile.route("**/*", api);
   await mobile.goto(origin);
   await mobile.locator("#saved option[value='" + resultId + "']").waitFor({ state: "attached" });
-  await mobile.locator("#saved").selectOption(resultId);
+  await mobile.locator("#saved").selectOption(trackedId);
   await mobile.locator("#btnOpen").tap();
   await mobile.waitForSelector("#mobileItineraries article");
   assert.equal(await mobile.locator("#itineraries").evaluate(el =>
@@ -313,6 +336,9 @@ try {
   assert.match(await action.textContent(), /£3,600/);
   await action.tap();
   assert.equal(await mobile.locator("#panel").getAttribute("aria-hidden"), "false");
+  await mobile.getByRole("button", { name: "Price history" }).tap();
+  await mobile.getByText(/GBP 1800 · serpapi · live/).waitFor();
+  assert.match(await mobile.locator("#title").textContent(), /tokyo-move/);
   await mobile.locator("#pClose").tap();
   assert.equal(await mobile.locator("#panel").getAttribute("aria-hidden"), "true");
   const overflow = await mobile.evaluate(() =>

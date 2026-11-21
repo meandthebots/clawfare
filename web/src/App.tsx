@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { createClawfareClient, type HostedSearchQuote } from "./api.ts";
 import { DetailsContent } from "./DetailsContent.tsx";
+import { FareTracking } from "./FareTracking.tsx";
 import { FilterControls } from "./FilterControls.tsx";
 import { initialFilters, suggestedFilters, type FilterControlsState } from "./filterForm.ts";
 import { isCashRefundVerified } from "./DetailsContent.tsx";
@@ -256,6 +257,7 @@ export function App() {
   const [statusLines, setStatusLines] = useState<string[]>([]);
   const [pendingQuery, setPendingQuery] = useState<SearchQuery | null>(null);
   const [searchConsent, setSearchConsent] = useState<string | null>(null);
+  const [hostedTracking, setHostedTracking] = useState(false);
   const [hostedExecutionEnabled, setHostedExecutionEnabled] = useState(false);
   const [hostedQuote, setHostedQuote] = useState<HostedSearchQuote | null>(null);
   const [searching, setSearching] = useState(false);
@@ -300,6 +302,7 @@ export function App() {
       .status()
       .then((response) => {
         if (!active || !response.ok) return;
+        setHostedTracking(HOSTED_READ_ONLY && !GUEST_MODE && response.data.hostedTracking === true);
         setHostedExecutionEnabled(
           !GUEST_MODE &&
             HOSTED_ESTIMATE_ONLY &&
@@ -661,24 +664,9 @@ export function App() {
       window.alert("Seller comparison failed.");
     }
   };
-  const trackItinerary = async (it: Itinerary) => {
-    if (!result || HOSTED_READ_ONLY) return;
-    const slug = window.prompt("Trip slug to store this fare against", "florida-dec-2026");
-    if (!slug) return;
-    try {
-      const response = await client.track(result.id, { itineraryId: it.id, tripSlug: slug });
-      const body = response.body;
-      if (isRecord(body) && typeof body.slug === "string")
-        window.alert(
-          "Saved on investigation " +
-            body.slug +
-            ". The CLI can show it with: clawfare flight list " +
-            body.slug,
-        );
-      else window.alert(responseError(body, "Could not save."));
-    } catch {
-      window.alert("Could not save.");
-    }
+  const fareSaved = (id: string) => {
+    setSelectedSaved(id);
+    void refreshSaved().catch(() => {});
   };
   const download = async (kind: "html" | "csv") => {
     if (HOSTED_READ_ONLY || !result) return;
@@ -945,8 +933,25 @@ export function App() {
               addon={activeAddon}
               cell={activeCell}
               onVendors={() => void showVendors(activeItinerary)}
-              onTrack={() => void trackItinerary(activeItinerary)}
-              canTrack={!HOSTED_READ_ONLY}
+              tracking={
+                result &&
+                (!HOSTED_READ_ONLY || (hostedTracking && result.query && !result.scenarioLabel)) ? (
+                  <FareTracking
+                    key={result.id + "/" + activeItinerary.id}
+                    client={client}
+                    result={result}
+                    fare={activeItinerary}
+                    hosted={HOSTED_READ_ONLY}
+                    canTrack={
+                      !HOSTED_READ_ONLY ||
+                      (!result.id.startsWith("tracked-") &&
+                        !activeItinerary.returnMissing &&
+                        quoteable(activeItinerary))
+                    }
+                    onSaved={fareSaved}
+                  />
+                ) : undefined
+              }
               legacySample={result?.scenarioLabel === "florida"}
             />
           )}
