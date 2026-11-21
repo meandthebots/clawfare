@@ -7,6 +7,7 @@ import { ensureBundledPublicSample, loadPublicSample, publicSampleStorageEvidenc
 import { estimateHostedSearch, limitedBody } from "./search-estimate.mjs";
 import { prepareSerpApiSearch } from "./serpapi-prepare.mjs";
 import { executeHostedSearchRequest } from "./hosted-search-execute.mjs";
+import { exportSavedSearch } from "./saved-exports.mjs";
 import { readHostedProviderReadiness } from "./provider-http-budget.mjs";
 
 import { requireSameOrigin, SearchConsentError } from "./search-consent.mjs";
@@ -89,11 +90,13 @@ export async function handleReadOnlyApi(
     kotlinEngine != null;
   const isPrepare = url.pathname === "/api/prepare-search" && request.method === "POST" &&
     searchPrepareConfig?.enabled === true && kotlinEngine != null;
+  const exportPath = request.method === "POST" &&
+    /^\/api\/results\/([a-z0-9][a-z0-9_-]{0,99})\/export\.(html|csv)$/.exec(url.pathname);
   const isExecute = url.pathname === "/api/search" && request.method === "POST" &&
     searchExecuteConfig?.enabled === true &&
     searchExecuteConfig?.approvedForPaidCalls === true &&
     kotlinEngine != null;
-  if (request.method !== "GET" && !isEstimate && !isPrepare && !isExecute && !trackPath) {
+  if (request.method !== "GET" && !isEstimate && !isPrepare && !isExecute && !trackPath && !exportPath) {
     return respond({ error: "Hosted preview: paid searches and mutations are disabled." }, 405,
       { allow: url.pathname === "/api/estimate" && kotlinEngine != null ? "POST" : "GET" });
   }
@@ -169,6 +172,7 @@ export async function handleReadOnlyApi(
     }
     return url.pathname === "/api/status"
       ? respond({
+          hostedExports: true,
           cacheDir: "d1", searchesDir: "d1", providers,
           hostedTracking: canTrack,
           // Server-authored capability. Browser or query strings cannot enable it.
@@ -190,6 +194,9 @@ export async function handleReadOnlyApi(
           },
         })
       : respond(providers);
+  }
+  if (exportPath) {
+    return exportSavedSearch(request, { db, store, ownerId, slug: exportPath[1], format: exportPath[2] });
   }
   if (url.pathname === "/api/storage") {
     // Read the actual D1 row and verify its digest; do not initialize,

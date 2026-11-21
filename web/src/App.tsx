@@ -259,6 +259,8 @@ export function App() {
   const [searchConsent, setSearchConsent] = useState<string | null>(null);
   const [hostedTracking, setHostedTracking] = useState(false);
   const [hostedExecutionEnabled, setHostedExecutionEnabled] = useState(false);
+  const [hostedExports, setHostedExports] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [hostedQuote, setHostedQuote] = useState<HostedSearchQuote | null>(null);
   const [searching, setSearching] = useState(false);
   const searchLock = useRef(false);
@@ -309,6 +311,7 @@ export function App() {
             (response.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true ||
               response.data.hostedSearch?.canExecuteRoundTripGbpSerpApi === true),
         );
+        setHostedExports(response.data.hostedExports === true);
         setStatusLines(
           response.data.providers.map(
             (quota) =>
@@ -668,8 +671,27 @@ export function App() {
     setSelectedSaved(id);
     void refreshSaved().catch(() => {});
   };
+  const canExport =
+    !HOSTED_READ_ONLY || Boolean(hostedExports && result?.query && !result.scenarioLabel);
   const download = async (kind: "html" | "csv") => {
-    if (HOSTED_READ_ONLY || !result) return;
+    if (!canExport || exporting || !result) return;
+    if (HOSTED_READ_ONLY) {
+      setExporting(true);
+      setEstimateError("");
+      try {
+        await client.downloadSaved(result.id, kind, {
+          itineraryIds: displayRows.map((row) => row.id),
+          kind: tab === "vendors" ? "seller_options" : "itineraries",
+        });
+      } catch (error) {
+        setEstimateError(
+          error instanceof Error ? error.message : "Could not download the saved export.",
+        );
+      } finally {
+        setExporting(false);
+      }
+      return;
+    }
     const path = kind === "html" ? "/api/export/html" : "/api/export/csv";
     const exportKind = kind === "csv" && tab === "vendors" ? "vendors" : "itineraries";
     try {
@@ -796,7 +818,7 @@ export function App() {
                 : HOSTED_READ_ONLY
                   ? HOSTED_ESTIMATE_ONLY
                     ? "Search estimates are available at no cost. Run search and all paid provider calls are still disabled."
-                    : "Hosted read-only preview: explore saved flights and filters; live searches and exports are disabled."
+                    : "Hosted read-only preview: explore saved flights and filters. Live searches are disabled."
                   : "")
           }
           statusLines={statusLines}
@@ -844,7 +866,7 @@ export function App() {
           <button
             type="button"
             id="btnHtml"
-            disabled={HOSTED_READ_ONLY}
+            disabled={!canExport || exporting}
             onClick={() => void download("html")}
           >
             Export HTML
@@ -852,7 +874,7 @@ export function App() {
           <button
             type="button"
             id="btnCsv"
-            disabled={HOSTED_READ_ONLY}
+            disabled={!canExport || exporting}
             onClick={() => void download("csv")}
           >
             Export CSV

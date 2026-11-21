@@ -5,6 +5,7 @@ import type {
   QuotaView,
   ResultSet,
   SavedInvestigation,
+  SavedExportRequest,
   SearchQuery,
   StatusResponse,
   StorageDiagnostic,
@@ -74,6 +75,7 @@ function decode<T>(res: ApiResponse<unknown>, guard: (value: unknown) => value i
 /** Only the authenticated server can advertise this narrow hosted capability. */
 export interface HostedStatus extends StatusResponse {
   readonly hostedTracking?: boolean;
+  readonly hostedExports?: boolean;
   readonly hostedSearch?: {
     readonly canExecuteOneWayGbpSerpApi: boolean;
     readonly canExecuteRoundTripGbpSerpApi?: boolean;
@@ -120,6 +122,7 @@ export interface ClawfareClient {
   trackHosted(id: string, request: TrackRequest): Promise<Parsed<TrackResponse>>;
   history(id: string, itineraryId: string): Promise<Parsed<HistoryObservation[]>>;
   download(path: ExportRoute, request: ExportRequest, fallback: string): Promise<void>;
+  downloadSaved(id: string, format: "html" | "csv", request: SavedExportRequest): Promise<void>;
 }
 export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch): ClawfareClient {
   const guest = mode.guest === true;
@@ -233,7 +236,12 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
       body: JSON.stringify(body),
     });
     if (!response.ok) throw new Error("Export rejected by local access controls");
-    const match = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") ?? "");
+    await saveAttachment(response, fallback);
+  }
+  async function saveAttachment(response: Response, fallback: string) {
+    const match = /filename="([A-Za-z0-9._-]+)"/.exec(
+      response.headers.get("Content-Disposition") ?? "",
+    );
     const url = URL.createObjectURL(await response.blob());
     const a = document.createElement("a");
     a.href = url;
@@ -242,11 +250,31 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
     // Leave time for the browser to process the click before revoking the URL.
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+  async function downloadSaved(id: string, format: "html" | "csv", body: SavedExportRequest) {
+    if (!hosted || guest || !/^[a-z0-9][a-z0-9_-]{0,99}$/.test(id)) {
+      throw new Error("Hosted saved exports are unavailable.");
+    }
+    const response = await fetcher(`/api/results/${id}/export.${format}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const detail: unknown = await response.json().catch(() => null);
+      throw new Error(serverError(detail, response.status));
+    }
+    const expectedType = format === "html" ? "text/html" : "text/csv";
+    if (response.headers.get("content-type")?.split(";")[0] !== expectedType) {
+      throw new Error("The server returned an unexpected export format.");
+    }
+    await saveAttachment(response, `clawfare-${id}.${format}`);
+  }
   const generated = createGeneratedClient(request);
   const isStatus = (value: unknown): value is HostedStatus =>
     isRecord(value) &&
     typeof value.cacheDir === "string" &&
     typeof value.searchesDir === "string" &&
+    (value.hostedExports === undefined || typeof value.hostedExports === "boolean") &&
     isQuotaList(value.providers) &&
     (value.hostedTracking === undefined || typeof value.hostedTracking === "boolean") &&
     (value.hostedSearch === undefined ||
@@ -368,5 +396,6 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
       generated.vendors(id, payload, consent),
     track: (id: string, payload: TrackRequest) => generated.track(id, payload),
     download,
+    downloadSaved,
   });
 }
