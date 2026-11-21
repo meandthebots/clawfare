@@ -5,6 +5,7 @@ import type {
   ProviderCapability,
   ResultSet,
   SearchCoverage,
+  SearchQuery,
   SavedInvestigation,
 } from "./generated/openapi-types.ts";
 
@@ -32,6 +33,46 @@ function isInteger(value: unknown): value is number {
 }
 function isCount(value: unknown): value is number {
   return isInteger(value) && value >= 0;
+}
+
+export function isSearchQuery(value: unknown): value is SearchQuery {
+  if (!isRecord(value)) return false;
+  const strings = (list: unknown) =>
+    Array.isArray(list) && list.every((entry: unknown) => typeof entry === "string");
+  const cabins = ["economy", "premium_economy", "business", "first"];
+  const optionalDate = (date: unknown) => date == null || typeof date === "string";
+  const optionalCount = (count: unknown) => count == null || isCount(count);
+  return (
+    strings(value.origins) &&
+    strings(value.destinations) &&
+    strings(value.providers) &&
+    typeof value.outboundFrom === "string" &&
+    (value.outboundTo === undefined || typeof value.outboundTo === "string") &&
+    optionalDate(value.returnFrom) &&
+    optionalDate(value.returnTo) &&
+    (value.tripType === "one_way" || value.tripType === "round_trip") &&
+    isCount(value.adults) &&
+    isCount(value.checkedBags) &&
+    isCount(value.returnChoices) &&
+    optionalCount(value.nights) &&
+    optionalCount(value.maxLiveCalls) &&
+    typeof value.currency === "string" &&
+    (value.market === undefined || typeof value.market === "string") &&
+    typeof value.cabin === "string" &&
+    cabins.includes(value.cabin) &&
+    typeof value.cabinShortHaul === "string" &&
+    cabins.includes(value.cabinShortHaul) &&
+    [value.nonstopOnly, value.fetchReturns, value.cacheOnly, value.confirmed].every(
+      (field) => typeof field === "boolean",
+    ) &&
+    [value.strictPerLegCabin, value.strictOperatingCarrier].every(
+      (field) => field === undefined || typeof field === "boolean",
+    ) &&
+    [value.excludedAirlines, value.excludedTransitAirports, value.excludedTransitCountries].every(
+      (field) => field === undefined || strings(field),
+    ) &&
+    (value.investigation == null || typeof value.investigation === "string")
+  );
 }
 
 function isCoverage(value: unknown): value is SearchCoverage {

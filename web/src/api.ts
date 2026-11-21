@@ -13,7 +13,14 @@ import type {
   TrackRequest,
   TrackResponse,
 } from "./domain.ts";
-import { isEstimate, isQuotaList, isRecord, isResultSet, isSavedList } from "./domain.ts";
+import {
+  isEstimate,
+  isQuotaList,
+  isRecord,
+  isResultSet,
+  isSavedList,
+  isSearchQuery,
+} from "./domain.ts";
 import { GUEST_SAMPLE } from "./guest-sample.ts";
 import {
   createGeneratedClient,
@@ -320,11 +327,7 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
   }
   const isQuote = (value: unknown): value is HostedSearchQuote =>
     isRecord(value) &&
-    isRecord(value.canonicalQuery) &&
-    Array.isArray(value.canonicalQuery.origins) &&
-    Array.isArray(value.canonicalQuery.destinations) &&
-    typeof value.canonicalQuery.outboundFrom === "string" &&
-    Array.isArray(value.canonicalQuery.providers) &&
+    isSearchQuery(value.canonicalQuery) &&
     (value.queryDigest === undefined ||
       (typeof value.queryDigest === "string" && /^[a-f0-9]{64}$/.test(value.queryDigest))) &&
     typeof value.consentToken === "string" &&

@@ -1,3 +1,4 @@
+import { isSearchQuery } from "./domain.ts";
 import type { Cabin, SearchQuery, TripType } from "./domain.ts";
 
 /** Values in the editor remain strings until the user explicitly estimates a search. */
@@ -247,14 +248,7 @@ export function buildSearchQuery(form: SearchForm): SearchQuery {
 }
 
 export function restoreSearchForm(query: SearchQuery | null | undefined): SearchForm | null {
-  if (
-    !query ||
-    !Array.isArray(query.origins) ||
-    !Array.isArray(query.destinations) ||
-    !Array.isArray(query.providers) ||
-    typeof query.outboundFrom !== "string"
-  )
-    return null;
+  if (!isSearchQuery(query)) return null;
   return {
     origins: query.origins.join(", "),
     destinations: query.destinations.join(", "),
