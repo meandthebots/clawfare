@@ -3133,9 +3133,101 @@
           "title"
         ]
       },
+      "MigrationProvenance": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "requiredTables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "file",
+          "sha256",
+          "requiredTables"
+        ]
+      },
+      "MissingMigrationTables": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "file",
+          "tables"
+        ]
+      },
+      "BuildProvenance": {
+        "type": "object",
+        "properties": {
+          "sourceGitSha": {
+            "type": "string"
+          },
+          "sourceDirty": {
+            "type": "boolean"
+          },
+          "kotlinBundleSha256": {
+            "type": "string"
+          },
+          "openApiSha256": {
+            "type": "string"
+          },
+          "schema": {
+            "type": "string",
+            "enum": [
+              "unavailable",
+              "missing_tables",
+              "tables_present"
+            ]
+          },
+          "migrations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MigrationProvenance"
+            }
+          },
+          "missingSchema": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MissingMigrationTables"
+            }
+          }
+        },
+        "required": [
+          "sourceGitSha",
+          "sourceDirty",
+          "kotlinBundleSha256",
+          "openApiSha256",
+          "schema",
+          "migrations",
+          "missingSchema"
+        ]
+      },
       "StorageDiagnostic": {
         "type": "object",
         "properties": {
+          "build": {
+            "$ref": "#/components/schemas/BuildProvenance"
+          },
+          "sampleCheckFailed": {
+            "type": "boolean"
+          },
           "backend": {
             "type": "string",
             "enum": [

@@ -283,7 +283,25 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
         (value.hostedSearch.canExecuteRoundTripGbpSerpApi === undefined ||
           typeof value.hostedSearch.canExecuteRoundTripGbpSerpApi === "boolean")));
   const isStorage = (value: unknown): value is StorageDiagnostic =>
-    isRecord(value) && value.backend === "d1" && typeof value.sampleStored === "boolean";
+    isRecord(value) &&
+    value.backend === "d1" &&
+    typeof value.sampleStored === "boolean" &&
+    (value.build === undefined ||
+      (isRecord(value.build) &&
+        typeof value.build.sourceGitSha === "string" &&
+        typeof value.build.sourceDirty === "boolean" &&
+        typeof value.build.kotlinBundleSha256 === "string" &&
+        typeof value.build.openApiSha256 === "string" &&
+        typeof value.build.schema === "string" &&
+        ["unavailable", "missing_tables", "tables_present"].includes(value.build.schema) &&
+        Array.isArray(value.build.missingSchema) &&
+        value.build.missingSchema.every(
+          (entry: unknown) =>
+            isRecord(entry) &&
+            typeof entry.file === "string" &&
+            Array.isArray(entry.tables) &&
+            entry.tables.every((table: unknown) => typeof table === "string"),
+        )));
   const hostedDisabled = <T>(): Parsed<T> => ({
     ok: false,
     status: 405,

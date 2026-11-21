@@ -2,6 +2,7 @@
 // This is NOT a public entrypoint: Sites must supply an authenticated email
 // from a trusted identity gateway. Raw user headers are never accepted here.
 import { D1Investigations, TRACKED_PREFIX } from "./investigations.mjs";
+import { readBuildProvenance } from "./build-provenance.mjs";
 import { D1ProviderPersistence } from "./provider-persistence.mjs";
 import { ensureBundledPublicSample, loadPublicSample, publicSampleStorageEvidence } from "./public-sample.mjs";
 import { estimateHostedSearch, limitedBody } from "./search-estimate.mjs";
@@ -76,7 +77,7 @@ export async function handleReadOnlyApi(
   request,
   { db, getVerifiedEmail, ownerKeySecret, cryptoApi = globalThis.crypto,
     bundledPublicSample = null, kotlinEngine = null, providerKeyPresence = null,
-    searchPrepareConfig = null, searchExecuteConfig = null },
+    searchPrepareConfig = null, searchExecuteConfig = null, buildProvenance = null },
 ) {
   if (typeof getVerifiedEmail !== "function") {
     throw new Error("Trusted identity gateway integration is required");
@@ -201,7 +202,16 @@ export async function handleReadOnlyApi(
   if (url.pathname === "/api/storage") {
     // Read the actual D1 row and verify its digest; do not initialize,
     // mutate, or expose tenant-private rows for a diagnostic request.
-    return respond(await publicSampleStorageEvidence(db, { cryptoApi }));
+    const build = await readBuildProvenance(db, buildProvenance);
+    if (!build) return respond(await publicSampleStorageEvidence(db, { cryptoApi }));
+    if (build.missingSchema.some(migration => migration.tables.includes("public_sample_fixtures"))) {
+      return respond({ backend: "d1", sampleStored: false, firstImportedAt: null, sha256: null, build });
+    }
+    try {
+      return respond({ ...await publicSampleStorageEvidence(db, { cryptoApi }), build });
+    } catch {
+      return respond({ backend: "d1", sampleStored: false, firstImportedAt: null, sha256: null, sampleCheckFailed: true, build });
+    }
   }
   if (url.pathname === "/api/searches") {
     const limit = parseLimit(url.searchParams);

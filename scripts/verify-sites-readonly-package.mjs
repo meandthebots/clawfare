@@ -29,6 +29,18 @@ for (const file of manifest.files) {
   assert.equal(digest, file.sha256, "Package SHA-256 mismatch: " + file.path);
   assert.equal(bytes.length, file.size, "Package byte size mismatch: " + file.path);
 }
+const provenance = JSON.parse(readFileSync(join(root, "server/build-provenance.json"), "utf8"));
+assert.deepEqual(manifest.provenance, provenance);
+assert.match(provenance.sourceGitSha, /^[a-f0-9]{40}$/);
+assert.equal(typeof provenance.sourceDirty, "boolean");
+const digest = path => manifest.files.find(file => file.path === path)?.sha256;
+assert.equal(provenance.kotlinBundleSha256, digest("server/kotlin/fare-core.cjs"));
+assert.equal(provenance.openApiSha256, digest("server/openapi.json"));
+assert.deepEqual(provenance.migrations.map(migration => migration.file),
+  readdirSync(join(root, "server/migrations")).sort());
+for (const migration of provenance.migrations) {
+  assert.equal(migration.sha256, digest("server/migrations/" + migration.file));
+}
 assert.deepEqual(readdirSync(join(root, "public")), ["index.html"]);
 const page = readFileSync(join(root, "public/index.html"), "utf8");
 assert.ok(page.includes("window.__CLAWFARE_HOSTED_READ_ONLY__ = true"));
@@ -80,6 +92,15 @@ assert.equal((await worker.fetch(new Request("https://example.com/api/search", {
 const authenticated = workerModule.createTrustedWorker({
   getVerifiedEmail: async () => "owner@example.com",
 });
+const storagePath = "https://example.com/api/storage";
+assert.equal((await worker.fetch(new Request(storagePath), env)).status, 401);
+const storage = await authenticated.fetch(new Request(storagePath), env);
+assert.equal(storage.status, 200);
+const { build } = await storage.json();
+assert.equal(build.sourceGitSha, provenance.sourceGitSha);
+assert.equal(build.kotlinBundleSha256, provenance.kotlinBundleSha256);
+assert.equal(build.schema, "missing_tables");
+assert.ok(build.missingSchema.some(migration => migration.tables.includes("public_sample_fixtures")));
 const estimateResponse = await authenticated.fetch(new Request("https://example.com/api/estimate", {
   method: "POST",
   headers: { "content-type": "application/json" },

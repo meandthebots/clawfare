@@ -9,6 +9,8 @@ on:
       - 'fare-core/**'
       - 'web/**'
       - 'build.gradle.kts'
+      - 'api/openapi.json'
+      - 'scripts/generate-openapi.mjs'
       - 'scripts/verify-web-bundle.mjs'
       - 'scripts/package-sites-readonly.mjs'
       - 'scripts/verify-sites-readonly-package.mjs'

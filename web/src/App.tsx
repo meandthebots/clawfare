@@ -587,7 +587,21 @@ export function App() {
             " · verified SHA-256 " +
             String(info.sha256 ?? "").slice(0, 16) +
             "… (compare this timestamp after reloading)."
-          : "No sample row in D1 yet. Load the public Florida sample, then check again.",
+          : info.sampleCheckFailed
+            ? "The D1 sample could not be read or verified."
+            : "No sample row in D1 yet. Load the public Florida sample, then check again.",
+        ...(info.build
+          ? [
+              `Deployed source ${info.build.sourceGitSha}${info.build.sourceDirty ? " (working tree modified at build)" : ""}`,
+              info.build.schema === "tables_present"
+                ? "D1 contains the tables expected by this build."
+                : info.build.schema === "unavailable"
+                  ? "D1 schema inspection was unavailable."
+                  : "D1 is missing migration tables from " +
+                    info.build.missingSchema.map((migration) => migration.file).join(", ") +
+                    ".",
+            ]
+          : []),
       ]);
     } catch {
       setStatusLines(["D1 storage check could not be completed."]);

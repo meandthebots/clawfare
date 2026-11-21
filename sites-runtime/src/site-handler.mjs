@@ -14,6 +14,7 @@ import { validatePublicSample } from "./public-sample.mjs";
  */
 export function createReadOnlySitesHandler({
   templateHtml,
+  buildProvenance = null,
   db,
   getVerifiedEmail,
   ownerKeySecret,
@@ -60,7 +61,7 @@ export function createReadOnlySitesHandler({
     }
     if (path.startsWith("/api/")) {
       return handleReadOnlyApi(request, {
-        db, getVerifiedEmail, ownerKeySecret, cryptoApi,
+        db, getVerifiedEmail, ownerKeySecret, cryptoApi, buildProvenance,
         bundledPublicSample: trustedSample, kotlinEngine, providerKeyPresence,
         searchPrepareConfig, searchExecuteConfig,
       });

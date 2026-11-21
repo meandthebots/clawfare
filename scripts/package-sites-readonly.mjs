@@ -22,12 +22,22 @@ if (!output.startsWith(base + sep)) {
 const fixtureSource = "build/sites/clawfare-sample.json";
 const htmlSource = "build/frontend/web/index.html";
 const webpackDir = "fare-core/build/kotlin-webpack/js/productionExecutable";
+function runChecked(command, args) {
+  const result = spawnSync(command, args, { encoding: "utf8", timeout: 30_000 });
+  if (result.status !== 0) throw new Error(command + " " + args.join(" ") + ": " + (result.stderr || result.error));
+  return result.stdout.trim();
+}
+
+const sourceGitSha = runChecked("git", ["rev-parse", "HEAD"]);
+const sourceDirty = runChecked("git", ["status", "--porcelain", "--untracked-files=no"]) !== "";
+runChecked(process.execPath, ["scripts/generate-openapi.mjs", "--check"]);
+
 const expectedModules = [
   "hosted-page.mjs", "site-handler.mjs", "read-only-api.mjs",
   "investigations.mjs", "public-sample.mjs", "provider-http-budget.mjs",
   "kotlin-engine.mjs", "worker-factory.mjs", "search-estimate.mjs",
   "search-consent.mjs", "provider-persistence.mjs", "serpapi-prepare.mjs",
-  "serpapi-metered-transport.mjs", "hosted-search-execute.mjs", "saved-exports.mjs",
+  "build-provenance.mjs", "serpapi-metered-transport.mjs", "hosted-search-execute.mjs", "saved-exports.mjs",
 ];
 for (const path of [fixtureSource, htmlSource, ...expectedModules.map(name => "sites-runtime/src/" + name)]) {
   if (!existsSync(path)) throw new Error("Missing required Sites source: " + path);
@@ -57,15 +67,28 @@ write("server/fixtures/clawfare-sample.json", JSON.stringify(sample));
 for (const name of expectedModules) {
   write("server/src/" + name, readFileSync("sites-runtime/src/" + name));
 }
-for (const name of [
-  "0001_provider_http_budget.sql",
-  "0002_investigation_snapshots.sql",
-  "0003_public_sample_fixtures.sql",
-  "0004_search_consents.sql",
-  "0005_hosted_provider_cache.sql",
-  "0006_hosted_export_limits.sql",
-]) write("server/migrations/" + name, readFileSync("sites-runtime/migrations/" + name));
-write("server/kotlin/fare-core.cjs", readFileSync(join(webpackDir, webpackFiles[0])));
+const migrations = readdirSync("sites-runtime/migrations")
+  .filter(name => /^\d{4}_[a-z0-9_]+\.sql$/.test(name)).sort()
+  .map(file => {
+    const sql = readFileSync("sites-runtime/migrations/" + file);
+    write("server/migrations/" + file, sql);
+    const requiredTables = [...sql.toString().matchAll(/^CREATE TABLE IF NOT EXISTS ([a-z0-9_]+) \(/gm)]
+      .map(match => match[1]);
+    return { file, sha256: createHash("sha256").update(sql).digest("hex"), requiredTables };
+  });
+if (!migrations.length) throw new Error("Missing D1 migration sources");
+const kotlinBytes = readFileSync(join(webpackDir, webpackFiles[0]));
+const api = readFileSync("api/openapi.json");
+const provenance = {
+  sourceGitSha,
+  sourceDirty,
+  kotlinBundleSha256: createHash("sha256").update(kotlinBytes).digest("hex"),
+  openApiSha256: createHash("sha256").update(api).digest("hex"),
+  migrations,
+};
+write("server/kotlin/fare-core.cjs", kotlinBytes);
+write("server/openapi.json", api);
+write("server/build-provenance.json", JSON.stringify(provenance, null, 2) + "\n");
 // A genuine Worker ESM entry factory with the exact Kotlin HTML and fixture
 // statically embedded. No default fetch export or untrusted identity fallback.
 // Sites MUST supply an attested callback and bind D1/secret before creating a
@@ -73,12 +96,13 @@ write("server/kotlin/fare-core.cjs", readFileSync(join(webpackDir, webpackFiles[
 // Kotlin flight rules in JS.
 const workerSource = [
   'import { createClawfareWorkerFactory } from "./src/worker-factory.mjs";',
+  'import buildProvenance from "./build-provenance.json";',
   'import compiledKotlin from "./kotlin/fare-core.cjs";',
   // The Fetch handler injects hosted mode itself. Use unmodified Kotlin
   // HTML here to prevent rendering twice; public/index.html is pre-injected.
   "const templateHtml = " + JSON.stringify(readFileSync(htmlSource, "utf8")) + ";",
   "const bundledPublicSample = " + JSON.stringify(sample) + ";",
-  "export const clawfareSitesWorker = createClawfareWorkerFactory({ templateHtml, bundledPublicSample, kotlinBundle: compiledKotlin });",
+  "export const clawfareSitesWorker = createClawfareWorkerFactory({ templateHtml, bundledPublicSample, kotlinBundle: compiledKotlin, buildProvenance });",
   "export const createTrustedWorker = options => clawfareSitesWorker.createTrustedWorker(options);",
   "",
 ].join("\n");
@@ -107,6 +131,7 @@ const manifest = {
   workerModule: "server/worker.mjs",
   workerRequiresTrustedFactory: true,
   d1BindingName: "DB",
+  provenance,
   sampleSlug: sample.id,
   files: files.sort((a, b) => a.path.localeCompare(b.path)),
 };

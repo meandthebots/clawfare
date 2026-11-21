@@ -191,3 +191,26 @@ Avoid repeated creation of new Sites to work around missing access.
 
 See repository issue #42 for the follow-on authenticated estimate/consent and
 real provider-search work. Production publishing is a separate decision.
+
+## Release verification
+
+Use the artifact from the exact release commit. The package manifest records
+the source Git SHA, Kotlin/JS and OpenAPI SHA-256 digests, and the hashes of the
+ordered D1 migrations. Package generation checks the generated OpenAPI
+bindings. A dirty build records that fact alongside its SHA.
+
+After an approved private update, use **Check storage** to compare the
+authenticated `/api/storage` response with the package manifest. Verify the
+deployed source SHA and Kotlin digest match. The D1 check reports required
+tables present or missing. Verify migration application history separately for
+changes to existing tables and indexes. Reload and compare the sample row
+timestamp and digest. Verify isolation with the actual Sites identity boundary
+as described in #63.
+
+Before requesting approval for a paid smoke test, verify current provider
+account terms and cost, keep server credentials in Site secrets, document
+the query and cap its provider requests in D1, and agree on how to turn off
+`SEARCH_EXECUTION_ENABLED` and `SEARCH_PAID_CALLS_APPROVED`. Keep the
+previous private package available for rollback and keep D1 migrations
+forward-only. The browser and simulated D1 suites use synthetic provider
+responses. Production deployment and paid calls require separate owner approval.
