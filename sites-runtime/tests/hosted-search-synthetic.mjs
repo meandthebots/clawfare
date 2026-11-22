@@ -334,6 +334,7 @@ assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM fare_price_observations").g
 // Reuse the compiled Kotlin bridge, real consent ledger and the same D1
 // schema for additional provider searches. Provider secrets below are synthetic.
 const caps = conn.prepare("INSERT INTO provider_http_limits(provider, daily_cap, monthly_cap) VALUES(?, ?, ?)");
+let travelpayoutsMarket = "fr";
 const providerKeys = { searchapi: "synthetic-searchapi", travelpayouts: "synthetic-travelpayouts", duffel: "duffel_test_fake" };
 for (const provider of Object.keys(providerKeys)) caps.run(provider, 6, 6);
 const presence = Object.fromEntries(Object.keys(providerKeys).map(provider => [provider, true]));
@@ -365,7 +366,7 @@ const adapterFetch = async (url, init) => {
     assert.equal(headers.get("x-access-token"), providerKeys.travelpayouts);
     assert.equal(parsed.searchParams.get("departure_at"), "2027-04-12");
     assert.equal(parsed.searchParams.get("one_way"), "true");
-    assert.equal(parsed.searchParams.get("market"), "de");
+    assert.equal(parsed.searchParams.get("market"), travelpayoutsMarket);
     assert.equal(parsed.searchParams.get("currency"), "gbp");
     return Response.json({ success: true, data: [{
       origin: "LHR", destination: "NRT", departure_at: "2027-04-12T12:00:00Z",
@@ -406,7 +407,7 @@ const adapters = createReadOnlySitesHandler({
 });
 for (const [provider, candidate, calls, label, perPerson, currency] of [
   ["searchapi", roundQuery, 2, "live", 2800, "GBP"],
-  ["travelpayouts", { ...query, adults: 1, cabin: "economy", excludedAirlines: [], checkedBags: 0, market: "de" }, 1, "cached", 380, "GBP"],
+  ["travelpayouts", { ...query, adults: 1, cabin: "economy", excludedAirlines: [], checkedBags: 0, market: "fr" }, 1, "cached", 380, "GBP"],
   ["duffel", { ...query, maxLiveCalls: 2 }, 2, "mock", 1100, "USD"],
 ]) {
   const search = { ...candidate, providers: [provider] };
@@ -438,6 +439,17 @@ for (const [provider, candidate, calls, label, perPerson, currency] of [
   assert.equal(routeCalls.length, before + calls);
   assert.deepEqual(await (await adapters(get("/api/results/" + result.result.id))).json(), result.result);
 }
+const cachedQuery = { ...query, adults: 1, cabin: "economy", excludedAirlines: [], checkedBags: 0, providers: ["travelpayouts"] };
+const invalidMarket = await adapters(post("/api/prepare-search", { ...cachedQuery, market: "de" }));
+assert.equal(invalidMarket.status, 422);
+travelpayoutsMarket = null;
+const cachedQuote = await (await adapters(post("/api/prepare-search", cachedQuery))).json();
+const cachedResult = await adapters(post("/api/search", {
+  canonicalQuery: cachedQuote.canonicalQuery, consentToken: cachedQuote.consentToken,
+}));
+assert.equal(cachedResult.status, 200);
+assert.equal((await cachedResult.json()).result.coverage.routes[0].market, "provider-defined");
+
 const liveDuffel = createReadOnlySitesHandler({
   ...baseConfig, providerKeyPresence: presence,
   getVerifiedEmail: async () => "alice@example.com",

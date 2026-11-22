@@ -225,7 +225,7 @@ immediately before dispatch. The runtime uses these server-side credentials.
 | --- | --- | --- |
 | SerpApi | `SERPAPI_API_KEY` | Google Flights one-way and round-trip fare observations |
 | SearchAPI | `SEARCHAPI_API_KEY` | Google Flights one-way and round-trip fare observations |
-| Travelpayouts | `TRAVELPAYOUTS_API_TOKEN` | Cached calendar leads for one adult. Exact cabin, segments, operating carrier and baggage are unverified. |
+| Travelpayouts | `TRAVELPAYOUTS_API_TOKEN` | Cached calendar leads for one adult. Exact cabin, segments, operating carrier and baggage are unverified. The default UK field value uses the provider’s origin-based market. Other values must be in the [Aviasales market list](https://support.travelpayouts.com/hc/en-us/articles/203956163-Aviasales-Data-API). |
 | Duffel | `DUFFEL_ACCESS_TOKEN` | Test offers with a test token. Live offers require a live token and `DUFFEL_LIVE_ENABLED=true`. Each route uses one offer-request call and one call to list the first page. |
 
 Configure D1 caps for each provider you enable. All providers share the

@@ -5,6 +5,14 @@ export const HOSTED_PROVIDERS = Object.freeze({
   duffel: { googleFlights: false, priceMode: "mock", callsPerRoute: 2 },
 });
 
+// Travelpayouts publishes these Aviasales domains in its Data API market list.
+const TRAVELPAYOUTS_MARKETS = new Set("ru ua by kz uz az ge tj kg am it fr pl us in tz md ro ke za at il gr es pt nl".split(" "));
+
+export function hostedCoverageMarket(provider, market) {
+  return provider === "duffel" || (provider === "travelpayouts" && market === "uk")
+    ? "provider-defined" : market;
+}
+
 export function hostedProvider(query) {
   const ids = query?.providers;
   return Array.isArray(ids) && ids.length === 1 && Object.hasOwn(HOSTED_PROVIDERS, ids[0])
@@ -17,6 +25,9 @@ export function hostedProviderProblem(query) {
   if (query.currency !== "GBP") return "Hosted searches require GBP as the display currency.";
   if (provider === "duffel" && query.market !== "uk") {
     return "This provider uses its own market. Leave the market field on the default UK setting.";
+  }
+  if (provider === "travelpayouts" && query.market !== "uk" && !TRAVELPAYOUTS_MARKETS.has(query.market)) {
+    return "Travelpayouts does not list this market. Use the default UK field value for its origin-based market, or select a supported Aviasales market.";
   }
   if (query.cacheOnly) return "This search requires a provider request.";
   if (query.tripType === "round_trip" && HOSTED_PROVIDERS[provider].googleFlights && !query.fetchReturns) {

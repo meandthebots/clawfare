@@ -1,5 +1,7 @@
+import { hostedCoverageMarket } from "./hosted-providers.mjs";
 import { digestFor, readProviderJson, SerpApiTransportError } from "./serpapi-metered-transport.mjs";
 
+const PAGE_SIZE = 25;
 const TRAVELPAYOUTS_URL = "https://api.travelpayouts.com/aviasales/v3/prices_for_dates";
 const DUFFEL_URL = "https://api.duffel.com/air/offer_requests?return_offers=false";
 const AIRPORT = /^[A-Z]{3}$/;
@@ -17,11 +19,13 @@ export function directProviderRequest(provider, query, route, key) {
   const { origin, destination, outboundDate, returnDate } = route;
   if (provider === "travelpayouts") {
     const url = new URL(TRAVELPAYOUTS_URL);
+    const market = hostedCoverageMarket(provider, query.market);
     const params = {
       origin, destination, departure_at: outboundDate,
-      currency: query.currency.toLowerCase(), market: query.market,
+      currency: query.currency.toLowerCase(),
+      ...(market === "provider-defined" ? {} : { market }),
       one_way: String(!returnDate), direct: String(query.nonstopOnly),
-      sorting: "price", limit: "30", unique: "false",
+      sorting: "price", limit: String(PAGE_SIZE), unique: "false",
       ...(returnDate ? { return_at: returnDate } : {}),
     };
     for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
@@ -150,7 +154,7 @@ export async function duffelListRequest(response, mode, headers) {
   }
   const url = new URL("https://api.duffel.com/air/offers");
   url.searchParams.set("offer_request_id", id);
-  url.searchParams.set("limit", "25");
+  url.searchParams.set("limit", String(PAGE_SIZE));
   url.searchParams.set("sort", "total_amount");
   return { url: url.href, init: { headers } };
 }
@@ -166,6 +170,6 @@ export async function parseDirectProvider(response, provider, query, route, mode
   const normalize = duffel
     ? row => duffelDraft(row, query, route, mode, fetchedAt, cryptoApi)
     : row => travelpayoutsLead(row, currency, query, route, fetchedAt, cryptoApi);
-  const items = (await Promise.all(rows.slice(0, 25).map(normalize))).filter(Boolean);
-  return { items, providerRows: rows.length, moreAvailable: duffel ? Boolean(root.meta?.after) : rows.length >= 30 };
+  const items = (await Promise.all(rows.slice(0, PAGE_SIZE).map(normalize))).filter(Boolean);
+  return { items, providerRows: rows.length, moreAvailable: duffel ? Boolean(root.meta?.after) : rows.length >= PAGE_SIZE };
 }

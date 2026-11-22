@@ -1,4 +1,4 @@
-import { hostedProvider, hostedProviderProblem, HOSTED_PROVIDERS, providerSecret } from "./hosted-providers.mjs";
+import { hostedCoverageMarket, hostedProvider, hostedProviderProblem, HOSTED_PROVIDERS, providerSecret } from "./hosted-providers.mjs";
 import { assembleCachedLeads, executeDirectHostedSearch } from "./direct-provider-transport.mjs";
 /**
  * Authenticated, server-only SerpApi search execution. This cannot be enabled
@@ -69,7 +69,7 @@ function searchCoverage(query, pairs, observed, assembly) {
     const attempt = attempts.get(key(origin, destination, pair.outbound, pair.returning));
     return {
       provider: observed.provider,
-      market: observed.provider === "duffel" ? "provider-defined" : query.market,
+      market: hostedCoverageMarket(observed.provider, query.market),
       origin,
       destination,
       outboundDate: pair.outbound,
