@@ -26,11 +26,12 @@ data class GoogleFareDraft(
     val returning: Direction? = null,
     val returnMissing: Boolean = false,
     val returnDateHint: String? = null,
+    val validUntil: String? = null,
 ) {
     init {
         require(id.isNotBlank() && id.length <= 128) { "Invalid itinerary family key" }
-        require(source == "serpapi" || source == "searchapi") { "Unsupported provider" }
-        require(sourceLabel in setOf("live", "cached")) { "Invalid provenance" }
+        require(source in setOf("serpapi", "searchapi", "duffel")) { "Unsupported provider" }
+        require(sourceLabel in setOf("live", "cached") || (source == "duffel" && sourceLabel == "mock")) { "Invalid provenance" }
         require(livePrice == (sourceLabel == "live")) { "Cached prices cannot be live" }
         require(passengers in 1..9) { "Invalid party size" }
         require(priceCurrency.matches(Regex("[A-Z]{3}"))) { "Invalid original currency" }

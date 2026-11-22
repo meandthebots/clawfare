@@ -331,5 +331,106 @@ assert.deepEqual(await (await incompleteSite(get("/api/results/" + incomplete.re
 assert.ok(incomplete.result.warnings.some(message => /verified return/.test(message)));
 assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM provider_http_reservations").get().n, 4);
 assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM fare_price_observations").get().n, 2);
+// Reuse the compiled Kotlin bridge, real consent ledger and the same D1
+// schema for additional provider searches. Provider secrets below are synthetic.
+const caps = conn.prepare("INSERT INTO provider_http_limits(provider, daily_cap, monthly_cap) VALUES(?, ?, ?)");
+const providerKeys = { searchapi: "synthetic-searchapi", travelpayouts: "synthetic-travelpayouts", duffel: "duffel_test_fake" };
+for (const provider of Object.keys(providerKeys)) caps.run(provider, 4, 4);
+const presence = Object.fromEntries(Object.keys(providerKeys).map(provider => [provider, true]));
+const routeCalls = [];
+const adapterFetch = async (url, init) => {
+  const parsed = new URL(url);
+  const headers = new Headers(init.headers);
+  routeCalls.push({ host: parsed.hostname, path: parsed.pathname });
+  assert.equal(init.redirect, "manual");
+  if (parsed.hostname === "www.searchapi.io") {
+    assert.equal(parsed.pathname, "/api/v1/search");
+    assert.equal(parsed.searchParams.get("api_key"), providerKeys.searchapi);
+    assert.equal(parsed.searchParams.get("flight_type"), "round_trip");
+    assert.equal(parsed.searchParams.get("travel_class"), "business");
+    const back = parsed.searchParams.has("departure_token");
+    return Response.json({ best_flights: [{
+      price: back ? 5600 : 3400,
+      departure_token: "private-searchapi-token",
+      flights: [{
+        departure_airport: { id: back ? "NRT" : "LHR", date: back ? "2027-04-20" : "2027-04-12", time: "10:30" },
+        arrival_airport: { id: back ? "LHR" : "NRT", date: back ? "2027-04-20" : "2027-04-13", time: "17:00" },
+        flight_number: back ? "BA 8" : "BA 7", airline: "British Airways",
+        travel_class: "Business", duration: 720,
+      }],
+    }], other_flights: [] });
+  }
+  if (parsed.hostname === "api.travelpayouts.com") {
+    assert.equal(headers.get("x-access-token"), providerKeys.travelpayouts);
+    assert.equal(parsed.searchParams.get("departure_at"), "2027-04-12");
+    assert.equal(parsed.searchParams.get("one_way"), "true");
+    return Response.json({ success: true, currency: "gbp", data: [{
+      origin: "LHR", destination: "NRT", departure_at: "2027-04-12T12:00:00Z",
+      price: 380, transfers: 1, airline: "JL", flight_number: "42",
+    }] });
+  }
+  assert.equal(parsed.hostname, "api.duffel.com");
+  assert.equal(headers.get("authorization"), "Bearer " + providerKeys.duffel);
+  if (parsed.pathname === "/air/offer_requests") {
+    assert.equal(init.method, "POST");
+    assert.equal(parsed.searchParams.get("return_offers"), "false");
+    assert.equal(JSON.parse(init.body).data.passengers.length, 2);
+    return Response.json({ data: { id: "orq_synthetic1", live_mode: false } }, { status: 201 });
+  }
+  assert.equal(parsed.pathname, "/air/offers");
+  assert.equal(parsed.searchParams.get("offer_request_id"), "orq_synthetic1");
+  return Response.json({ data: [{
+    live_mode: false, expires_at: "2026-11-19T12:30:00Z", passengers: [{}, {}],
+    total_amount: "2200.00", total_currency: "USD",
+    slices: [{ duration: "PT12H", segments: [{
+      origin: { iata_code: "LHR" }, destination: { iata_code: "NRT" },
+      departing_at: "2027-04-12T10:30:00", arriving_at: "2027-04-13T14:00:00",
+      marketing_carrier: { name: "Japan Airlines", iata_code: "JL" },
+      operating_carrier: { name: "Japan Airlines", iata_code: "JL" },
+      marketing_carrier_flight_number: "42", passengers: [{ cabin_class: "business" }, { cabin_class: "business" }],
+    }] }],
+  }] });
+};
+const adapters = createReadOnlySitesHandler({
+  ...baseConfig, providerKeyPresence: presence,
+  getVerifiedEmail: async () => "alice@example.com",
+  searchPrepareConfig: { enabled: true, executionAvailable: true, keyPresence: presence,
+    duffelPriceMode: "mock", consentSigningSecret: signSecret, clock: now },
+  searchExecuteConfig: { enabled: true, approvedForPaidCalls: true, providerKeys,
+    duffelPriceMode: "mock", consentSigningSecret: signSecret, fetcher: adapterFetch, clock: now },
+});
+for (const [provider, candidate, calls, label, perPerson, currency] of [
+  ["searchapi", roundQuery, 2, "live", 2800, "GBP"],
+  ["travelpayouts", { ...query, adults: 1, cabin: "economy", excludedAirlines: [], checkedBags: 0 }, 1, "cached", 380, "GBP"],
+  ["duffel", { ...query, maxLiveCalls: 2 }, 2, "mock", 1100, "USD"],
+]) {
+  const search = { ...candidate, providers: [provider] };
+  const before = routeCalls.length;
+  const approval = await adapters(post("/api/prepare-search", search));
+  const quote = await approval.json();
+  assert.equal(approval.status, 200, JSON.stringify(quote));
+  assert.equal(quote.totalCallsUpperBound, calls);
+  assert.equal(routeCalls.length, before);
+  const execute = { canonicalQuery: quote.canonicalQuery, consentToken: quote.consentToken };
+  const response = await adapters(post("/api/search", execute));
+  const result = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(result));
+  assert.equal(result.ok, true);
+  assert.equal(routeCalls.length, before + calls);
+  assert.equal(result.result.itineraries.length, 1, JSON.stringify(result.result.coverage));
+  const fare = result.result.itineraries[0];
+  assert.equal(fare.source, provider);
+  assert.equal(fare.sourceLabel, label);
+  assert.equal(fare.livePrice, label === "live");
+  assert.equal(fare.priceCurrency, currency);
+  assert.equal(fare.priceOriginal ?? fare.pricePerPerson, perPerson);
+  assert.equal(fare.cashRefundProofVerified, false);
+  assert.equal(result.result.coverage.routes[0].provider, provider);
+  assert.ok(!JSON.stringify(result).includes("private-searchapi-token"));
+  assert.ok(!JSON.stringify(result).includes("orq_synthetic1"));
+  assert.equal((await adapters(post("/api/search", execute))).status, 409);
+  assert.equal(routeCalls.length, before + calls);
+  assert.deepEqual(await (await adapters(get("/api/results/" + result.result.id))).json(), result.result);
+}
 conn.close();
 console.log("Synthetic one-way + verified round-trip / Kotlin JS / D1 integration passed");

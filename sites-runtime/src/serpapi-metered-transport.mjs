@@ -1,3 +1,4 @@
+import { hostedProvider, HOSTED_PROVIDERS } from "./hosted-providers.mjs";
 /**
  * Server-only, dormant SerpApi transport. No public route invokes this module.
  *
@@ -71,7 +72,7 @@ function validateKotlinPlan(kotlinEngine, canonicalQueryJson, tripType = "one_wa
   if (query.tripType !== tripType ||
       !["one_way", "round_trip"].includes(tripType) ||
       !Array.isArray(query.providers) || query.providers.length !== 1 ||
-      query.providers[0] !== "serpapi" || query.confirmed !== false ||
+      !HOSTED_PROVIDERS[hostedProvider(query)]?.googleFlights || query.confirmed !== false ||
       query.cacheOnly !== false || query.fetchReturns !== (tripType === "round_trip") ||
       !boundedPositiveNumber(query.maxLiveCalls, MAX_CALLS) ||
       !boundedPositiveNumber(query.adults, 9) ||
@@ -105,7 +106,8 @@ function validateKotlinPlan(kotlinEngine, canonicalQueryJson, tripType = "one_wa
   return { query, pairs: planned.pairs, calls, baseCalls, returnCalls };
 }
 function makeRequestUrl(query, origin, destination, outbound, apiKey, returning = null) {
-  const url = new URL("https://serpapi.com/search.json");
+  const searchApi = hostedProvider(query) === "searchapi";
+  const url = new URL(searchApi ? "https://www.searchapi.io/api/v1/search" : "https://serpapi.com/search.json");
   const fields = {
     engine: "google_flights",
     currency: query.currency,
@@ -115,16 +117,18 @@ function makeRequestUrl(query, origin, destination, outbound, apiKey, returning 
     departure_id: origin,
     arrival_id: destination,
     outbound_date: outbound,
-    type: returning == null ? "2" : "1",
-    travel_class: CABINS[query.cabin],
+    ...(searchApi ? {
+      flight_type: returning == null ? "one_way" : "round_trip",
+      travel_class: query.cabin === "first" ? "first_class" : query.cabin,
+    } : { type: returning == null ? "2" : "1", travel_class: CABINS[query.cabin] }),
   };
   for (const [key, value] of Object.entries(fields)) url.searchParams.set(key, value);
   if (returning != null) url.searchParams.set("return_date", returning);
-  if (query.nonstopOnly) url.searchParams.set("stops", "1");
+  if (query.nonstopOnly) url.searchParams.set("stops", searchApi ? "nonstop" : "1");
   url.searchParams.set("api_key", apiKey);
   return url.toString();
 }
-async function boundedResponseJson(response, maxBytes) {
+export async function readProviderJson(response, maxBytes) {
   if (response.status === 429) reject("provider_rate_limited");
   if (response.status >= 300 && response.status < 400) reject("provider_redirect");
   if (response.status === 401 || response.status === 403) reject("provider_auth");
@@ -171,6 +175,11 @@ async function boundedResponseJson(response, maxBytes) {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     reject("invalid_response");
   }
+  return { raw, data };
+}
+
+async function boundedResponseJson(response, maxBytes) {
+  const { raw, data } = await readProviderJson(response, maxBytes);
   if (Object.hasOwn(data, "error")) reject("provider_http");
   const hasFlights = ["best_flights", "other_flights"].some(
     key => Array.isArray(data[key]));
@@ -198,12 +207,12 @@ function parseKotlinOffers(kotlinEngine, raw) {
   return offers;
 }
 
-async function digestFor(value, cryptoApi) {
+export async function digestFor(value, cryptoApi) {
   const bytes = await cryptoApi.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, "0")).join("");
 }
 
-function terminalErrorKind(code) {
+export function terminalErrorKind(code) {
   if (code === "provider_timeout") return "timeout";
   if (code === "invalid_response" || code === "response_too_large") return "invalid_response";
   if (code === "provider_transport") return "network";
@@ -221,12 +230,12 @@ async function draftsFromOffers(offers, query, kotlinEngine, fetchedAt, cryptoAp
   for (const offer of offers) {
     const segments = offer.legs.map(l => [l.flightNumber, l.departDate, l.from, l.to]);
     if (segments.some(s => s.some(v => typeof v !== "string" || !v))) reject("invalid_response");
-    const hash = await digestFor(JSON.stringify(["serpapi", segments, offer.fareBrand ?? null]), cryptoApi);
-    const id = "serpapi-" + hash.slice(0, 40);
+    const hash = await digestFor(JSON.stringify([query.providers[0], segments, offer.fareBrand ?? null]), cryptoApi);
+    const id = query.providers[0] + "-" + hash.slice(0, 40);
     let draft, evaluation;
     try {
       draft = JSON.parse(kotlinEngine.buildGoogleFareDraftJson(JSON.stringify({
-        id, provider: "serpapi", query, outbound: offer, fetchedAt,
+        id, provider: query.providers[0], query, outbound: offer, fetchedAt,
         servedFromCache: false,
       })));
       evaluation = JSON.parse(kotlinEngine.evaluateOfferEligibilityJson(JSON.stringify({
@@ -234,7 +243,7 @@ async function draftsFromOffers(offers, query, kotlinEngine, fetchedAt, cryptoAp
       })));
     } catch { reject("invalid_response"); }
     if (!draft || !draft.outbound || !Array.isArray(draft.outbound.legs) ||
-        draft.source !== "serpapi" || draft.returnMissing || draft.returning ||
+        draft.source !== query.providers[0] || draft.returnMissing || draft.returning ||
         !["live", "cached"].includes(draft.sourceLabel) ||
         typeof evaluation?.eligible !== "boolean") reject("invalid_response");
     if (evaluation.eligible) eligible++;
@@ -252,15 +261,15 @@ async function draftsFromOffers(offers, query, kotlinEngine, fetchedAt, cryptoAp
  */
 export async function executeConsentedOneWaySerpApi({
   enabled = false, db, ownerId, canonicalQueryJson, consentToken,
-  consentSigningSecret, serpApiKey, kotlinEngine,
+  consentSigningSecret, serpApiKey, providerKey = serpApiKey, kotlinEngine,
   fetcher = fetch, clock = () => new Date(),
   cryptoApi = globalThis.crypto, timeoutMs = DEFAULT_TIMEOUT_MS,
   maxResponseBytes = MAX_RESPONSE_BYTES,
   includeDrafts = false, recordAttempts = false, investigationSlug = null,
 }) {
   if (enabled !== true) reject("disabled");
-  if (typeof serpApiKey !== "string" || serpApiKey.length < 1 ||
-      serpApiKey.length > 512 || /\s/.test(serpApiKey) ||
+  if (typeof providerKey !== "string" || providerKey.length < 1 ||
+      providerKey.length > 512 || /\s/.test(providerKey) ||
       typeof consentSigningSecret !== "string" || !db?.prepare) {
     reject("server_configuration");
   }
@@ -283,7 +292,7 @@ export async function executeConsentedOneWaySerpApi({
   }
   if (approved.totalCalls !== calls ||
       approved.callLimits.length !== 1 ||
-      approved.callLimits[0].provider !== "serpapi" ||
+      approved.callLimits[0].provider !== query.providers[0] ||
       approved.callLimits[0].category !== "base_search" ||
       approved.callLimits[0].count !== calls) {
     // Used consent cannot be reused even for a wrong-category authorization.
@@ -305,7 +314,7 @@ export async function executeConsentedOneWaySerpApi({
           errorCode = "invalid_plan";
           break outer;
         }
-        const url = makeRequestUrl(query, origin, destination, pair.outbound, serpApiKey);
+        const url = makeRequestUrl(query, origin, destination, pair.outbound, providerKey);
         const routeDigest = persistence ? await digestFor(
           JSON.stringify([approved.queryDigest, origin, destination, pair.outbound]), cryptoApi,
         ) : null;
@@ -316,7 +325,7 @@ export async function executeConsentedOneWaySerpApi({
           if (persistence) {
             await persistence.beginAttempt({
               ownerId, consentNonce: approved.nonce, queryDigest: approved.queryDigest,
-              provider: "serpapi", routeDigest, investigationSlug,
+              provider: query.providers[0], routeDigest, investigationSlug,
             });
             began = true;
           }
@@ -331,32 +340,32 @@ export async function executeConsentedOneWaySerpApi({
             : { drafts: [], eligible: 0 };
           const state = offersReported < providerRows ? "partial" : offersReported ? "complete" : "empty";
           if (persistence) await persistence.finishAttempt({
-            ownerId, consentNonce: approved.nonce, provider: "serpapi", routeDigest,
+            ownerId, consentNonce: approved.nonce, provider: query.providers[0], routeDigest,
             state, attemptedCalls: 1,
             loadedCalls: 1, cachedCalls: 0, returnedOffers: offersReported,
             eligibleOffers: built.eligible, errorKind: state === "partial" ? "incomplete" : null,
           });
           drafts.push(...built.drafts);
           attempts.push({
-            provider: "serpapi", origin, destination, outboundDate: pair.outbound,
+            provider: query.providers[0], origin, destination, outboundDate: pair.outbound,
             state, offersReported, providerRows, eligibleOffers: built.eligible,
             sourceLabel: "live",
           });
           completed += 1;
         } catch (error) {
           errorCode = error instanceof SerpApiTransportError
-            ? error.code : controller.signal.aborted ? "provider_timeout" : "provider_transport";
+            ? error.code : controller.signal.aborted ? "provider_timeout" : error.code ?? "provider_transport";
           if (began) {
             try {
               await persistence.finishAttempt({
-                ownerId, consentNonce: approved.nonce, provider: "serpapi", routeDigest,
+                ownerId, consentNonce: approved.nonce, provider: query.providers[0], routeDigest,
                 state: "failed", attemptedCalls: 1, loadedCalls: 0, cachedCalls: 0,
                 returnedOffers: 0, eligibleOffers: 0, errorKind: terminalErrorKind(errorCode),
               });
             } catch { /* A crashed D1 terminal write leaves attempted, not false empty. */ }
           }
           attempts.push({
-            provider: "serpapi", origin, destination, outboundDate: pair.outbound,
+            provider: query.providers[0], origin, destination, outboundDate: pair.outbound,
             state: "failed", offersReported: null, error: errorCode, errorKind: terminalErrorKind(errorCode),
           });
           break outer;
@@ -369,7 +378,7 @@ export async function executeConsentedOneWaySerpApi({
   return {
     state: errorCode == null && !attempts.some(row => row.state === "partial") ? "complete"
       : completed ? "partial" : "failed",
-    provider: "serpapi",
+    provider: query.providers[0],
     plannedCalls: calls,
     completedCalls: completed,
     attemptedCalls: attempts.length,
@@ -412,12 +421,12 @@ async function roundTripDraft(outbound, inbound, query, fetchedAt, returnDateHin
     reject("invalid_response");
   }
   const fareBrand = inbound?.fareBrand ?? outbound.fareBrand ?? null;
-  const id = "serpapi-" + (await digestFor(
-    JSON.stringify(["serpapi", family, fareBrand]), cryptoApi)).slice(0, 40);
+  const id = query.providers[0] + "-" + (await digestFor(
+    JSON.stringify([query.providers[0], family, fareBrand]), cryptoApi)).slice(0, 40);
   let draft, eligibility;
   try {
     draft = JSON.parse(kotlinEngine.buildGoogleFareDraftJson(JSON.stringify({
-      id, provider: "serpapi", query, outbound, inbound,
+      id, provider: query.providers[0], query, outbound, inbound,
       fetchedAt, servedFromCache: false, returnDateHint,
     })));
     eligibility = JSON.parse(kotlinEngine.evaluateOfferEligibilityJson(JSON.stringify({
@@ -432,7 +441,7 @@ async function roundTripDraft(outbound, inbound, query, fetchedAt, returnDateHin
   } catch {
     reject("invalid_response");
   }
-  if (!draft || draft.source !== "serpapi" || draft.passengers !== query.adults ||
+  if (!draft || draft.source !== query.providers[0] || draft.passengers !== query.adults ||
       draft.priceCurrency !== query.currency || !draft.outbound?.legs ||
       !Array.isArray(draft.outbound.legs) ||
       draft.returnMissing !== (inbound == null) ||
@@ -476,15 +485,15 @@ function matchedReturnOffers(offers, origin, destination, returning) {
  */
 export async function executeConsentedRoundTripSerpApi({
   enabled = false, db, ownerId, canonicalQueryJson, consentToken,
-  consentSigningSecret, serpApiKey, kotlinEngine,
+  consentSigningSecret, serpApiKey, providerKey = serpApiKey, kotlinEngine,
   fetcher = fetch, clock = () => new Date(),
   cryptoApi = globalThis.crypto, timeoutMs = DEFAULT_TIMEOUT_MS,
   maxResponseBytes = MAX_RESPONSE_BYTES,
   includeDrafts = false, recordAttempts = false, investigationSlug = null,
 }) {
   if (enabled !== true) reject("disabled");
-  if (typeof serpApiKey !== "string" || serpApiKey.length < 1 ||
-      serpApiKey.length > 512 || /\s/.test(serpApiKey) ||
+  if (typeof providerKey !== "string" || providerKey.length < 1 ||
+      providerKey.length > 512 || /\s/.test(providerKey) ||
       typeof consentSigningSecret !== "string" || !db?.prepare ||
       typeof kotlinEngine?.assembleHostedRoundTripJson !== "function") {
     reject("server_configuration");
@@ -510,10 +519,10 @@ export async function executeConsentedRoundTripSerpApi({
   if (approved.totalCalls !== calls ||
       approved.callLimits.length !== 2 ||
       !approved.callLimits.some(x =>
-        x.provider === "serpapi" && x.category === "base_search" &&
+        x.provider === query.providers[0] && x.category === "base_search" &&
         x.count === baseCalls) ||
       !approved.callLimits.some(x =>
-        x.provider === "serpapi" && x.category === "return_selection" &&
+        x.provider === query.providers[0] && x.category === "return_selection" &&
         x.count === returnCalls)) {
     reject("consent_call_limit_mismatch");
   }
@@ -540,12 +549,12 @@ export async function executeConsentedRoundTripSerpApi({
           if (persisted) {
             await persisted.beginAttempt({
               ownerId, consentNonce: approved.nonce, queryDigest: approved.queryDigest,
-              provider: "serpapi", routeDigest, investigationSlug,
+              provider: query.providers[0], routeDigest, investigationSlug,
             });
             began = true;
           }
           const baseUrl = makeRequestUrl(query, origin, destination, pair.outbound,
-            serpApiKey, pair.returning);
+            providerKey, pair.returning);
           routeAttempted++; attemptedCalls++;
           const base = await readFlightOffers(
             budget, baseUrl, fetcher, timeoutMs, maxResponseBytes, kotlinEngine,
@@ -585,26 +594,26 @@ export async function executeConsentedRoundTripSerpApi({
             : returnedOffers === 0 ? "empty" : "complete";
           if (persisted) {
             await persisted.finishAttempt({
-              ownerId, consentNonce: approved.nonce, provider: "serpapi", routeDigest,
+              ownerId, consentNonce: approved.nonce, provider: query.providers[0], routeDigest,
               state, attemptedCalls: routeAttempted, loadedCalls: routeLoaded,
               cachedCalls: 0, returnedOffers, eligibleOffers,
               errorKind: state === "partial" ? "incomplete" : null,
             });
           }
           attempts.push({
-            provider: "serpapi", origin, destination,
+            provider: query.providers[0], origin, destination,
             outboundDate: pair.outbound, returnDate: pair.returning,
             state, providerRows, offersReported: returnedOffers, eligibleOffers, selectionLimited,
             returnLookupsLoaded: routeReturnsLoaded, unresolvedReturns: missing, sourceLabel: "live",
           });
         } catch (error) {
           routeError = error instanceof SerpApiTransportError
-            ? error.code : "provider_transport";
+            ? error.code : error.code ?? "provider_transport";
           errorCode = routeError;
           if (began) {
             try {
               await persisted.finishAttempt({
-                ownerId, consentNonce: approved.nonce, provider: "serpapi", routeDigest,
+                ownerId, consentNonce: approved.nonce, provider: query.providers[0], routeDigest,
                 state: routeLoaded > 0 ? "partial" : "failed",
                 attemptedCalls: routeAttempted, loadedCalls: routeLoaded,
                 cachedCalls: 0, returnedOffers, eligibleOffers,
@@ -613,7 +622,7 @@ export async function executeConsentedRoundTripSerpApi({
             } catch { /* Retain crash-visible attempted state if D1 completion fails. */ }
           }
           attempts.push({
-            provider: "serpapi", origin, destination,
+            provider: query.providers[0], origin, destination,
             outboundDate: pair.outbound, returnDate: pair.returning,
             state: routeLoaded > 0 ? "partial" : "failed",
             offersReported: returnedOffers, error: routeError,
@@ -628,7 +637,7 @@ export async function executeConsentedRoundTripSerpApi({
   return {
     state: coverageComplete ? "complete" :
       completedBase > 0 ? "partial" : "failed",
-    provider: "serpapi",
+    provider: query.providers[0],
     plannedCalls: calls,
     baseCallsExpected: baseCalls,
     completedCalls: completedBase,

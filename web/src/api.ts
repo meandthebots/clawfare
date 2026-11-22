@@ -318,8 +318,16 @@ export function createClawfareClient(mode: ApiMode, fetcher: HttpClient = fetch)
   async function serverAllowsHostedExecution(query: SearchQuery): Promise<boolean> {
     if (!hosted || guest || !allowEstimate) return false;
     const status = decode(await generated.getStatus(), isStatus);
+    if (!status.ok || query.providers.length !== 1) return false;
+    const provider = query.providers[0];
+    const capability = status.data.providers.find((entry) => entry.provider === provider)?.hosted;
+    if (capability)
+      return (
+        capability.state === "ready" &&
+        (query.tripType === "round_trip" ? capability.roundTrip : capability.oneWay)
+      );
     return (
-      status.ok &&
+      provider === "serpapi" &&
       (query.tripType === "round_trip"
         ? status.data.hostedSearch?.canExecuteRoundTripGbpSerpApi === true
         : status.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true)

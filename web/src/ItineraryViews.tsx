@@ -69,6 +69,16 @@ const layText = (mins: number) => {
   return (h ? h + "h " : "") + (mins % 60) + "m";
 };
 
+function fareAmount(it: Itinerary, party = false): string {
+  const multiplier = party ? it.passengers : 1;
+  if (it.pricePerPerson != null) return gbp(it.pricePerPerson * multiplier);
+  if (it.priceOriginal == null) return gbp(null);
+  const amount = (it.priceOriginal * multiplier).toLocaleString("en-GB", {
+    maximumFractionDigits: 2,
+  });
+  return it.priceCurrency + " " + amount;
+}
+
 /** Read-only React itinerary listing, preserving the existing table/CSV semantics. */
 export function ItineraryView({
   rows,
@@ -119,10 +129,8 @@ export function ItineraryView({
                 </td>
                 <td>{stopsLabel(it)}</td>
                 <td>{it.maxLayoverMinutes == null ? "—" : layText(it.maxLayoverMinutes)}</td>
-                <td className="num">{gbp(it.pricePerPerson)}</td>
-                <td className="num">
-                  {gbp(it.pricePerPerson == null ? null : it.pricePerPerson * it.passengers)}
-                </td>
+                <td className="num">{fareAmount(it)}</td>
+                <td className="num">{fareAmount(it, true)}</td>
                 <td>
                   <SourceTag it={it} />
                   <div className="muted">{it.fetchedAt ?? ""}</div>
@@ -182,8 +190,7 @@ export function ItineraryView({
                   {it.nights != null ? " · " + it.nights + " nights" : ""}
                 </span>
                 <span className={stylex.props(styles.itineraryCardFare).className}>
-                  {gbp(it.pricePerPerson)} per person ·{" "}
-                  {gbp(it.pricePerPerson == null ? null : it.pricePerPerson * it.passengers)} party
+                  {fareAmount(it)} per person · {fareAmount(it, true)} party
                 </span>
                 <span className={stylex.props(styles.itineraryCardMeta).className}>
                   <SourceTag it={it} />

@@ -227,6 +227,7 @@ export class D1Investigations {
     const expiry = Date.parse(fare.refundEvidence?.expiresAt);
     if (fare.sourceLabel !== "live" || fare.livePrice !== true || fare.returnMissing ||
         !Number.isFinite(age) || age < 0 || age > MAX_TRACKABLE_AGE_MS ||
+        (fare.validUntil != null && !(Date.parse(fare.validUntil) > now)) ||
         (fare.refundEvidence != null && !(expiry > now))) {
       return { status: 409, error: "Save a complete, recent live fare from a new search." };
     }

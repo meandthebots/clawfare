@@ -59,7 +59,10 @@ export class D1ProviderHttpBudget {
       .bind(reservationId, category, timestamp, day, month, provider, day, month)
       .first();
     if (!row || row.id !== reservationId) {
-      throw new Error("Provider HTTP cap reached, not configured, or reservation already used. No request sent.");
+      throw Object.assign(
+        new Error("Provider HTTP cap reached, not configured, or reservation already used. No request sent."),
+        { code: "quota_exhausted" },
+      );
     }
     return reservationId;
   }
@@ -120,6 +123,10 @@ export function classifyProviderRequest(method, rawUrl) {
     return { provider: "travelpayouts", category: "base_search" };
   }
   if (host === "api.duffel.com" && post && path === "/air/offer_requests") {
+    return { provider: "duffel", category: "base_search" };
+  }
+  if (host === "api.duffel.com" && get && path === "/air/offers" &&
+      /^orq_[A-Za-z0-9]{1,64}$/.test(url.searchParams.get("offer_request_id") ?? "")) {
     return { provider: "duffel", category: "base_search" };
   }
   if (host === "api.duffel.com" && get && path.startsWith("/air/offers/") && path.length > "/air/offers/".length) {
@@ -194,7 +201,7 @@ const MODE_LABELS = {
  */
 export async function readHostedProviderReadiness(
   database,
-  { keyPresent = {}, networkEnabled = false, clock = () => new Date() } = {},
+  { keyPresent = {}, networkEnabled = false, duffelPriceMode = null, clock = () => new Date() } = {},
 ) {
   if (!database?.prepare) throw new TypeError("D1 binding required");
   const current = clock();
@@ -224,12 +231,12 @@ export async function readHostedProviderReadiness(
     const monthlyRemaining = row && row.monthly_cap !== null
       ? Math.max(0, row.monthly_cap - row.monthly_used) : Number.POSITIVE_INFINITY;
     const remaining = row ? Math.min(dailyRemaining, monthlyRemaining) : null;
-    const supported = provider === "serpapi";
+
     const capState = !row ? "no_cap" : row.daily_cap === 0 || row.monthly_cap === 0 ? "zero_cap"
       : remaining === 0 ? "exhausted" : null;
-    const state = !supported ? "unsupported" : capState ??
+    const state = capState ??
       (!hasKey ? "unconfigured" : !networkEnabled ? "disabled" : "ready");
-    const priceMode = PROVIDER_MODES[provider];
+    const priceMode = provider === "duffel" && duffelPriceMode === "live" ? "live" : PROVIDER_MODES[provider];
     return {
       provider,
       configured: state === "ready",
@@ -240,10 +247,9 @@ export async function readHostedProviderReadiness(
         state, priceMode, checkedAt: utc, externalQuota: "unknown",
         dailyRemaining: row ? dailyRemaining : null,
         monthlyRemaining: Number.isFinite(monthlyRemaining) ? monthlyRemaining : null,
-        oneWay: supported, roundTrip: supported, sellerOptions: false,
+        oneWay: true, roundTrip: true, sellerOptions: false,
       },
-      note: MODE_LABELS[priceMode] + "; " + PROVIDER_STATE[state] +
-        (state === "unsupported" && capState ? "; " + PROVIDER_STATE[capState] : "") +
+      note: (provider === "duffel" && priceMode === "live" ? "Duffel live offers" : MODE_LABELS[priceMode]) + "; " + PROVIDER_STATE[state] +
         (row?.monthly_cap == null ? "" : "; monthly remaining " + monthlyRemaining) +
         "; external provider quota unknown (no remote request made)",
     };

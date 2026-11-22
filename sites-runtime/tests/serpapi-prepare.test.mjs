@@ -151,14 +151,14 @@ test("insufficient D1 daily/monthly budget never issues a nonce", async () => {
     const response = await prepareSerpApiSearch(req(), options(db));
     assert.equal(response.status, 429, JSON.stringify(caps));
     assert.equal(db.writes.length, 0);
-    assert.ok((await response.json()).error.includes("Local SerpApi budget"));
+    assert.ok((await response.json()).error.includes("Local provider budget"));
   }
 });
 
 test("changed provider, unbounded calls, cache-only and client-confirmed reject before D1 writes", async () => {
   const db = fakeD1();
   const variants = [
-    [{ ...query, providers: ["duffel"] }, 422],
+    [{ ...query, providers: ["duffel"] }, 503],
     [{ ...query, providers: ["serpapi", "searchapi"] }, 422],
     [{ ...query, maxLiveCalls: 3 }, 422],
     [{ ...query, maxLiveCalls: null }, 422],

@@ -82,6 +82,21 @@ export function SearchControls({
       });
       return;
     }
+    if (
+      hostedReadOnly &&
+      value === true &&
+      ["serpapi", "searchapi", "travelpayouts", "duffel"].includes(field)
+    ) {
+      onChange({
+        ...form,
+        serpapi: false,
+        searchapi: false,
+        travelpayouts: false,
+        duffel: false,
+        [field]: true,
+      });
+      return;
+    }
     onChange({ ...form, [field]: value });
   };
   const input = (
@@ -144,12 +159,16 @@ export function SearchControls({
       ? "unavailable on this Site"
       : available
         ? capability.priceMode + allowance + monthlyAllowance
-        : "estimate only";
+        : capability?.state === "no_cap" || capability?.state === "unconfigured"
+          ? "setup required"
+          : "estimate only";
     return checked(
       field,
       id,
       label,
-      [mode, status].filter(Boolean).join(" · "),
+      [available ? "" : capability?.priceMode === "live" ? "" : mode, status]
+        .filter(Boolean)
+        .join(" · "),
       guest || !canEstimate || !hostedEstimateOnly,
     );
   };
