@@ -365,7 +365,9 @@ const adapterFetch = async (url, init) => {
     assert.equal(headers.get("x-access-token"), providerKeys.travelpayouts);
     assert.equal(parsed.searchParams.get("departure_at"), "2027-04-12");
     assert.equal(parsed.searchParams.get("one_way"), "true");
-    return Response.json({ success: true, currency: "gbp", data: [{
+    assert.equal(parsed.searchParams.get("market"), "de");
+    assert.equal(parsed.searchParams.get("currency"), "gbp");
+    return Response.json({ success: true, data: [{
       origin: "LHR", destination: "NRT", departure_at: "2027-04-12T12:00:00Z",
       price: 380, transfers: 1, airline: "JL", flight_number: "42",
     }] });
@@ -404,7 +406,7 @@ const adapters = createReadOnlySitesHandler({
 });
 for (const [provider, candidate, calls, label, perPerson, currency] of [
   ["searchapi", roundQuery, 2, "live", 2800, "GBP"],
-  ["travelpayouts", { ...query, adults: 1, cabin: "economy", excludedAirlines: [], checkedBags: 0 }, 1, "cached", 380, "GBP"],
+  ["travelpayouts", { ...query, adults: 1, cabin: "economy", excludedAirlines: [], checkedBags: 0, market: "de" }, 1, "cached", 380, "GBP"],
   ["duffel", { ...query, maxLiveCalls: 2 }, 2, "mock", 1100, "USD"],
 ]) {
   const search = { ...candidate, providers: [provider] };
@@ -429,7 +431,7 @@ for (const [provider, candidate, calls, label, perPerson, currency] of [
   assert.equal(fare.priceOriginal ?? fare.pricePerPerson, perPerson);
   assert.equal(fare.cashRefundProofVerified, false);
   assert.equal(result.result.coverage.routes[0].provider, provider);
-  assert.equal(result.result.coverage.routes[0].market, provider === "searchapi" ? "uk" : "provider-defined");
+  assert.equal(result.result.coverage.routes[0].market, provider === "duffel" ? "provider-defined" : search.market);
   assert.ok(!JSON.stringify(result).includes("private-searchapi-token"));
   assert.ok(!JSON.stringify(result).includes("orq_synthetic1"));
   assert.equal((await adapters(post("/api/search", execute))).status, 409);

@@ -78,7 +78,7 @@ function data(result, fare, seller) {
     return_from: q.returnFrom,
     return_to: q.returnTo,
     trip_type: q.tripType,
-    market: seller?.market || (["duffel", "travelpayouts"].includes(q.providers?.[0]) ? "provider-defined" : q.market),
+    market: seller?.market || (q.providers?.[0] === "duffel" ? "provider-defined" : q.market),
     passengers,
     requested_checked_bags: result.checkedBags,
     requested_cabin: q.cabin,

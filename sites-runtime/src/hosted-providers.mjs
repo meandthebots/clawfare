@@ -15,7 +15,7 @@ export function hostedProviderProblem(query) {
   const provider = hostedProvider(query);
   if (!provider) return "Choose exactly one supported hosted provider.";
   if (query.currency !== "GBP") return "Hosted searches require GBP as the display currency.";
-  if (!HOSTED_PROVIDERS[provider].googleFlights && query.market !== "uk") {
+  if (provider === "duffel" && query.market !== "uk") {
     return "This provider uses its own market. Leave the market field on the default UK setting.";
   }
   if (query.cacheOnly) return "This search requires a provider request.";

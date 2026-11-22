@@ -6,6 +6,7 @@ const AIRPORT = /^[A-Z]{3}$/;
 const CARRIER = /^[A-Z0-9]{2,3}$/;
 const DATE_TIME = /^\d{4}-\d\d-\d\dT\d\d:\d\d/;
 const CURRENCY = /^[A-Z]{3}$/;
+const currencyCode = value => typeof value === "string" ? value.toUpperCase() : "";
 const integer = value => Number.isSafeInteger(value) && value >= 0;
 const positiveAmount = value => {
   const number = typeof value === "string" && /^\d+(?:\.\d+)?$/.test(value) ? Number(value) : value;
@@ -17,7 +18,8 @@ export function directProviderRequest(provider, query, route, key) {
   if (provider === "travelpayouts") {
     const url = new URL(TRAVELPAYOUTS_URL);
     const params = {
-      origin, destination, departure_at: outboundDate, currency: "gbp",
+      origin, destination, departure_at: outboundDate,
+      currency: query.currency.toLowerCase(), market: query.market,
       one_way: String(!returnDate), direct: String(query.nonstopOnly),
       sorting: "price", limit: "30", unique: "false",
       ...(returnDate ? { return_at: returnDate } : {}),
@@ -109,7 +111,9 @@ async function duffelDraft(offer, query, route, mode, fetchedAt, cryptoApi) {
   };
 }
 
-async function travelpayoutsLead(item, currency, query, route, fetchedAt, cryptoApi) {
+async function travelpayoutsLead(item, responseCurrency, query, route, fetchedAt, cryptoApi) {
+  const currency = currencyCode(item?.currency ?? responseCurrency ?? query.currency);
+  if (!CURRENCY.test(currency) || (responseCurrency != null && currency !== responseCurrency)) return null;
   const { origin, destination, outboundDate, returnDate } = route;
   const date = time => DATE_TIME.test(time ?? "") ? time.slice(0, 10) : null;
   const price = positiveAmount(item?.price);
@@ -155,8 +159,10 @@ export async function parseDirectProvider(response, provider, query, route, mode
   const { data: root } = await readProviderJson(response, 1_048_576);
   const duffel = provider === "duffel";
   const rows = root.data;
-  const currency = typeof root.currency === "string" ? root.currency.toUpperCase() : "";
-  if (!Array.isArray(rows) || (!duffel && (root.success !== true || !CURRENCY.test(currency)))) throw new SerpApiTransportError("invalid_response");
+  const currency = root.currency == null ? null : currencyCode(root.currency);
+  if (!Array.isArray(rows) || (!duffel && (root.success !== true || (currency != null && !CURRENCY.test(currency))))) {
+    throw new SerpApiTransportError("invalid_response");
+  }
   const normalize = duffel
     ? row => duffelDraft(row, query, route, mode, fetchedAt, cryptoApi)
     : row => travelpayoutsLead(row, currency, query, route, fetchedAt, cryptoApi);
