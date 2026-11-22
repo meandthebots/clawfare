@@ -335,9 +335,10 @@ assert.equal(conn.prepare("SELECT COUNT(*) AS n FROM fare_price_observations").g
 // schema for additional provider searches. Provider secrets below are synthetic.
 const caps = conn.prepare("INSERT INTO provider_http_limits(provider, daily_cap, monthly_cap) VALUES(?, ?, ?)");
 const providerKeys = { searchapi: "synthetic-searchapi", travelpayouts: "synthetic-travelpayouts", duffel: "duffel_test_fake" };
-for (const provider of Object.keys(providerKeys)) caps.run(provider, 4, 4);
+for (const provider of Object.keys(providerKeys)) caps.run(provider, 6, 6);
 const presence = Object.fromEntries(Object.keys(providerKeys).map(provider => [provider, true]));
 const routeCalls = [];
+let expiredDuffel = false;
 const adapterFetch = async (url, init) => {
   const parsed = new URL(url);
   const headers = new Headers(init.headers);
@@ -370,17 +371,19 @@ const adapterFetch = async (url, init) => {
     }] });
   }
   assert.equal(parsed.hostname, "api.duffel.com");
-  assert.equal(headers.get("authorization"), "Bearer " + providerKeys.duffel);
+  const live = headers.get("authorization") === "Bearer duffel_live_fake";
+  if (!live) assert.equal(headers.get("authorization"), "Bearer " + providerKeys.duffel);
   if (parsed.pathname === "/air/offer_requests") {
     assert.equal(init.method, "POST");
     assert.equal(parsed.searchParams.get("return_offers"), "false");
     assert.equal(JSON.parse(init.body).data.passengers.length, 2);
-    return Response.json({ data: { id: "orq_synthetic1", live_mode: false } }, { status: 201 });
+    return Response.json({ data: { id: "orq_synthetic1", live_mode: live } }, { status: 201 });
   }
   assert.equal(parsed.pathname, "/air/offers");
   assert.equal(parsed.searchParams.get("offer_request_id"), "orq_synthetic1");
   return Response.json({ data: [{
-    live_mode: false, expires_at: "2026-11-19T12:30:00Z", passengers: [{}, {}],
+    live_mode: live, expires_at: expiredDuffel ? "2026-11-19T11:30:00Z" : "2026-11-19T12:30:00Z",
+    passengers: [{}, {}],
     total_amount: "2200.00", total_currency: "USD",
     slices: [{ duration: "PT12H", segments: [{
       origin: { iata_code: "LHR" }, destination: { iata_code: "NRT" },
@@ -426,11 +429,50 @@ for (const [provider, candidate, calls, label, perPerson, currency] of [
   assert.equal(fare.priceOriginal ?? fare.pricePerPerson, perPerson);
   assert.equal(fare.cashRefundProofVerified, false);
   assert.equal(result.result.coverage.routes[0].provider, provider);
+  assert.equal(result.result.coverage.routes[0].market, provider === "searchapi" ? "uk" : "provider-defined");
   assert.ok(!JSON.stringify(result).includes("private-searchapi-token"));
   assert.ok(!JSON.stringify(result).includes("orq_synthetic1"));
   assert.equal((await adapters(post("/api/search", execute))).status, 409);
   assert.equal(routeCalls.length, before + calls);
   assert.deepEqual(await (await adapters(get("/api/results/" + result.result.id))).json(), result.result);
 }
+const liveDuffel = createReadOnlySitesHandler({
+  ...baseConfig, providerKeyPresence: presence,
+  getVerifiedEmail: async () => "alice@example.com",
+  searchPrepareConfig: { enabled: true, executionAvailable: true, keyPresence: presence,
+    duffelPriceMode: "live", consentSigningSecret: signSecret, clock: now },
+  searchExecuteConfig: { enabled: true, approvedForPaidCalls: true,
+    providerKeys: { ...providerKeys, duffel: "duffel_live_fake" },
+    duffelPriceMode: "live", consentSigningSecret: signSecret, fetcher: adapterFetch, clock: now },
+});
+const duffelQuery = { ...query, providers: ["duffel"], maxLiveCalls: 2 };
+const testQuote = await (await adapters(post("/api/prepare-search", duffelQuery))).json();
+const beforeModeChange = routeCalls.length;
+assert.equal((await liveDuffel(post("/api/search", {
+  canonicalQuery: testQuote.canonicalQuery, consentToken: testQuote.consentToken,
+}))).status, 409);
+assert.equal(routeCalls.length, beforeModeChange);
+
+async function liveDuffelSearch() {
+  const approval = await liveDuffel(post("/api/prepare-search", duffelQuery));
+  assert.equal(approval.status, 200);
+  const quote = await approval.json();
+  const response = await liveDuffel(post("/api/search", {
+    canonicalQuery: quote.canonicalQuery, consentToken: quote.consentToken,
+  }));
+  const result = await response.json();
+  assert.equal(response.status, 200, JSON.stringify(result));
+  return result.result;
+}
+const liveResult = await liveDuffelSearch();
+assert.equal(liveResult.itineraries[0].sourceLabel, "live");
+assert.equal(liveResult.itineraries[0].validUntil, "2026-11-19T12:30:00.000Z");
+expiredDuffel = true;
+const expiredResult = await liveDuffelSearch();
+assert.equal(expiredResult.itineraries.length, 0);
+assert.equal(expiredResult.coverage.state, "partial");
+assert.equal(routeCalls.length, beforeModeChange + 4);
+assert.equal((await liveDuffel(post("/api/prepare-search", duffelQuery))).status, 429);
+assert.equal(routeCalls.length, beforeModeChange + 4);
 conn.close();
-console.log("Synthetic one-way + verified round-trip / Kotlin JS / D1 integration passed");
+console.log("Synthetic hosted searches for all four providers / Kotlin JS / D1 integration passed");

@@ -1,6 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import type { BookLink, ComboCell, Direction, Itinerary } from "./domain.ts";
-import { bookingUrl, directionLine, fmtRange, gbp, stopsLabel } from "./GridView.tsx";
+import { bookingUrl, directionLine, fareAmount, fmtRange, gbp, stopsLabel } from "./GridView.tsx";
 
 const styles = stylex.create({
   links: { display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" },
@@ -443,8 +443,6 @@ export function DetailsContent({
   coveredSearch = false,
   legacySample = false,
 }: DetailsContentProps) {
-  const total = (flight: Itinerary) =>
-    flight.pricePerPerson == null ? null : flight.pricePerPerson * flight.passengers;
   return (
     <>
       {cell && (
@@ -455,13 +453,17 @@ export function DetailsContent({
       )}
       <div className="sec">
         <h3>Flights</h3>
-        <DirectionBox
-          it={it}
-          title="Outbound"
-          direction={it.outbound}
-          showCarrierEvidence={coveredSearch}
-        />
-        {it.returning ? (
+        {it.outbound.legs.length ? (
+          <DirectionBox
+            it={it}
+            title="Outbound"
+            direction={it.outbound}
+            showCarrierEvidence={coveredSearch}
+          />
+        ) : (
+          <p>Flight segments unavailable for this price lead.</p>
+        )}
+        {it.returning?.legs.length ? (
           <DirectionBox
             it={it}
             title="Return"
@@ -501,12 +503,16 @@ export function DetailsContent({
               <td {...stylex.props(styles.priceCell)}>
                 {legacySample ? "Long-haul" : "Primary flights"} × {it.passengers}
               </td>
-              <td {...stylex.props(styles.priceCell, styles.priceAmount)}>{gbp(total(it))}</td>
+              <td {...stylex.props(styles.priceCell, styles.priceAmount)}>
+                {fareAmount(it, true)}
+              </td>
             </tr>
             {addon && (
               <tr>
                 <td {...stylex.props(styles.priceCell)}>Add-on × {addon.passengers}</td>
-                <td {...stylex.props(styles.priceCell, styles.priceAmount)}>{gbp(total(addon))}</td>
+                <td {...stylex.props(styles.priceCell, styles.priceAmount)}>
+                  {fareAmount(addon, true)}
+                </td>
               </tr>
             )}
             {cell && (

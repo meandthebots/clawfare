@@ -1,3 +1,4 @@
+import { HOSTED_PROVIDERS } from "./hosted-providers.mjs";
 // Cloudflare D1/Sites adapter. JVM's equivalent is ProviderHttpBudget.
 // No user-facing route calls this module yet: wire only after hosted auth,
 // consent and per-tenant isolation are implemented.
@@ -174,19 +175,12 @@ export const READ_LOCAL_PROVIDER_CAPS_SQL = [
   "FROM provider_http_limits l",
 ].join("\n");
 
-const PROVIDER_MODES = Object.freeze({
-  serpapi: "live",
-  searchapi: "live",
-  travelpayouts: "cached",
-  duffel: "mock",
-});
 const PROVIDER_STATE = Object.freeze({
   no_cap: "No D1 provider cap configured",
   zero_cap: "D1 provider cap is zero",
   exhausted: "D1 daily/monthly cap exhausted",
   unconfigured: "Server-side provider credential absent",
   disabled: "Hosted provider egress disabled by release switch or server configuration",
-  unsupported: "Provider search adapter is unavailable on this Site",
   ready: "Local provider cap has capacity",
 });
 const MODE_LABELS = {
@@ -213,7 +207,7 @@ export async function readHostedProviderReadiness(
     .bind(utc.slice(0, 10), utc.slice(0, 7)).all();
   const rows = new Map();
   for (const row of results.results || []) {
-    if (!Object.hasOwn(PROVIDER_MODES, row.provider)) continue;
+    if (!Object.hasOwn(HOSTED_PROVIDERS, row.provider)) continue;
     // D1 values are untrusted across migrations/admin edits. Invalid values
     // must never be interpreted as permission to spend.
     if (!Number.isSafeInteger(row.daily_cap) || row.daily_cap < 0 ||
@@ -224,7 +218,7 @@ export async function readHostedProviderReadiness(
     }
     rows.set(row.provider, row);
   }
-  return Object.keys(PROVIDER_MODES).map(provider => {
+  return Object.keys(HOSTED_PROVIDERS).map(provider => {
     const row = rows.get(provider);
     const hasKey = keyPresent[provider] === true;
     const dailyRemaining = row ? Math.max(0, row.daily_cap - row.daily_used) : 0;
@@ -236,7 +230,7 @@ export async function readHostedProviderReadiness(
       : remaining === 0 ? "exhausted" : null;
     const state = capState ??
       (!hasKey ? "unconfigured" : !networkEnabled ? "disabled" : "ready");
-    const priceMode = provider === "duffel" && duffelPriceMode === "live" ? "live" : PROVIDER_MODES[provider];
+    const priceMode = provider === "duffel" && duffelPriceMode === "live" ? "live" : HOSTED_PROVIDERS[provider].priceMode;
     return {
       provider,
       configured: state === "ready",

@@ -217,9 +217,9 @@ responses. Production deployment and paid calls require separate owner approval.
 
 ## Hosted flight providers
 
-Each hosted search selects one provider. Quotes reserve separate D1 allowances
-for each configured provider, and the signed approval lists the planned
-request count. The runtime uses these server-side credentials.
+Each hosted search selects one provider. Quotes check the provider’s D1
+allowance and list the planned request count. Each request reserves quota
+immediately before dispatch. The runtime uses these server-side credentials.
 
 | Provider | Site secret | Supported results |
 | --- | --- | --- |

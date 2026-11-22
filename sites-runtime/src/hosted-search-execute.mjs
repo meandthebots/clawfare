@@ -69,7 +69,7 @@ function searchCoverage(query, pairs, observed, assembly) {
     const attempt = attempts.get(key(origin, destination, pair.outbound, pair.returning));
     return {
       provider: observed.provider,
-      market: query.market,
+      market: HOSTED_PROVIDERS[observed.provider].googleFlights ? query.market : "provider-defined",
       origin,
       destination,
       outboundDate: pair.outbound,

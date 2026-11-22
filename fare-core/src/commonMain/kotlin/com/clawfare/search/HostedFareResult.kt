@@ -225,7 +225,9 @@ private fun assembleHostedResult(
             .thenBy { it.originalPerPersonPrice ?: Double.POSITIVE_INFINITY }
             .thenBy { it.id })
         .distinctBy { it.id }
-    val missingFx = ranked.any { request.fx.perGbp[it.priceCurrency] == null && it.originalPerPersonPrice != null }
+    val missingFx = ranked
+        .filter { request.fx.perGbp[it.priceCurrency] == null && it.originalPerPersonPrice != null }
+        .map { it.priceCurrency }.distinct().sorted()
     val fares = ranked.map { draft ->
         val currency = draft.priceCurrency
         val rate = request.fx.perGbp[currency]
@@ -292,7 +294,9 @@ private fun assembleHostedResult(
         if (unresolvedReturns > 0) {
             "$unresolvedReturns outbound selections lack a verified return; they were not priced as round trips."
         } else null,
-        if (missingFx) "Some fares lack a dated GBP conversion. Original prices are retained." else null,
+        if (missingFx.isNotEmpty()) {
+            "No dated GBP conversion for ${missingFx.joinToString(", ")}; original prices are retained."
+        } else null,
         if (fares.isEmpty()) "No eligible complete fares in the received observations; this is not proof no flights exist." else null,
     )
     return HostedFareAssembly(
