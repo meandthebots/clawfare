@@ -166,10 +166,21 @@ export function stopsLabel(it: Itinerary): string {
   if (it.stopsRet === it.stopsOut) return text(it.stopsOut);
   return text(it.stopsOut) + " out · " + text(it.stopsRet) + " back";
 }
+export function fareAmount(it: Itinerary, party = false): string {
+  const multiplier = party ? it.passengers : 1;
+  if (it.pricePerPerson != null) return gbp(it.pricePerPerson * multiplier);
+  if (it.priceOriginal == null) return gbp(null);
+  const amount = (it.priceOriginal * multiplier).toLocaleString("en-GB", {
+    maximumFractionDigits: 2,
+  });
+  return it.priceCurrency + " " + amount;
+}
+
 export function quoteable(it: Itinerary, now = Date.now()): boolean {
   if (it.sourceLabel !== "live" || !it.livePrice) return false;
   const observed = Date.parse(it.fetchedAt ?? "");
   if (!Number.isFinite(observed) || observed > now || now - observed > 7200000) return false;
+  if (it.validUntil != null && !(Date.parse(it.validUntil) > now)) return false;
   if (it.refundEvidence == null) return true;
   const expiry = Date.parse(it.refundEvidence.expiresAt ?? "");
   return Number.isFinite(expiry) && expiry > now;

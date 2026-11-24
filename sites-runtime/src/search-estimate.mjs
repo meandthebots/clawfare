@@ -1,3 +1,4 @@
+import { HOSTED_PROVIDERS, hostedProviderProblem } from "./hosted-providers.mjs";
 /**
  * Zero-egress search estimate for the hosted read-only Site.
  *
@@ -220,11 +221,13 @@ export async function estimateHostedSearch(request, kotlinEngine, readReadiness 
     id,
     configured: true, // Hypothetical calls IF explicitly enabled later.
     calls: pairs.flatMap(pair => query.origins.flatMap(originCode =>
-      query.destinations.map(destinationCode => ({
-        description: id + ": " + originCode + " → " + destinationCode + " " +
-          pair.outbound + (pair.returning ? " / " + pair.returning : ""),
-        cached: false, // Hosted read-only Site has no response cache.
-      })))),
+      query.destinations.flatMap(destinationCode => {
+        const route = id + ": " + originCode + " → " + destinationCode + " " +
+          pair.outbound + (pair.returning ? " / " + pair.returning : "");
+        return Array.from({ length: HOSTED_PROVIDERS[id].callsPerRoute ?? 1 }, (_, i) => ({
+          description: i === 1 ? route + " · list offers" : route, cached: false,
+        }));
+      }))),
   }));
   let budget;
   try {
@@ -236,6 +239,10 @@ export async function estimateHostedSearch(request, kotlinEngine, readReadiness 
   }
   const upperBound = budget.liveCalls + budget.returnLookupsUpperBound;
   const warnings = [...warningBase];
+  if (providerIds.length === 1 && providerIds[0] !== "serpapi") {
+    const providerProblem = hostedProviderProblem(query);
+    if (providerProblem) warnings.push(providerProblem);
+  }
   if (query.cacheOnly) {
     warnings.push("Cache-only mode requested. This Site has no hosted provider-response cache.");
   }

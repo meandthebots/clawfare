@@ -2225,6 +2225,12 @@
           "livePrice": {
             "type": "boolean"
           },
+          "validUntil": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "null" }
+            ]
+          },
           "fetchedAt": {
             "anyOf": [
               {

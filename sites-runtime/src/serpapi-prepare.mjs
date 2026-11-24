@@ -1,3 +1,4 @@
+import { hostedProvider, hostedProviderProblem, HOSTED_PROVIDERS } from "./hosted-providers.mjs";
 import { TRACKED_PREFIX } from "./investigations.mjs";
 /**
  * First deliberately narrow hosted search preparation boundary.
@@ -11,7 +12,7 @@ import { D1SearchConsents, SearchConsentError, requireSameOrigin } from "./searc
 import { limitedBody, requestBoundaryProblem } from "./search-estimate.mjs";
 
 const MAX_CALLS = 16;
-const PROVIDER = "serpapi";
+
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "private, no-store",
@@ -43,10 +44,8 @@ function parseKotlinPlan(kotlinEngine, input) {
   if (query.investigation?.startsWith(TRACKED_PREFIX)) {
     return { error: "That investigation ID is reserved for tracking.", status: 422 };
   }
-  if (!Array.isArray(query.providers) || query.providers.length !== 1 ||
-      query.providers[0] !== PROVIDER) {
-    return { error: "Hosted search preparation currently supports SerpApi alone.", status: 422 };
-  }
+  const provider = hostedProvider(query);
+  if (!provider) return { error: "Choose exactly one hosted provider (including SerpApi).", status: 422 };
   if (query.confirmed !== false || query.cacheOnly !== false ||
       !Array.isArray(query.origins) || !Array.isArray(query.destinations) ||
       !Number.isSafeInteger(query.returnChoices) ||
@@ -76,16 +75,17 @@ function parseKotlinPlan(kotlinEngine, input) {
       return { error: "Kotlin returned contradictory one-way/round-trip dates.", status: 400 };
     }
   }
-  const base = plan.pairs.length * query.origins.length * query.destinations.length;
-  const returnUpper = query.tripType === "round_trip" && query.fetchReturns
+  const base = plan.pairs.length * query.origins.length * query.destinations.length *
+    (HOSTED_PROVIDERS[provider].callsPerRoute ?? 1);
+  const returnUpper = query.tripType === "round_trip" && query.fetchReturns && HOSTED_PROVIDERS[provider].googleFlights
     ? base * query.returnChoices : 0;
   const total = base + returnUpper;
   if (total > MAX_CALLS || total > query.maxLiveCalls) {
-    return { error: "Potential SerpApi requests exceed the hard 16-call or query cap.", status: 422 };
+    return { error: "Potential provider requests exceed the hard 16-call or query cap.", status: 422 };
   }
-  const callLimits = [{ provider: PROVIDER, category: "base_search", count: base }];
+  const callLimits = [{ provider, category: "base_search", count: base }];
   if (returnUpper) {
-    callLimits.push({ provider: PROVIDER, category: "return_selection", count: returnUpper });
+    callLimits.push({ provider, category: "return_selection", count: returnUpper });
   }
   return { query, canonicalQueryJson: JSON.stringify(query),
     base, returnUpper, total, callLimits };
@@ -93,7 +93,7 @@ function parseKotlinPlan(kotlinEngine, input) {
 
 export async function prepareSerpApiSearch(request, {
   db, ownerId, kotlinEngine, consentSigningSecret,
-  providerKeyPresent = false, enabled = false, executionAvailable = false, clock = () => new Date(),
+  keyPresence, duffelPriceMode, providerKeyPresent = false, enabled = false, executionAvailable = false, clock = () => new Date(),
   cryptoApi = globalThis.crypto,
 }) {
   // Feature flag is server-derived and OFF by default; it is *not* a browser
@@ -118,20 +118,19 @@ export async function prepareSerpApiSearch(request, {
   if (input.parsed.confirmed === true) return invalid("Confirmed flag cannot grant hosted approval.");
   const plan = parseKotlinPlan(kotlinEngine, input.parsed);
   if (plan.error) return invalid(plan.error, plan.status);
-  if (executionAvailable &&
-      (plan.query.currency !== "GBP" ||
-        !((plan.query.tripType === "one_way" && plan.query.fetchReturns === false) ||
-          (plan.query.tripType === "round_trip" && plan.query.fetchReturns === true)))) {
-    return invalid("Hosted execution requires GBP SerpApi with verified return selection for round trips.", 422);
-  }
-  if (!providerKeyPresent || !db?.prepare) {
-    return invalid("SerpApi credential or hosted D1 storage unavailable.", 503);
+  const provider = hostedProvider(plan.query);
+  const problem = hostedProviderProblem(plan.query);
+  if ((executionAvailable || provider !== "serpapi") && problem) return invalid(problem, 422);
+  const credentials = keyPresence ?? { serpapi: providerKeyPresent };
+  if (credentials[provider] !== true || !db?.prepare) {
+    return invalid("Provider credential or hosted D1 storage unavailable.", 503);
   }
   let quote;
   try {
     const consents = new D1SearchConsents(db, {
       secret: consentSigningSecret, enabled: true,
-      credentialPresence: { serpapi: true }, clock, cryptoApi,
+      credentialPresence: credentials, clock, cryptoApi,
+      policy: provider === "duffel" ? "hosted-duffel-" + duffelPriceMode : undefined,
     });
     quote = await consents.issue({
       ownerId, canonicalQueryJson: plan.canonicalQueryJson,
@@ -140,7 +139,7 @@ export async function prepareSerpApiSearch(request, {
   } catch (error) {
     if (error instanceof SearchConsentError) {
       return invalid(error.code === "quota_denied"
-        ? "Local SerpApi budget unavailable or insufficient for entire query."
+        ? "Local provider budget unavailable or insufficient for entire query."
         : error.message, error.code === "quota_denied" ? 429 : 400);
     }
     // Do not leak D1 SQL details, secrets or provider identifiers in errors.
@@ -151,7 +150,7 @@ export async function prepareSerpApiSearch(request, {
     queryDigest: quote.queryDigest,
     consentToken: quote.token,
     expiresAt: quote.expiresAt,
-    providers: [PROVIDER],
+    providers: [provider],
     baseCallsUpperBound: plan.base,
     returnLookupsUpperBound: plan.returnUpper,
     bookingOptionCallsUpperBound: 0,

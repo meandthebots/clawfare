@@ -252,7 +252,7 @@ try {
   await page.reload();
   await page.locator("#grid td.cell").first().waitFor();
   await page.waitForFunction(() =>
-    document.querySelector("#estimate")?.textContent?.includes("GBP SerpApi"));
+    document.querySelector("#estimate")?.textContent?.includes("Configured providers"));
   await fillRoundTrip(page);
   assert.equal(await page.locator("#btnRun").isDisabled(), true);
   await page.locator("#btnEstimate").click();

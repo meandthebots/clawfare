@@ -314,7 +314,8 @@ export function App() {
         setHostedExecutionEnabled(
           !GUEST_MODE &&
             HOSTED_ESTIMATE_ONLY &&
-            (response.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true ||
+            (response.data.providers.some((item) => item.hosted?.state === "ready") ||
+              response.data.hostedSearch?.canExecuteOneWayGbpSerpApi === true ||
               response.data.hostedSearch?.canExecuteRoundTripGbpSerpApi === true),
         );
         setHostedExports(response.data.hostedExports === true);
@@ -475,7 +476,7 @@ export function App() {
       const confirmed = window.confirm(
         "Run the exact " +
           (quote.canonicalQuery.tripType === "round_trip" ? "round-trip" : "one-way") +
-          " SerpApi search approved by the server?\n\n" +
+          " flight search approved by the server?\n\n" +
           describeSearchPolicy(quote.canonicalQuery).join("\n") +
           "\n\n" +
           "Up to " +
@@ -571,10 +572,15 @@ export function App() {
         return;
       }
       setProviderStatus(response.data);
-      const serpapi = response.data.find((quota) => quota.provider === "serpapi")?.hosted;
-      if (HOSTED_ESTIMATE_ONLY && serpapi) {
-        setHostedExecutionEnabled(serpapi.state === "ready");
-        if (serpapi.state !== "ready") {
+      if (HOSTED_ESTIMATE_ONLY && response.data.some((item) => item.hosted)) {
+        setHostedExecutionEnabled(response.data.some((item) => item.hosted?.state === "ready"));
+        const selectedProvider = hostedQuote?.canonicalQuery.providers[0];
+        if (
+          selectedProvider &&
+          !response.data.some(
+            (item) => item.provider === selectedProvider && item.hosted?.state === "ready",
+          )
+        ) {
           estimateEpoch.current++;
           setHostedQuote(null);
         }
@@ -885,7 +891,7 @@ export function App() {
             (GUEST_MODE
               ? "Guest mode uses synthetic sample flights. Search estimates, live searches and exports are disabled."
               : HOSTED_READ_ONLY && hostedExecutionEnabled
-                ? "GBP SerpApi searches can run after explicit confirmation; provider requests may consume quota."
+                ? "Configured providers can run after explicit confirmation; provider requests may consume quota."
                 : HOSTED_READ_ONLY
                   ? HOSTED_ESTIMATE_ONLY
                     ? "Search estimates are available at no cost. Run search and all paid provider calls are still disabled."

@@ -125,7 +125,7 @@ export async function handleReadOnlyApi(
     typeof db.batch === "function" && typeof searchExecuteConfig?.consentSigningSecret === "string" &&
     new TextEncoder().encode(searchExecuteConfig.consentSigningSecret).length >= 32;
   const providerReadiness = () => providerKeyPresence === null ? [] : readHostedProviderReadiness(db, {
-    keyPresent: providerKeyPresence, networkEnabled: executionConfigured,
+    keyPresent: providerKeyPresence, networkEnabled: executionConfigured, duffelPriceMode: searchExecuteConfig?.duffelPriceMode,
   });
   if (isEstimate) {
     return estimateHostedSearch(request, kotlinEngine, providerReadiness);

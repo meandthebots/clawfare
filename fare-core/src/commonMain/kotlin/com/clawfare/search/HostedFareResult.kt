@@ -75,6 +75,7 @@ data class HostedFareItinerary(
     val sourceLabel: String,
     val livePrice: Boolean,
     val fetchedAt: String,
+    val validUntil: String? = null,
     val links: List<BookLink> = emptyList(),
     val notes: String = "Supplier and cash-refund terms have not been verified.",
     val assumedReturn: Boolean = false,
@@ -144,7 +145,8 @@ private fun assembleHostedResult(
     if (expectedTrip == "round_trip") {
         require(request.query.fetchReturns) { "Round-trip fares require verified return selection" }
     }
-    require(request.query.providers == listOf("serpapi")) { "Only SerpApi base searches are supported" }
+    val provider = request.query.providers.singleOrNull()
+    require(provider in setOf("serpapi", "searchapi", "duffel")) { "Unsupported hosted itinerary provider" }
     require(request.query.adults in 1..9) { "Invalid passenger count" }
     require(request.query.origins.isNotEmpty() && request.query.destinations.isNotEmpty()) {
         "Missing route"
@@ -157,9 +159,9 @@ private fun assembleHostedResult(
     val pairs = if (expectedTrip == "round_trip") datePairs(request.query).toSet() else emptySet()
     var unresolvedReturns = 0
     for (draft in request.drafts) {
-        require(draft.source == "serpapi" && draft.passengers == request.query.adults &&
-            draft.priceCurrency == request.query.currency
-        ) { "Draft contradicts canonical SerpApi search" }
+        require(draft.source == provider && draft.passengers == request.query.adults &&
+            (provider == "duffel" || draft.priceCurrency == request.query.currency)
+        ) { "Draft contradicts canonical hosted search" }
         if (expectedTrip == "one_way") {
             require(draft.returning == null && !draft.returnMissing &&
                 draft.returnDateHint == null
@@ -216,13 +218,19 @@ private fun assembleHostedResult(
     // One flight family may be returned several times at different prices.
     // Never sum variant prices or multiply the Google party total twice.
     val ranked = candidates
-        .sortedWith(compareBy<GoogleFareDraft> { it.originalPerPersonPrice ?: Double.POSITIVE_INFINITY }
+        .sortedWith(compareBy<GoogleFareDraft> { draft ->
+            draft.originalPerPersonPrice?.let { FareMath.toGbpOrNull(it, request.fx.perGbp[draft.priceCurrency]) }
+                ?: Double.POSITIVE_INFINITY
+        }.thenBy { it.priceCurrency }
+            .thenBy { it.originalPerPersonPrice ?: Double.POSITIVE_INFINITY }
             .thenBy { it.id })
         .distinctBy { it.id }
-    val currency = request.query.currency
-    val rate = request.fx.perGbp[currency]
-    val missingFx = currency != "GBP" && rate == null && ranked.any { it.originalPerPersonPrice != null }
+    val missingFx = ranked
+        .filter { request.fx.perGbp[it.priceCurrency] == null && it.originalPerPersonPrice != null }
+        .map { it.priceCurrency }.distinct().sorted()
     val fares = ranked.map { draft ->
+        val currency = draft.priceCurrency
+        val rate = request.fx.perGbp[currency]
         val outbound = draft.outbound
         val returning = draft.returning
         val legs = outbound.legs + returning?.legs.orEmpty()
@@ -269,20 +277,26 @@ private fun assembleHostedResult(
             sourceLabel = draft.sourceLabel,
             livePrice = draft.livePrice,
             fetchedAt = draft.observedAt,
+            validUntil = draft.validUntil,
         )
     }
     val route = request.query.origins.joinToString("/") + " → " +
         request.query.destinations.joinToString("/")
     val warnings = listOfNotNull(
-        if (expectedTrip == "one_way") {
-            "Only observed SerpApi one-way base fares are shown; this is not exhaustive availability."
+        if (provider == "duffel") {
+            if (ranked.any { it.sourceLabel == "mock" }) "Duffel test offers are simulated." else
+                "Duffel offer availability and fare terms can change before booking."
+        } else if (expectedTrip == "one_way") {
+            "Only observed Google Flights one-way base fares are shown; this is not exhaustive availability."
         } else {
-            "Only SerpApi fares with verified outbound and return selections are priced; no booking is guaranteed."
+            "Only Google Flights fares with verified outbound and return selections are priced; no booking is guaranteed."
         },
         if (unresolvedReturns > 0) {
             "$unresolvedReturns outbound selections lack a verified return; they were not priced as round trips."
         } else null,
-        if (missingFx) "No dated GBP conversion for " + currency + "; original prices are retained." else null,
+        if (missingFx.isNotEmpty()) {
+            "No dated GBP conversion for ${missingFx.joinToString(", ")}; original prices are retained."
+        } else null,
         if (fares.isEmpty()) "No eligible complete fares in the received observations; this is not proof no flights exist." else null,
     )
     return HostedFareAssembly(

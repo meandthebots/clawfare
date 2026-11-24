@@ -1,3 +1,4 @@
+import { duffelMode, providerSecret } from "./hosted-providers.mjs";
 /**
  * Worker-runtime assembly, not an independently public Worker.
  *
@@ -35,6 +36,15 @@ export function createClawfareWorkerFactory({ templateHtml, bundledPublicSample,
               headers: { "cache-control": "no-store", "x-content-type-options": "nosniff" },
             });
           }
+          const duffelPriceMode = duffelMode(env.DUFFEL_ACCESS_TOKEN, env.DUFFEL_LIVE_ENABLED === "true");
+          const providerKeys = {
+            serpapi: env.SERPAPI_API_KEY, searchapi: env.SEARCHAPI_API_KEY,
+            travelpayouts: env.TRAVELPAYOUTS_API_TOKEN,
+            duffel: duffelPriceMode ? env.DUFFEL_ACCESS_TOKEN : undefined,
+          };
+          const providerKeyPresence = Object.fromEntries(
+            Object.entries(providerKeys).map(([provider, key]) => [provider, providerSecret(key)]),
+          );
           const handle = createReadOnlySitesHandler({
             templateHtml,
             buildProvenance,
@@ -43,26 +53,21 @@ export function createClawfareWorkerFactory({ templateHtml, bundledPublicSample,
             db: env.DB,
             ownerKeySecret: env.OWNER_KEY_SECRET,
             // Only booleans leave this trusted Worker boundary, never keys.
-            providerKeyPresence: {
-              serpapi: Boolean(env.SERPAPI_API_KEY),
-              searchapi: Boolean(env.SEARCHAPI_API_KEY),
-              travelpayouts: Boolean(env.TRAVELPAYOUTS_API_TOKEN),
-              duffel: Boolean(env.DUFFEL_ACCESS_TOKEN),
-            },
+            providerKeyPresence,
             // Execution requires TWO independent trusted server-only gates.
             // Both default OFF; these values cannot come from a visitor.
             searchExecuteConfig: {
               enabled: env.SEARCH_EXECUTION_ENABLED === "true",
               approvedForPaidCalls: env.SEARCH_PAID_CALLS_APPROVED === "true",
               consentSigningSecret: env.SEARCH_CONSENT_SIGNING_SECRET,
-              serpApiKey: env.SERPAPI_API_KEY,
+              providerKeys, duffelPriceMode,
             },
             // Search PREPARATION alone can be separately enabled by server-only
             // configuration. This does not enable POST /api/search or any paid Fetch.
             searchPrepareConfig: {
               enabled: env.SEARCH_PREPARE_ENABLED === "true",
               consentSigningSecret: env.SEARCH_CONSENT_SIGNING_SECRET,
-              providerKeyPresent: Boolean(env.SERPAPI_API_KEY),
+              keyPresence: providerKeyPresence, duffelPriceMode,
               executionAvailable: env.SEARCH_EXECUTION_ENABLED === "true" &&
                 env.SEARCH_PAID_CALLS_APPROVED === "true",
             },

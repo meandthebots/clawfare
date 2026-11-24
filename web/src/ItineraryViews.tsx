@@ -3,6 +3,7 @@ import type { Itinerary } from "./domain.ts";
 import {
   bookingUrl,
   directionLine,
+  fareAmount,
   fmtDate,
   fmtRange,
   gbp,
@@ -114,15 +115,15 @@ export function ItineraryView({
                   </div>
                 </td>
                 <td>
-                  <div>{directionLine(it.outbound)}</div>
-                  {it.returning && <div className="muted">↩ {directionLine(it.returning)}</div>}
+                  <div>{directionLine(it.outbound) || "Flight segments unavailable"}</div>
+                  {it.returning?.legs.length ? (
+                    <div className="muted">↩ {directionLine(it.returning)}</div>
+                  ) : null}
                 </td>
                 <td>{stopsLabel(it)}</td>
                 <td>{it.maxLayoverMinutes == null ? "—" : layText(it.maxLayoverMinutes)}</td>
-                <td className="num">{gbp(it.pricePerPerson)}</td>
-                <td className="num">
-                  {gbp(it.pricePerPerson == null ? null : it.pricePerPerson * it.passengers)}
-                </td>
+                <td className="num">{fareAmount(it)}</td>
+                <td className="num">{fareAmount(it, true)}</td>
                 <td>
                   <SourceTag it={it} />
                   <div className="muted">{it.fetchedAt ?? ""}</div>
@@ -182,8 +183,7 @@ export function ItineraryView({
                   {it.nights != null ? " · " + it.nights + " nights" : ""}
                 </span>
                 <span className={stylex.props(styles.itineraryCardFare).className}>
-                  {gbp(it.pricePerPerson)} per person ·{" "}
-                  {gbp(it.pricePerPerson == null ? null : it.pricePerPerson * it.passengers)} party
+                  {fareAmount(it)} per person · {fareAmount(it, true)} party
                 </span>
                 <span className={stylex.props(styles.itineraryCardMeta).className}>
                   <SourceTag it={it} />

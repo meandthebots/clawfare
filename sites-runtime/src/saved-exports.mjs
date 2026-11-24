@@ -1,3 +1,4 @@
+import { hostedCoverageMarket } from "./hosted-providers.mjs";
 import { limitedBody } from "./search-estimate.mjs";
 import { requireSameOrigin, SearchConsentError } from "./search-consent.mjs";
 
@@ -78,7 +79,7 @@ function data(result, fare, seller) {
     return_from: q.returnFrom,
     return_to: q.returnTo,
     trip_type: q.tripType,
-    market: seller?.market || q.market,
+    market: seller?.market || hostedCoverageMarket(q.providers?.[0], q.market),
     passengers,
     requested_checked_bags: result.checkedBags,
     requested_cabin: q.cabin,

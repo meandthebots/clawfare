@@ -214,3 +214,21 @@ the query and cap its provider requests in D1, and agree on how to turn off
 previous private package available for rollback and keep D1 migrations
 forward-only. The browser and simulated D1 suites use synthetic provider
 responses. Production deployment and paid calls require separate owner approval.
+
+## Hosted flight providers
+
+Each hosted search selects one provider. Quotes check the provider’s D1
+allowance and list the planned request count. Each request reserves quota
+immediately before dispatch. The runtime uses these server-side credentials.
+
+| Provider | Site secret | Supported results |
+| --- | --- | --- |
+| SerpApi | `SERPAPI_API_KEY` | Google Flights one-way and round-trip fare observations |
+| SearchAPI | `SEARCHAPI_API_KEY` | Google Flights one-way and round-trip fare observations |
+| Travelpayouts | `TRAVELPAYOUTS_API_TOKEN` | Cached calendar leads for one adult. Exact cabin, segments, operating carrier and baggage are unverified. The default UK field value uses the provider’s origin-based market. Other values must be in the [Aviasales market list](https://support.travelpayouts.com/hc/en-us/articles/203956163-Aviasales-Data-API). |
+| Duffel | `DUFFEL_ACCESS_TOKEN` | Test offers with a test token. Live offers require a live token and `DUFFEL_LIVE_ENABLED=true`. Each route uses one offer-request call and one call to list the first page. |
+
+Configure D1 caps for each provider you enable. All providers share the
+existing preparation and execution switches. Duffel approvals are bound to
+sandbox or live mode, and expired offers cannot be treated as current fares.
+Provider credentials, booking and pagination tokens stay server-side.

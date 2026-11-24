@@ -219,7 +219,7 @@ test("budget exhaustion between quote and dispatch fails closed without network"
   }));
   assert.equal(out.state, "failed");
   assert.equal(out.completedCalls, 0);
-  assert.equal(out.errorCode, "provider_transport");
+  assert.equal(out.errorCode, "quota_exhausted");
   assert.equal(calls, 0);
   assert.equal(db.reservations.size, 1);
 });

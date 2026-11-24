@@ -1,3 +1,5 @@
+import { hostedCoverageMarket, hostedProvider, hostedProviderProblem, HOSTED_PROVIDERS, providerSecret } from "./hosted-providers.mjs";
+import { assembleCachedLeads, executeDirectHostedSearch } from "./direct-provider-transport.mjs";
 /**
  * Authenticated, server-only SerpApi search execution. This cannot be enabled
  * by a URL, request body, browser flag or cookie: two independent Worker env
@@ -48,17 +50,13 @@ function boundedCanonicalQuery(input, kotlinEngine) {
   let planned;
   try { planned = JSON.parse(kotlinEngine.planSearchJson(raw)); } catch { return null; }
   const q = planned?.query;
-  const tripSupported =
-    (q?.tripType === "one_way" && q.fetchReturns === false) ||
-    (q?.tripType === "round_trip" && q.fetchReturns === true);
   if (planned?.error || !q || JSON.stringify(q) !== raw ||
-      q.investigation?.startsWith(TRACKED_PREFIX) || !tripSupported || q.currency !== "GBP" ||
-      q.confirmed !== false || q.cacheOnly !== false ||
-      q.providers?.length !== 1 ||
-      q.providers[0] !== "serpapi" || !Array.isArray(planned.pairs) ||
-      planned.pairs.length < 1 || planned.pairs.length > 16 ||
-      !Number.isSafeInteger(q.maxLiveCalls) || q.maxLiveCalls < 1 ||
-      q.maxLiveCalls > 16) return null;
+      q.investigation?.startsWith(TRACKED_PREFIX) || hostedProviderProblem(q) ||
+      q.confirmed !== false || !Array.isArray(planned.pairs) ||
+      !Array.isArray(q.origins) || !Array.isArray(q.destinations) ||
+      !q.origins.length || !q.destinations.length || planned.pairs.length < 1 ||
+      !Number.isSafeInteger(q.maxLiveCalls) || q.maxLiveCalls < 1 || q.maxLiveCalls > 16 ||
+      planned.pairs.length * q.origins.length * q.destinations.length > q.maxLiveCalls) return null;
   return { canonicalQueryJson: raw, query: q, pairs: planned.pairs };
 }
 
@@ -71,7 +69,7 @@ function searchCoverage(query, pairs, observed, assembly) {
     const attempt = attempts.get(key(origin, destination, pair.outbound, pair.returning));
     return {
       provider: observed.provider,
-      market: query.market,
+      market: hostedCoverageMarket(observed.provider, query.market),
       origin,
       destination,
       outboundDate: pair.outbound,
@@ -100,7 +98,7 @@ function searchCoverage(query, pairs, observed, assembly) {
  */
 export async function executeHostedSearchRequest(request, {
   enabled = false, approvedForPaidCalls = false,
-  db, ownerId, kotlinEngine, consentSigningSecret, serpApiKey,
+  db, ownerId, kotlinEngine, consentSigningSecret, serpApiKey, providerKeys, duffelPriceMode,
   fetcher = fetch, clock = () => new Date(), cryptoApi = globalThis.crypto,
 }) {
   if (enabled !== true || approvedForPaidCalls !== true) {
@@ -112,8 +110,7 @@ export async function executeHostedSearchRequest(request, {
       typeof kotlinEngine?.buildGoogleFareDraftJson !== "function" ||
       !cryptoApi?.getRandomValues || !cryptoApi?.subtle ||
       typeof consentSigningSecret !== "string" ||
-      new TextEncoder().encode(consentSigningSecret).length < 32 ||
-      typeof serpApiKey !== "string" || serpApiKey.length < 1) {
+      new TextEncoder().encode(consentSigningSecret).length < 32) {
     return deny("Hosted search server is not configured.", 503);
   }
   try {
@@ -129,21 +126,29 @@ export async function executeHostedSearchRequest(request, {
   const input = await limitedBody(request);
   if (input.error) return deny(input.error, input.status);
   const parsed = boundedCanonicalQuery(input.parsed, kotlinEngine);
-  if (!parsed) return deny("A valid canonical GBP SerpApi quote is required.", 422);
+  if (!parsed) return deny("A valid canonical hosted quote is required.", 422);
+  const provider = hostedProvider(parsed.query);
+  const providerKey = (providerKeys ?? { serpapi: serpApiKey })[provider];
+  const mode = provider === "duffel" ? duffelPriceMode : HOSTED_PROVIDERS[provider].priceMode;
+  if (!providerSecret(providerKey) || !mode) return deny("Provider credential or access mode unavailable.", 503);
 
   const investigationSlug = SLUG.test(parsed.query.investigation || "")
     ? parsed.query.investigation : newSlug(cryptoApi);
   let observed;
   try {
-    const transport = parsed.query.tripType === "round_trip"
-      ? executeConsentedRoundTripSerpApi : executeConsentedOneWaySerpApi;
-    observed = await transport({
-      enabled: true, db, ownerId,
-      canonicalQueryJson: parsed.canonicalQueryJson,
+    const options = {
+      ...parsed, enabled: true, db, ownerId,
       consentToken: input.parsed.consentToken, consentSigningSecret,
-      serpApiKey, kotlinEngine, fetcher, clock, cryptoApi,
+      providerKey, mode, kotlinEngine, fetcher, clock, cryptoApi,
       includeDrafts: true, recordAttempts: true, investigationSlug,
-    });
+    };
+    if (HOSTED_PROVIDERS[provider].googleFlights) {
+      const transport = parsed.query.tripType === "round_trip"
+        ? executeConsentedRoundTripSerpApi : executeConsentedOneWaySerpApi;
+      observed = await transport(options);
+    } else {
+      observed = await executeDirectHostedSearch(options);
+    }
   } catch (error) {
     if (error instanceof SerpApiTransportError) {
       const authentication = error.code.startsWith("consent_");
@@ -163,10 +168,12 @@ export async function executeHostedSearchRequest(request, {
   try {
     const assemble = parsed.query.tripType === "round_trip"
       ? kotlinEngine.assembleHostedRoundTripJson : kotlinEngine.assembleHostedOneWayJson;
-    assembly = JSON.parse(assemble(JSON.stringify({
+    const fx = { asOf: day, perGbp: { GBP: 1 } };
+    assembly = provider === "travelpayouts" ? assembleCachedLeads(investigationSlug, parsed.query, observed, fx) :
+      JSON.parse(assemble(JSON.stringify({
       investigationId: investigationSlug,
       query: parsed.query, fetchedAt: observed.fetchedAt,
-      drafts: observed.drafts, fx: { asOf: day, perGbp: { GBP: 1 } },
+      drafts: observed.drafts, fx,
       airportCountries: {},
     })));
   } catch {
@@ -175,6 +182,9 @@ export async function executeHostedSearchRequest(request, {
   const result = assembly?.result;
   if (!result || !Array.isArray(result.itineraries) || result.id !== investigationSlug) {
     return deny("Kotlin returned an invalid fare result.", 503);
+  }
+  if (provider === "duffel" && mode === "mock") {
+    result.suggestedFilters = { ...result.suggestedFilters, hideMock: false };
   }
   result.coverage = searchCoverage(parsed.query, parsed.pairs, observed, assembly);
   if (observed.state !== "complete") {
@@ -193,13 +203,14 @@ export async function executeHostedSearchRequest(request, {
   }
   const priceObservations = result.itineraries.flatMap(row => {
     const draft = byId.get(row.id);
-    const amountDecimal = decimal(draft?.originalPerPersonPrice);
+    const amountDecimal = decimal(provider === "travelpayouts"
+      ? row.priceOriginal ?? row.pricePerPerson : draft?.originalPerPersonPrice);
     if (!amountDecimal) return [];
     return [{
       itineraryId: row.id,
-      provider: "serpapi", sourceLabel: row.sourceLabel,
+      provider, sourceLabel: row.sourceLabel,
       livePrice: row.livePrice, capturedAt: observed.fetchedAt,
-      originalCurrency: draft.priceCurrency, amountDecimal,
+      originalCurrency: row.priceCurrency, amountDecimal,
     }];
   });
   try {
@@ -215,7 +226,7 @@ export async function executeHostedSearchRequest(request, {
     ok: observed.state !== "failed",
     result,
     providerObservations: [{
-      provider: "serpapi",
+      provider,
       state: observed.state === "complete" ? "completed" : observed.state,
       returned, eligible: assembly.eligible,
       excludedByReason: assembly.excludedByReason,
